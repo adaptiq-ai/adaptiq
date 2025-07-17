@@ -1,6 +1,6 @@
 name: Feature Request
 description: |
-  This template guides you through submitting a feature request.
+  This template guides you through submitting a feature request for our Python project.
   Please provide detailed information to help us understand and prioritize your proposal.
 title: "[Feature]: "
 labels: ["feature", "enhancement"]
@@ -10,14 +10,15 @@ body:
       value: |
         ## How to Request a Feature
         To request a new feature, please prepare your proposal with the format below
-        and submit it through this issue.
+        and submit it through this issue. Clear feature requests help us understand
+        your needs and build better solutions.
   
   - type: input
     id: title
     attributes:
       label: Feature Title
       description: A clear and concise title for the proposed feature.
-      placeholder: "Add Dark Mode Support"
+      placeholder: "Add async support for database operations"
     validations:
       required: true
   
@@ -26,7 +27,7 @@ body:
     attributes:
       label: Problem Statement
       description: What core problem or user need does this feature address?
-      placeholder: "Users working in low-light environments experience eye strain."
+      placeholder: "Current synchronous database operations block the main thread, causing performance issues in high-throughput applications."
     validations:
       required: true
   
@@ -35,7 +36,18 @@ body:
     attributes:
       label: Detailed Description
       description: Describe the feature in detail, including user stories or examples.
-      placeholder: "Implement a toggleable dark mode theme for UI with persistence."
+      placeholder: |
+        As a developer using this library, I want to be able to:
+        - Use async/await syntax for database operations
+        - Handle multiple concurrent database requests
+        - Integrate with existing asyncio-based applications
+        
+        Example usage:
+        ```python
+        async def get_user_data(user_id):
+            result = await db.fetch_user(user_id)
+            return result
+        ```
     validations:
       required: true
   
@@ -44,7 +56,11 @@ body:
     attributes:
       label: Benefits
       description: What value does this feature bring to users or the project?
-      placeholder: "Improves accessibility and user comfort in low light."
+      placeholder: |
+        - Improved performance for I/O-bound operations
+        - Better scalability for concurrent applications
+        - Compatibility with modern Python async frameworks
+        - Reduced resource usage and faster response times
     validations:
       required: true
   
@@ -52,20 +68,37 @@ body:
     id: scope
     attributes:
       label: Scope
-      description: How complex is the feature?
+      description: How complex is the feature implementation?
       options:
-        - Minimal
-        - Moderate
-        - Large
+        - Minimal (small changes, few files affected)
+        - Moderate (medium complexity, multiple modules)
+        - Large (significant changes, architectural impact)
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low (nice to have)
+        - Medium (would be helpful)
+        - High (important for my use case)
+        - Critical (blocking my project)
     validations:
       required: true
   
   - type: textarea
     id: impact
     attributes:
-      label: Impact
+      label: Impact Assessment
       description: Will this break existing functionality or require architectural changes?
-      placeholder: "Minimal — CSS changes and localStorage usage."
+      placeholder: |
+        - Backward compatibility: Maintains existing sync API
+        - Dependencies: Requires asyncio (Python 3.7+)
+        - Performance: Should improve async workloads
+        - Breaking changes: None expected
     validations:
       required: false
   
@@ -73,8 +106,32 @@ body:
     id: proposed_implementation
     attributes:
       label: Proposed Implementation (Optional)
-      description: How could this feature be technically achieved?
-      placeholder: "Use CSS variables and a dark class toggle."
+      description: How could this feature be technically achieved in Python?
+      placeholder: |
+        Possible approach:
+        - Add async variants of existing methods
+        - Use asyncio and aiohttp for network operations
+        - Implement connection pooling with asyncio
+        - Add proper error handling for async operations
+        
+        ```python
+        class AsyncDatabaseClient:
+            async def connect(self):
+                # Implementation
+                pass
+        ```
+    validations:
+      required: false
+  
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered (Optional)
+      description: What other approaches or workarounds have you considered?
+      placeholder: |
+        - Using threading for concurrent operations (but GIL limitations)
+        - External async wrapper libraries (but adds complexity)
+        - Manual asyncio integration (but requires boilerplate)
     validations:
       required: false
   
@@ -83,6 +140,58 @@ body:
     attributes:
       label: Related Features (Optional)
       description: Are there any features this depends on or relates to?
-      placeholder: "User profile customization"
+      placeholder: "Connection pooling, error handling, logging improvements"
     validations:
       required: false
+
+  - type: textarea
+    id: code_examples
+    attributes:
+      label: Code Examples (Optional)
+      description: Provide examples of how you envision using this feature.
+      placeholder: |
+        ```python
+        # Current synchronous usage
+        def process_users():
+            for user_id in user_ids:
+                user = db.get_user(user_id)  # Blocks
+                process_user(user)
+        
+        # Proposed async usage
+        async def process_users():
+            tasks = [db.get_user(user_id) for user_id in user_ids]
+            users = await asyncio.gather(*tasks)  # Concurrent
+            for user in users:
+                await process_user(user)
+        ```
+    validations:
+      required: false
+
+  - type: textarea
+    id: file_attachments
+    attributes:
+      label: Supporting Materials (Optional)
+      description: |
+        Attach any supporting files:
+        - Mockups or diagrams
+        - Performance benchmarks
+        - Configuration examples
+        - Reference implementations
+        
+        Drag and drop files here or click to upload.
+      placeholder: "Drag and drop files here or click to upload"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: additional_info
+    attributes:
+      label: Additional Context
+      description: Check all that apply to provide more context.
+      options:
+        - label: This feature is requested by multiple users
+        - label: I'm willing to contribute to the implementation
+        - label: This feature has been discussed in the community before
+        - label: This feature affects API design
+        - label: This feature requires documentation updates
+        - label: This feature may need migration guide for existing users
