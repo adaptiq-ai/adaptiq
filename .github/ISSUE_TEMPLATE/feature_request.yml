@@ -11,11 +11,6 @@ body:
         ## How to Request a Feature
         To request a new feature, please prepare your proposal with the format below
         and submit it through this issue.
-        
-        Accepted submission methods:
-        - Submit a PR adding your feature proposal in `features/` directory as markdown.
-        - Email to feature-requests@yourproject.org with this format.
-        - (Optional) Use our [feature request form](https://yourproject.org/feature-request).
   
   - type: input
     id: title
