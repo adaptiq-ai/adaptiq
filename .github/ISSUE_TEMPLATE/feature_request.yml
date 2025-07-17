@@ -1,0 +1,96 @@
+name: Feature Request Guide
+about: >
+  This template guides you through submitting a feature request.
+  Please provide detailed information to help us understand and prioritize your proposal.
+
+title: "[Feature]: "
+labels: ["feature", "enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## How to Request a Feature
+
+        To request a new feature, please prepare your proposal with the format below
+        and submit it through this issue.
+
+        Accepted submission methods:
+        - Submit a PR adding your feature proposal in `features/` directory as markdown.
+        - Email to feature-requests@yourproject.org with this format.
+        - (Optional) Use our [feature request form](https://yourproject.org/feature-request).
+
+  - type: input
+    id: title
+    attributes:
+      label: Feature Title
+      description: A clear and concise title for the proposed feature.
+      placeholder: "Add Dark Mode Support"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem_statement
+    attributes:
+      label: Problem Statement
+      description: What core problem or user need does this feature address?
+      placeholder: "Users working in low-light environments experience eye strain."
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Detailed Description
+      description: Describe the feature in detail, including user stories or examples.
+      placeholder: "Implement a toggleable dark mode theme for UI with persistence."
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Benefits
+      description: What value does this feature bring to users or the project?
+      placeholder: "Improves accessibility and user comfort in low light."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: How complex is the feature?
+      options:
+        - Minimal
+        - Moderate
+        - Large
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Will this break existing functionality or require architectural changes?
+      placeholder: "Minimal — CSS changes and localStorage usage."
+    validations:
+      required: false
+
+  - type: textarea
+    id: proposed_implementation
+    attributes:
+      label: Proposed Implementation (optional)
+      description: How could this feature be technically achieved?
+      placeholder: "Use CSS variables and a dark class toggle."
+    validations:
+      required: false
+
+  - type: textarea
+    id: related_features
+    attributes:
+      label: Related Features (optional)
+      description: Are there any features this depends on or relates to?
+      placeholder: "User profile customization"
+    validations:
+      required: false
