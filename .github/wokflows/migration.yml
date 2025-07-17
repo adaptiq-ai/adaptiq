@@ -1,0 +1,167 @@
+name: Migration to PyPI
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment: 
+      name: pypi
+      url: https://pypi.org/p/adaptiq
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine wheel setuptools
+    
+    - name: Extract version from tag
+      id: extract-version
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG_NAME#v}
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Tag: $TAG_NAME, Version: $VERSION"
+    
+    - name: Determine if prerelease
+      id: check-prerelease
+      run: |
+        VERSION="${{ steps.extract-version.outputs.version }}"
+        
+        if [[ "$VERSION" =~ (alpha|beta|rc|dev) ]]; then
+          echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          echo "This is a pre-release version: $VERSION"
+        else
+          echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          echo "This is a stable release version: $VERSION"
+        fi
+    
+    - name: Verify version consistency
+      run: |
+        EXPECTED_VERSION="${{ steps.extract-version.outputs.version }}"
+        
+        # Check version in various files
+        if [ -f "setup.py" ]; then
+          SETUP_VERSION=$(python -c "exec(open('setup.py').read()); print(version if 'version' in locals() else '')")
+          if [ "$SETUP_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "Version mismatch in setup.py: $SETUP_VERSION != $EXPECTED_VERSION"
+            exit 1
+          fi
+        fi
+        
+        if [ -f "pyproject.toml" ]; then
+          pip install toml
+          PYPROJECT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          if [ "$PYPROJECT_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "Version mismatch in pyproject.toml: $PYPROJECT_VERSION != $EXPECTED_VERSION"
+            exit 1
+          fi
+        fi
+        
+        if [ -f "adaptiq/__init__.py" ]; then
+          INIT_VERSION=$(python -c "import re; content=open('adaptiq/__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"\'](.*?)[\"\']', content).group(1))")
+          if [ "$INIT_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "Version mismatch in __init__.py: $INIT_VERSION != $EXPECTED_VERSION"
+            exit 1
+          fi
+        fi
+        
+        echo "Version consistency check passed: $EXPECTED_VERSION"
+    
+    - name: Build distribution packages
+      run: |
+        echo "Building distribution packages..."
+        python -m build
+        
+        # Verify build artifacts
+        ls -la dist/
+        
+        # Basic check of built packages
+        if [ ! -f dist/*.whl ]; then
+          echo "No wheel file found in dist/"
+          exit 1
+        fi
+        
+        if [ ! -f dist/*.tar.gz ]; then
+          echo "No source distribution found in dist/"
+          exit 1
+        fi
+        
+        echo "Build completed successfully"
+    
+    - name: Check distribution packages
+      run: |
+        twine check dist/*
+    
+    - name: Publish to Test PyPI (for prereleases)
+      if: steps.check-prerelease.outputs.is_prerelease == 'true'
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        echo "Publishing to Test PyPI..."
+        twine upload --repository testpypi dist/*
+        
+        echo "Package published to Test PyPI"
+        echo "Install with: pip install --index-url https://test.pypi.org/simple/ adaptiq==${{ steps.extract-version.outputs.version }}"
+    
+    - name: Publish to PyPI (for stable releases)
+      if: steps.check-prerelease.outputs.is_prerelease == 'false'
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        echo "Publishing to PyPI..."
+        twine upload dist/*
+        
+        echo "Package published to PyPI"
+        echo "Install with: pip install adaptiq==${{ steps.extract-version.outputs.version }}"
+    
+    - name: Create deployment summary
+      run: |
+        VERSION="${{ steps.extract-version.outputs.version }}"
+        IS_PRERELEASE="${{ steps.check-prerelease.outputs.is_prerelease }}"
+        
+        echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag**: ${{ steps.extract-version.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Type**: $([ "$IS_PRERELEASE" = "true" ] && echo "Pre-release" || echo "Stable Release")" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target**: $([ "$IS_PRERELEASE" = "true" ] && echo "Test PyPI" || echo "PyPI")" >> $GITHUB_STEP_SUMMARY
+        echo "- **Install Command**: \`pip install $([ "$IS_PRERELEASE" = "true" ] && echo "--index-url https://test.pypi.org/simple/ " || echo "")adaptiq==$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        
+        echo "Deployment completed successfully!"
+    
+    - name: Update GitHub Release with PyPI links
+      if: steps.check-prerelease.outputs.is_prerelease == 'false'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const release = await github.rest.repos.getReleaseByTag({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag: '${{ steps.extract-version.outputs.tag_name }}'
+          });
+          
+          const updatedBody = release.data.body + '\n\n## PyPI\n- [PyPI Package](https://pypi.org/project/adaptiq/${{ steps.extract-version.outputs.version }}/)\n- Install: `pip install adaptiq==${{ steps.extract-version.outputs.version }}`';
+          
+          await github.rest.repos.updateRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: release.data.id,
+            body: updatedBody
+          });

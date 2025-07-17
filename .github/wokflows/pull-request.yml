@@ -1,0 +1,95 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    branches: [ pre-release ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt', '**/setup.py', '**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort pytest pytest-cov
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+        if [ -f setup.py ]; then pip install -e .; fi
+        if [ -f pyproject.toml ]; then pip install -e .; fi
+    
+    - name: Code style check with Black
+      run: |
+        black --check --diff .
+    
+    - name: Import sorting check with isort
+      run: |
+        isort --check-only --diff .
+    
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Run unit tests
+      run: |
+        pytest tests/ -v --cov=adaptiq --cov-report=xml --cov-report=term-missing
+    
+    - name: Run integration tests (if available)
+      run: |
+        if [ -d "tests/integration" ]; then
+          pytest tests/integration/ -v
+        else
+          echo "No integration tests found, skipping..."
+        fi
+    
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.10'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Check package can be built
+      run: |
+        pip install build
+        python -m build
+    
+    - name: Validate PR labels
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const labels = context.payload.pull_request.labels.map(label => label.name);
+          const validLabels = ['feat', 'fix', 'chore', 'refactor', 'test', 'docs', 'breaking'];
+          const hasValidLabel = labels.some(label => validLabels.includes(label));
+          
+          if (!hasValidLabel) {
+            core.setFailed('PR must have at least one valid label: feat, fix, chore, refactor, test, docs, or breaking');
+          }
+          
+          console.log('PR labels:', labels);
+          console.log('Has valid label:', hasValidLabel);

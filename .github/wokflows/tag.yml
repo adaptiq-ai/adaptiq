@@ -1,0 +1,120 @@
+name: Create Tag
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'setup.py'
+      - 'pyproject.toml'
+      - 'adaptiq/__init__.py'
+      - '.bumpversion.cfg'
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.tag.outputs.tag_name }}
+      is_prerelease: ${{ steps.tag.outputs.is_prerelease }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Get current version
+      id: get-version
+      run: |
+        if [ -f "setup.py" ]; then
+          VERSION=$(python -c "exec(open('setup.py').read()); print(version if 'version' in locals() else '')")
+        elif [ -f "pyproject.toml" ]; then
+          pip install toml
+          VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+        elif [ -f "adaptiq/__init__.py" ]; then
+          VERSION=$(python -c "import re; content=open('adaptiq/__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"\'](.*?)[\"\']', content).group(1))")
+        else
+          echo "No version file found"
+          exit 1
+        fi
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $VERSION"
+    
+    - name: Check if tag already exists
+      id: check-tag
+      run: |
+        VERSION="${{ steps.get-version.outputs.version }}"
+        TAG_NAME="v$VERSION"
+        
+        if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+          echo "Tag $TAG_NAME already exists"
+          echo "tag_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "Tag $TAG_NAME does not exist"
+          echo "tag_exists=false" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+    
+    - name: Create and push tag
+      id: tag
+      if: steps.check-tag.outputs.tag_exists == 'false'
+      run: |
+        TAG_NAME="${{ steps.check-tag.outputs.tag_name }}"
+        VERSION="${{ steps.get-version.outputs.version }}"
+        
+        # Configure git
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Determine if this is a prerelease
+        if [[ "$VERSION" =~ (alpha|beta|rc|dev) ]]; then
+          IS_PRERELEASE=true
+          echo "Creating pre-release tag: $TAG_NAME"
+        else
+          IS_PRERELEASE=false
+          echo "Creating release tag: $TAG_NAME"
+        fi
+        
+        # Create annotated tag
+        git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+        
+        # Push tag
+        git push origin "$TAG_NAME"
+        
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+        echo "Tag $TAG_NAME created successfully"
+    
+    - name: Create GitHub Release
+      if: steps.check-tag.outputs.tag_exists == 'false'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.tag_name }}
+        release_name: Release ${{ steps.tag.outputs.tag_name }}
+        body: |
+          Release ${{ steps.tag.outputs.tag_name }}
+          
+          ## Changes
+          - Auto-generated release from version bump
+          
+          ## Installation
+          ```bash
+          pip install adaptiq==${{ steps.get-version.outputs.version }}
+          ```
+          
+        draft: false
+        prerelease: ${{ steps.tag.outputs.is_prerelease }}
+    
+    - name: Notify about existing tag
+      if: steps.check-tag.outputs.tag_exists == 'true'
+      run: |
+        echo "Tag ${{ steps.check-tag.outputs.tag_name }} already exists, skipping tag creation"
