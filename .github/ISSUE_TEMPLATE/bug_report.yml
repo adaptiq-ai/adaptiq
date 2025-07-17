@@ -1,5 +1,5 @@
 name: Bug Report
-description: Use this template to report bugs or issues encountered while using this adaptiq. Clear, detailed reports help us fix problems faster and keep the codebase solid.
+description: Use this template to report bugs or issues encountered while using this Python project. Clear, detailed reports help us fix problems faster and keep the codebase solid.
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -32,6 +32,7 @@ body:
         Dependencies:
         - requests==2.28.1
         - numpy==1.24.3
+        - pytest==7.2.0
     validations:
       required: true
   
@@ -41,9 +42,10 @@ body:
       label: Steps to Reproduce
       description: Step-by-step instructions to reproduce the problem.
       placeholder: |
-        1. Create a fresh virtualenv with Python 3.11
-        2. Install requirements: `pip install -r requirements.txt`
-        3. Run `python main.py`
+        1. Create a fresh virtual environment: `python -m venv venv`
+        2. Activate environment: `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows)
+        3. Install requirements: `pip install -r requirements.txt`
+        4. Run `python main.py`
     validations:
       required: true
   
@@ -52,7 +54,7 @@ body:
     attributes:
       label: Expected Behavior
       description: What you expected the program to do.
-      placeholder: "The application starts normally and runs all tests."
+      placeholder: "The application should start normally and execute without errors."
     validations:
       required: true
   
@@ -69,7 +71,7 @@ body:
     id: traceback_or_logs
     attributes:
       label: Traceback or Logs
-      description: Full Python traceback or relevant logs.
+      description: Full Python traceback or relevant logs. Use code blocks for better formatting.
       placeholder: |
         ```python
         Traceback (most recent call last):
@@ -86,10 +88,10 @@ body:
       label: Severity
       description: |
         Choose ONE severity level that best describes the impact of this issue:
-        - low: Minor problem, easily worked around.
-        - medium: Noticeable problem with a workaround.
-        - high: Blocks important features, no easy workaround.
-        - critical: Showstopper causing crashes or data loss.
+        - low: Minor problem, easily worked around
+        - medium: Noticeable problem with a workaround available
+        - high: Blocks important features, no easy workaround
+        - critical: Showstopper causing crashes or data loss
       options:
         - low
         - medium
@@ -108,6 +110,49 @@ body:
   - type: textarea
     id: related_modules
     attributes:
-      label: Related Modules (Optional)
-      description: List modules or functions that seem affected.
-      placeholder: "e.g., abc module"
+      label: Related Modules/Files (Optional)
+      description: List Python modules, files, or functions that seem affected by this issue.
+      placeholder: "e.g., src/utils.py, data_processor module, login_handler function"
+
+  - type: textarea
+    id: code_snippets
+    attributes:
+      label: Relevant Code Snippets (Optional)
+      description: Share any relevant code that demonstrates the issue. Use code blocks for better formatting.
+      placeholder: |
+        ```python
+        # Minimal code example that reproduces the issue
+        import your_module
+        
+        def reproduce_bug():
+            # Your code here
+            pass
+        ```
+
+  - type: textarea
+    id: file_attachments
+    attributes:
+      label: File Attachments (Optional)
+      description: |
+        Attach relevant files by dragging and dropping or clicking to upload:
+        - Screenshots of error messages or unexpected behavior
+        - Videos demonstrating the issue (if applicable)
+        - Log files or output files
+        - Sample data files that trigger the bug
+        - Configuration files (requirements.txt, setup.py, etc.)
+        
+        **Note**: For sensitive data, please sanitize or use dummy data that still reproduces the issue.
+      placeholder: "Drag and drop files here or click to upload"
+
+  - type: checkboxes
+    id: additional_info
+    attributes:
+      label: Additional Information
+      description: Check all that apply to help us understand the context better.
+      options:
+        - label: This issue occurs consistently (every time)
+        - label: This issue occurs intermittently (sometimes)
+        - label: This issue started after a recent update/change
+        - label: This issue affects multiple Python versions
+        - label: This issue affects specific operating systems only
+        - label: I have attempted to debug this issue myself
