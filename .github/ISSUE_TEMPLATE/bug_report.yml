@@ -1,11 +1,7 @@
-name: Python Project Issue Reporting Guide
-about: >
-  Use this template to report bugs or issues encountered while using this Python project.
-  Clear, detailed reports help us fix problems faster and keep the codebase solid.
-
+name: Bug Report
+description: Use this template to report bugs or issues encountered while using this Python project. Clear, detailed reports help us fix problems faster and keep the codebase solid.
 title: "[Bug]: "
 labels: ["bug"]
-
 body:
   - type: markdown
     attributes:
@@ -14,7 +10,7 @@ body:
         - Search existing issues to avoid duplicates.
         - Check your Python version and dependencies.
         - Try to reproduce the issue in a clean environment.
-
+  
   - type: input
     id: title
     attributes:
@@ -23,7 +19,7 @@ body:
       placeholder: "ImportError when running with Python 3.11"
     validations:
       required: true
-
+  
   - type: textarea
     id: environment
     attributes:
@@ -34,11 +30,11 @@ body:
         Python version: 3.11.2
         Project version: v1.5.0
         Dependencies:
-        requests==2.28.1
-        numpy==1.24.3
+        - requests==2.28.1
+        - numpy==1.24.3
     validations:
       required: true
-
+  
   - type: textarea
     id: steps_to_reproduce
     attributes:
@@ -50,7 +46,7 @@ body:
         3. Run `python main.py`
     validations:
       required: true
-
+  
   - type: textarea
     id: expected_behavior
     attributes:
@@ -59,7 +55,7 @@ body:
       placeholder: "The application starts normally and runs all tests."
     validations:
       required: true
-
+  
   - type: textarea
     id: actual_behavior
     attributes:
@@ -68,7 +64,7 @@ body:
       placeholder: "Throws ImportError: cannot import name 'xyz' from 'abc'"
     validations:
       required: true
-
+  
   - type: textarea
     id: traceback_or_logs
     attributes:
@@ -83,12 +79,12 @@ body:
         ```
     validations:
       required: true
-
+  
   - type: dropdown
     id: severity
     attributes:
       label: Severity
-      description: >
+      description: |
         Choose ONE severity level that best describes the impact of this issue:
         - low: Minor problem, easily worked around.
         - medium: Noticeable problem with a workaround.
@@ -101,18 +97,17 @@ body:
         - critical
     validations:
       required: true
-
+  
   - type: textarea
     id: workaround
     attributes:
       label: Workaround (Optional)
       description: Any temporary fix or workaround you discovered.
       placeholder: "N/A"
-
+  
   - type: textarea
     id: related_modules
     attributes:
       label: Related Modules (Optional)
       description: List modules or functions that seem affected.
       placeholder: "e.g., abc module"
-
