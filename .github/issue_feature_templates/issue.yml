@@ -1,0 +1,89 @@
+name: Python Project Issue Reporting Guide
+
+description: >
+  Use this guide to report bugs or issues encountered while using this Python project.
+  Clear, detailed reports help us fix problems faster and keep the codebase solid.
+
+---
+
+how_to_report:
+  summary: >
+    Before filing, please:
+      - Search existing issues to avoid duplicates.
+      - Check your Python version and dependencies.
+      - Try to reproduce the issue in a clean environment.
+
+  accepted_methods:
+    - Submit a markdown file under `issues/` folder with the format below.
+    - Email your report to issues@yourproject.org with the same structure.
+    - Optionally, use the [Issue Report Form](https://yourproject.org/report-issue).
+
+---
+
+format:
+  file_name: "<short-problem-title-kebab-case>.md"
+
+  required_fields:
+    - title: A concise and descriptive issue title.
+    - environment:
+        python_version: "e.g., Python 3.11.2"
+        os: "Operating system and version"
+        project_version: "The version of this project"
+        dependencies: "Key installed packages and versions, preferably from `pip freeze` or `requirements.txt`"
+    - steps_to_reproduce: >
+        Step-by-step instructions to reproduce the problem, including commands/code snippets.
+    - expected_behavior: >
+        What you expected the program to do.
+    - actual_behavior: >
+        What actually happened, including error messages or unexpected output.
+    - traceback_or_logs: >
+        Full Python traceback or relevant logs wrapped in code blocks.
+
+  optional_fields:
+    - workaround: "Any temporary fix or workaround you discovered."
+
+    - severity:
+        description: >
+          Choose ONE severity level that best describes the impact of this issue:
+            - low: Minor problem, does not affect normal use or can be easily worked around.
+            - medium: Noticeable problem affecting some functionality but there is a workaround.
+            - high: Major problem that blocks important features with no easy workaround.
+            - critical: Showstopper, causes crashes, data loss, or security vulnerabilities.
+        options: ["low", "medium", "high", "critical"]
+        required: true
+
+    - related_modules: "List of modules or functions that seem affected."
+
+---
+
+example:
+  title: "ImportError when running with Python 3.11"
+  environment:
+    python_version: "Python 3.11.2"
+    os: "Ubuntu 22.04 LTS"
+    project_version: "v1.5.0"
+    dependencies: |
+      requests==2.28.1
+      numpy==1.24.3
+  steps_to_reproduce: |
+    1. Create a fresh virtualenv with Python 3.11
+    2. Install requirements: `pip install -r requirements.txt`
+    3. Run `python main.py`
+  expected_behavior: "The application starts normally and runs all tests."
+  actual_behavior: "Throws ImportError: cannot import name 'xyz' from 'abc'"
+  traceback_or_logs: |
+    ```python
+    Traceback (most recent call last):
+      File "main.py", line 3, in <module>
+        from abc import xyz
+    ImportError: cannot import name 'xyz' from 'abc' (unknown location)
+    ```
+  severity: "high"
+
+---
+
+notes:
+  - Vague or incomplete reports will be closed until clarified.
+  - Please attach minimal reproducible code if possible.
+  - We review and triage issues weekly. Expect follow-up questions.
+

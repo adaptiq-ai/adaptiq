@@ -1,0 +1,58 @@
+name: Feature Request Guide
+
+description: >
+  This document provides the official guidelines for submitting feature requests
+  to this project. Follow these instructions carefully to ensure your proposal
+  is considered and tracked properly.
+
+---
+
+how_to_request:
+  summary: >
+    To request a new feature, please prepare your proposal using the format below
+    and submit it via one of the accepted methods listed.
+
+  accepted_methods:
+    - Submit a pull request adding your feature proposal to the `features/` directory in markdown format.
+    - Send an email to feature-requests@yourproject.org with the same format.
+    - (Optional) Submit the request via our [feature request form](https://yourproject.org/feature-request).
+
+---
+
+format:
+  file_name: "<feature-title-kebab-case>.md"
+
+  required_fields:
+    - title: A clear and concise title for the proposed feature.
+    - problem_statement: What is the core problem or user need this feature addresses?
+    - description: A detailed explanation of the proposed feature. Include usage context, user stories, or diagrams if helpful.
+    - benefits: What value does this feature bring to users or the project?
+    - scope: Define the scope of the feature. Is it minimal, moderate, or large in complexity?
+    - impact: Will this feature break existing functionality or require architectural changes?
+    - optional_fields:
+        - proposed_implementation: (If known) How could this be technically achieved?
+        - related_features: Are there any features it depends on or relates to?
+
+---
+
+example:
+  title: "Add Dark Mode Support"
+  problem_statement: >
+    Users working in low-light environments experience eye strain due to the bright interface.
+  description: >
+    Implement a toggleable dark mode theme for the UI. This should cover all visual elements and persist user preference.
+  benefits: >
+    Improves accessibility and user comfort, particularly for developers and night users.
+  scope: "Moderate"
+  impact: >
+    Minimal—requires CSS adjustments and localStorage usage to store preference.
+  proposed_implementation: >
+    Use CSS variables with a `dark` class toggle. Store preference in `localStorage` and read on app init.
+
+---
+
+notes:
+  - Each feature request will be reviewed on a weekly basis.
+  - Duplicate or vague submissions may be ignored or closed.
+  - Priority is given to features that align with the roadmap or have strong community demand.
+
