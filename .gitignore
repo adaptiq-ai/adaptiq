@@ -1,0 +1,15 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+adaptiq_run.log
+report_data
+reports_data
+results
+src/agent_example
+# Virtual environments
+.venv

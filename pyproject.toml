@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"] # Added wheel explicitly
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adaptiq"
+version = "1.0.0" # Increment this for new releases
+description = "An offline Q-learning framework for AI agent prompt optimization."
+readme = "README.md"
+requires-python = ">=3.11" # Consider widening compatibility if possible (3.12 is very new)
+license = { file = "LICENSE" } # IMPORTANT: Add a LICENSE file
+authors = [
+  { name = "Youssef ALWAZ / KOSMOS Technologies", email = "alwaz.youssef@kosmostechnologies.fr" },
+  { name = "Wassim AMRI / KOSMOS Technologies", email = "w.amri@kosmostechnologies.fr" }
+]
+keywords = ["ai", "agent", "reinforcement learning", "q-learning", "prompt engineering", "llm", "crewai"] # Helpful for discoverability
+classifiers = [
+    "Development Status :: 3 - Alpha", # Or 2 - Pre-Alpha, 4 - Beta
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License", # Or Apache-2.0, etc. - MATCH YOUR LICENSE FILE
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "crewai",
+    "crewai_tools",
+    # "argparse" is part of the Python standard library, no need to list it.
+    "numpy", # Your code uses numpy
+    "pyyaml", # For loading YAML configs
+    "python-dotenv", # For .env file handling
+    "scikit-learn", # For cosine_similarity
+    "langchain", # If any langchain components are directly used by adaptiq core
+    "langchain-openai", # For ChatOpenAI, OpenAIEmbeddings
+    # Add any other direct dependencies of your adaptiq package
+    "openai-agents>=0.1.0",
+]
+
+
+[project.scripts]
+adaptiq = "adaptiq.cli:main" # Assumes adaptiq/cli.py exists with a main() function
+
+[tool.setuptools]
+package-dir = {"" = "src"} # Tells setuptools your package 'adaptiq' is in the 'src' directory
+
+[tool.setuptools.packages.find]
+where = ["src"] # Location to find packages
+namespaces = false # Usually false unless you are using PEP 420 namespace packages
