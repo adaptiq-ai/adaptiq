@@ -1,11 +1,12 @@
-# AdaptIQ — RL-Powered Benchmark to Optimize Your AI Agents
+# AdaptIQ — Adaptive Optimization Framework for AI Agents – Optimize behaviors, reduce resource usage, and accelerate learning with low-cognitive reinforcement tuning.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/adaptiq-ai/adaptiq/ci.yml?label=CI)](https://github.com/adaptiq-ai/adaptiq/actions)
-[![PyPI](https://img.shields.io/pypi/v/adaptiq.svg)](https://pypi.org/project/adaptiq)
+[![CI](https://img.shields.io/github/actions/workflow/status/adaptiq-ai/adaptiq/ci.yml?label=CI)](https://github.com/adaptiq-ai/adaptiq/)
+[![PyPI](https://img.shields.io/pypi/v/adaptiq.svg)](https://test.pypi.org/project/adaptiq/)
 [![cost saving](https://img.shields.io/badge/cost%20saving-30%25-brightgreen)](#benchmarks--methodology)
 [![CO₂ aware](https://img.shields.io/badge/CO%E2%82%82%20aware-yes-1abc9c)](#benchmarks--methodology)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![AdaptiQ Score](https://img.shields.io/badge/AdaptIQ-100%25-00f0ff.svg?style=flat-square)](https://benchmyagent.com) [![AdaptiQ Score](https://img.shields.io/badge/AdaptIQ%20Eval-100%25-00f0ff.svg?style=flat-square)](https://www.google.com)
+[![AdaptiQ Score](https://img.shields.io/badge/AdaptIQ-100%25-00f0ff.svg?style=flat-square)](https://benchmyagent.com)
+[![AdaptiQ Score](https://img.shields.io/badge/AdaptIQ%20Eval-100%25-00f0ff.svg?style=flat-square)](https://benchmyagent.com)
 
 
 
