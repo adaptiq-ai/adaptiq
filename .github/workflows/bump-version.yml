@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [closed]
     branches: [pre-release]
-
+    
 jobs:
   bump-version:
     if: github.event.pull_request.merged == true
