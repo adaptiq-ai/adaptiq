@@ -3,8 +3,7 @@ import json
 import os
 import re
 
-from crewai.agents.parser import (AgentAction, AgentFinish,
-                                  OutputParserException)
+from crewai.agents.parser import AgentAction, AgentFinish, OutputParserException
 
 
 class AdaptiqLogger:

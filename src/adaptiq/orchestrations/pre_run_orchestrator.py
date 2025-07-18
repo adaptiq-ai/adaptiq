@@ -9,14 +9,19 @@ from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from adaptiq.instrumental.instrumental import (capture_llm_response,
-                                               instrumental_track_tokens)
+from adaptiq.instrumental.instrumental import (
+    capture_llm_response,
+    instrumental_track_tokens,
+)
+
 # Import the four components
 from adaptiq.parser.prompt_parser import AdaptiqPromptParser
 from adaptiq.q_learning.q_learning import AdaptiqOfflineLearner
-from adaptiq.utils.pre_run_utils import (AdaptiqHypotheticalStateGenerator,
-                                         AdaptiqPromptConsulting,
-                                         AdaptiqScenarioSimulator)
+from adaptiq.utils.pre_run_utils import (
+    AdaptiqHypotheticalStateGenerator,
+    AdaptiqPromptConsulting,
+    AdaptiqScenarioSimulator,
+)
 
 
 class AdaptiqPreRunOrchestrator:

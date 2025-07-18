@@ -7,8 +7,10 @@ from typing import Dict, List
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from adaptiq.instrumental.instrumental import (capture_llm_response,
-                                               instrumental_track_tokens)
+from adaptiq.instrumental.instrumental import (
+    capture_llm_response,
+    instrumental_track_tokens,
+)
 
 
 class AdaptiqHypotheticalStateGenerator:

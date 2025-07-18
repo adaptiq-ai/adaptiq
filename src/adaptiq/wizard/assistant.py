@@ -9,8 +9,10 @@ from openai import AsyncOpenAI
 from openai.types.responses import ResponseTextDeltaEvent
 
 from adaptiq.wizard.assistant_utils import create_agent_repo_template
-from adaptiq.wizard.chat_animation import (start_thinking_animation,
-                                           stop_thinking_animation)
+from adaptiq.wizard.chat_animation import (
+    start_thinking_animation,
+    stop_thinking_animation,
+)
 from adaptiq.wizard.logo_animation import display_logo_animated
 
 # Configure logging to suppress API call logs

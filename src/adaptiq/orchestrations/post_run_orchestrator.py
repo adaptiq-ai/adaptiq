@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import yaml
 
 from adaptiq.parser.logs_parser import AdaptiqLogParser
+
 # Import classes from the provided modules
-from adaptiq.utils.post_run_utils import (AdaptiqAgentTracer,
-                                          AdaptiqPostRunValidator)
+from adaptiq.utils.post_run_utils import AdaptiqAgentTracer, AdaptiqPostRunValidator
 
 
 class AdaptiqPostRunOrchestrator:

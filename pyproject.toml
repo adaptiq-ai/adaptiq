@@ -55,3 +55,16 @@ package-dir = {"" = "src"} # Tells setuptools your package 'adaptiq' is in the '
 [tool.setuptools.packages.find]
 where = ["src"] # Location to find packages
 namespaces = false # Usually false unless you are using PEP 420 namespace packages
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+include = '\.py$'
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
