@@ -2,7 +2,7 @@ name: Migration to PyPI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ dummy ]
     tags:
       - 'v*.*.*'
 
