@@ -3,8 +3,7 @@ name: Bump Version
 on:
   pull_request:
     branches: [pre-release]
-    types: [closed]
-
+    
 jobs:
   bump-version:
     if: github.event.pull_request.merged == true
