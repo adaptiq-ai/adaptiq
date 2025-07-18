@@ -3,7 +3,6 @@
 # --- Version of the adaptiq package ---
 __version__ = "0.11.1.dev"  # Or your current version
 
-
 # --- Logging ---
 try:
     from .logger.adaptiq_trace_logger import AdaptiqTraceLogger
