@@ -43,7 +43,7 @@ class ResponseCapture:
 
 def capture_llm_response(response):
     """Function to be called after each LLM invoke to capture the response"""
-    global _captured_responses
+    # global _captured_responses
     if _captured_responses is not None:
         _captured_responses.append(response)
     return response
@@ -439,7 +439,8 @@ def instrumental_crew_logger(log_to_console: bool = True) -> Callable:
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            global _crew_counter, _crew_metrics
+            # global _crew_counter, _crew_metrics
+            global _crew_counter
 
             # Increment the crew counter
             _crew_counter += 1
@@ -925,7 +926,7 @@ def get_crew_metrics() -> List[Dict[str, Any]]:
     Returns:
         List[Dict[str, Any]]: List of all metrics collected from crew executions
     """
-    global _crew_metrics
+    # global _crew_metrics
     return _crew_metrics.copy()  # Return a copy to prevent external modification
 
 
