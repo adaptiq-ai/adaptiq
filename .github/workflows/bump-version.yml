@@ -83,46 +83,7 @@ jobs:
           git checkout pre-release
           git reset --hard origin/pre-release
 
-      - name: Create or update .bumpversion.cfg
-        run: |
-          CURRENT_VERSION="${{ steps.current-version.outputs.current_version }}"
-          
-          # Determine which files exist and need to be updated
-          FILES_CONFIG=""
-          
-          if [ -f "pyproject.toml" ]; then
-            FILES_CONFIG="$FILES_CONFIG
-          [bumpversion:file:pyproject.toml]
-          search = version = \"{current_version}\"
-          replace = version = \"{new_version}\""
-          fi
-          
-          if [ -f "src/adaptiq/__init__.py" ]; then
-            FILES_CONFIG="$FILES_CONFIG
-          [bumpversion:file:src/adaptiq/__init__.py]
-          search = __version__ = \"{current_version}\"
-          replace = __version__ = \"{new_version}\""
-          elif [ -f "adaptiq/__init__.py" ]; then
-            FILES_CONFIG="$FILES_CONFIG
-          [bumpversion:file:adaptiq/__init__.py]
-          search = __version__ = \"{current_version}\"
-          replace = __version__ = \"{new_version}\""
-          fi
-          
-          cat > .bumpversion.cfg << EOF
-          [bumpversion]
-          current_version = $CURRENT_VERSION
-          commit = True
-          tag = True
-          tag_name = v{new_version}
-          message = Bump version: {current_version} → {new_version}
-          $FILES_CONFIG
-          EOF
-          
-          echo "Generated .bumpversion.cfg:"
-          cat .bumpversion.cfg
-
-      - name: Bump version
+      - name: Bump version using pyproject.toml config
         id: bump
         run: |
           BUMP_TYPE="${{ steps.determine-bump.outputs.result }}"
@@ -130,7 +91,8 @@ jobs:
 
           echo "Bumping version: $CURRENT_VERSION -> $BUMP_TYPE"
 
-          bump2version $BUMP_TYPE --verbose
+          # Use pyproject.toml for bumpversion configuration instead of .bumpversion.cfg
+          bump2version --config-file pyproject.toml $BUMP_TYPE --verbose
 
           # Get the new version after bump
           if [ -f "pyproject.toml" ]; then
@@ -198,7 +160,6 @@ jobs:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
           verbose: true
-
 
       - name: Rollback on failure
         if: failure()
