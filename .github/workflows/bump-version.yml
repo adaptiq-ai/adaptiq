@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [closed]
     branches: [pre-release]
+
+permissions:
+  contents: write
     
 jobs:
   bump-version:
@@ -188,8 +191,12 @@ jobs:
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
           
           # Delete the tag locally and remotely
-          git tag -d "v$NEW_VERSION" || echo "Local tag not found"
-          git push origin --delete "v$NEW_VERSION" || echo "Remote tag not found"
+          if [ -n "$NEW_VERSION" ]; then
+            git tag -d "v$NEW_VERSION" || echo "Local tag not found"
+            git push origin --delete "v$NEW_VERSION" || echo "Remote tag not found"
+          else
+            echo "No NEW_VERSION to rollback"
+          fi
           
           # Reset pre-release branch to previous commit
           git reset --hard HEAD~2
