@@ -17,6 +17,7 @@ from adaptiq import (
     get_token_stats,
 )
 
+
 def setup_logging(log_path=None):
     """
     Sets up logging configuration with both console and file handlers.
