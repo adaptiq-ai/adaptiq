@@ -2,7 +2,7 @@ name: Create Tag
 
 on:
   push:
-    branches: [ main ]
+    branches: [ dummy ]
     paths:
       - 'setup.py'
       - 'pyproject.toml'
