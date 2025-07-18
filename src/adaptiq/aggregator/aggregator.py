@@ -1,15 +1,16 @@
+import datetime
+import json
+import logging
 import os
 import re
-import yaml
-import logging
-import json
-import uuid
-import requests
-import datetime
 import traceback
-import tiktoken
-from typing import Dict, List, Any
+import uuid
 from copy import deepcopy
+from typing import Any, Dict, List
+
+import requests
+import tiktoken
+import yaml
 
 
 class AdaptiqAggregator:

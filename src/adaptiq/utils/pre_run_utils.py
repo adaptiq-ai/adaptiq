@@ -1,16 +1,14 @@
-import json
-import re
-import os
 import datetime
+import json
+import os
+import re
+from typing import Dict, List
 
-from typing import List, Dict
-from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 
-from adaptiq.instrumental.instrumental import (
-    instrumental_track_tokens,
-    capture_llm_response,
-)
+from adaptiq.instrumental.instrumental import (capture_llm_response,
+                                               instrumental_track_tokens)
 
 
 class AdaptiqHypotheticalStateGenerator:

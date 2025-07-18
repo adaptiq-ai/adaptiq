@@ -1,21 +1,15 @@
 import argparse
-import sys  # To get command line arguments
 import json
-import time
-import tracemalloc
 import logging
 import os
+import sys  # To get command line arguments
+import time
+import tracemalloc
 
-from adaptiq import (
-    adaptiq_reconciliation_pipeline,
-    adaptiq_pre_run_pipeline,
-    adaptiq_post_run_pipeline,
-    adaptiq_run_wizard,
-    adaptiq_run_wizard_headless,
-    get_token_stats,
-    AdaptiqAggregator,
-    AdaptiqTraceLogger,
-)
+from adaptiq import (AdaptiqAggregator, AdaptiqTraceLogger,
+                     adaptiq_post_run_pipeline, adaptiq_pre_run_pipeline,
+                     adaptiq_reconciliation_pipeline, adaptiq_run_wizard,
+                     adaptiq_run_wizard_headless, get_token_stats)
 
 
 def setup_logging(log_path=None):

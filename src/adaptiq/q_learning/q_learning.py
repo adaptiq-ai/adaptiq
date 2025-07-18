@@ -6,13 +6,13 @@ This script implements the ADAPTIQ (Agent Reinforcement through Iterative Config
 for offline analysis of agent execution traces to improve an agent's prompt/configuration.
 """
 
-import os
-import logging
 import json
+import logging
+import os
 import uuid
 import warnings
 from datetime import datetime
-from typing import List, Tuple, Dict, Any
+from typing import Any, Dict, List, Tuple
 
 from dotenv import load_dotenv
 

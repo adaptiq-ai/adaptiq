@@ -1,15 +1,14 @@
-import os
-import yaml
 import json
-from typing import Dict, List, Any
+import os
+from typing import Any, Dict, List
+
+import yaml
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from adaptiq.instrumental.instrumental import (
-    instrumental_track_tokens,
-    capture_llm_response,
-)
+from adaptiq.instrumental.instrumental import (capture_llm_response,
+                                               instrumental_track_tokens)
 
 
 class AdaptiqPromptParser:

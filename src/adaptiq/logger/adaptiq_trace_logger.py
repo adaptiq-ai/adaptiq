@@ -1,8 +1,8 @@
-import logging
 import json
+import logging
 from datetime import datetime
-from typing import List, Dict, Any
 from threading import Lock
+from typing import Any, Dict, List
 
 
 class AdaptiqTraceLogger(logging.Handler):

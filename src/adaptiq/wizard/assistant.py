@@ -1,18 +1,17 @@
-import os
-import yaml
 import asyncio
 import logging
+import os
 from typing import AsyncGenerator
+
+import yaml
+from agents import Agent, OpenAIChatCompletionsModel, Runner, function_tool
 from openai import AsyncOpenAI
 from openai.types.responses import ResponseTextDeltaEvent
-from agents import Agent, Runner, OpenAIChatCompletionsModel, function_tool
 
 from adaptiq.wizard.assistant_utils import create_agent_repo_template
+from adaptiq.wizard.chat_animation import (start_thinking_animation,
+                                           stop_thinking_animation)
 from adaptiq.wizard.logo_animation import display_logo_animated
-from adaptiq.wizard.chat_animation import (
-    start_thinking_animation,
-    stop_thinking_animation,
-)
 
 # Configure logging to suppress API call logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
