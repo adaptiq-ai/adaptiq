@@ -81,14 +81,14 @@ jobs:
           echo "No integration tests found, skipping..."
         fi
     
-    - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.11'
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+    # - name: Upload coverage to Codecov
+    #   if: matrix.python-version == '3.11'
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     file: ./coverage.xml
+    #     flags: unittests
+    #     name: codecov-umbrella
+    #     fail_ci_if_error: false
 
     - name: Check package can be built
       run: |

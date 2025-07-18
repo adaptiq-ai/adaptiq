@@ -3,7 +3,6 @@ name: Bump Version
 on:
   pull_request:
     branches: [pre-release]
-    types: [closed]
 
 jobs:
   bump-version:
