@@ -184,19 +184,17 @@ jobs:
           git commit -m "Bump version: $CURRENT_VERSION → $NEW_VERSION"
           
           # Create and push tag
-          git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
+          git tag -a "v$NEW_VERSION-pre-release" -m "Version $NEW_VERSION (pre-release)"
 
       - name: Update CHANGELOG.md
         run: |
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
-          DATE=$(date +"%Y-%m-%d")
-
-          if [ -f "CHANGELOG.md" ]; then
-            # Create temporary file with new content
+          if [ -f "CHANGELOG-pre-release.md" ]; then
+            # Create temp file
             cat > temp_changelog.md << EOF
-          # Changelog
+          # Changelog (Pre-Release)
 
-          ## [v$NEW_VERSION] - $DATE
+          ## [v$NEW_VERSION-pre-release] - $DATE
 
           ### Added
           - ${{ github.event.pull_request.title }}
@@ -205,15 +203,15 @@ jobs:
           - Updated from PR #${{ github.event.pull_request.number }}
 
           EOF
-            
-            # Append existing changelog content (skip the first line "# Changelog")
-            tail -n +2 CHANGELOG.md >> temp_changelog.md
-            mv temp_changelog.md CHANGELOG.md
-          else
-            cat > CHANGELOG.md << EOF
-          # Changelog
 
-          ## [v$NEW_VERSION] - $DATE
+            # Append existing content
+            tail -n +2 CHANGELOG-pre-release.md >> temp_changelog.md
+            mv temp_changelog.md CHANGELOG-pre-release.md
+          else
+            cat > CHANGELOG-pre-release.md << EOF
+          # Changelog (Pre-Release)
+
+          ## [v$NEW_VERSION-pre-release] - $DATE
 
           ### Added
           - ${{ github.event.pull_request.title }}
@@ -224,8 +222,8 @@ jobs:
           EOF
           fi
 
-          git add CHANGELOG.md
-          git commit -m "Update CHANGELOG.md for v$NEW_VERSION" || echo "No changelog changes to commit"
+          git add CHANGELOG-pre-release.md
+          git commit -m "Update CHANGELOG-pre-release.md for v$NEW_VERSION"
 
       - name: Push version bump and tags
         run: |
@@ -257,8 +255,8 @@ jobs:
           
           # Delete the tag locally and remotely
           if [ -n "$NEW_VERSION" ]; then
-            git tag -d "v$NEW_VERSION" || echo "Local tag not found"
-            git push origin --delete "v$NEW_VERSION" || echo "Remote tag not found"
+            git tag -d "v$NEW_VERSION-pre-release" || echo "Local tag not found"
+            git push origin --delete "v$NEW_VERSION-pre-release" || echo "Remote tag not found"
           else
             echo "No NEW_VERSION to rollback"
           fi
