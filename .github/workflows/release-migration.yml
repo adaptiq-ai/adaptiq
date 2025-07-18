@@ -98,8 +98,8 @@ jobs:
                       content = f.read()
                   
                   new_content = re.sub(
-                      r'version\s*=\s*["\'][^"\']+["\']', 
-                      f'version = "{new_version}"', 
+                      r'(version\s*=\s*["\'])([^"\']+)(["\'])(.*)', 
+                      rf'\1{new_version}\3\4', 
                       content
                   )
                   
@@ -120,11 +120,11 @@ jobs:
                               content = f.read()
                           
                           new_content = re.sub(
-                              r'__version__\s*=\s*["\'][^"\']+["\']', 
-                              f'__version__ = "{new_version}"', 
+                              r'(__version__\s*=\s*["\'])([^"\']+)(["\'])(.*)', 
+                              rf'\1{new_version}\3\4', 
                               content
                           )
-                          
+                                                    
                           if new_content != content:
                               with open(init_file, 'w') as f:
                                   f.write(new_content)
