@@ -1,7 +1,7 @@
 # src/adaptiq/__init__.py
 
 # --- Version of the adaptiq package ---
-__version__ = "1.0.0"  # Or your current version
+__version__ = "2.0.0"  # Or your current version
 
 # --- Logging ---
 try:

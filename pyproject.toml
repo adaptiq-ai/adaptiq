@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "adaptiq"
-version = "1.0.0" # Increment this for new releases
+version = "2.0.0" # Increment this for new releases
 description = "An offline Q-learning framework for AI agent prompt optimization."
 readme = "README.md"
 requires-python = ">=3.11" # Consider widening compatibility if possible (3.12 is very new)
 license = { file = "LICENSE" } # IMPORTANT: Add a LICENSE file
 authors = [
   { name = "Youssef ALWAZ / KOSMOS Technologies", email = "alwaz.youssef@kosmostechnologies.fr" },
-  { name = "Wassim AMRI / KOSMOS Technologies", email = "w.amri@kosmostechnologies.fr" }
+  { name = "Wassim AMRI / KOSMOS Technologies", email = "w.amri@kosmostechnologies.fr" },
+  { name = "Abderrazak SOUGUIR / KOSMOS Technologies", email = "abderrazek.souguir@kosmostechnologies.fr" }
 ]
 keywords = ["ai", "agent", "reinforcement learning", "q-learning", "prompt engineering", "llm", "crewai"] # Helpful for discoverability
 classifiers = [

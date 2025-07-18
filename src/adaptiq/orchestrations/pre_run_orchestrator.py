@@ -475,7 +475,8 @@ class AdaptiqPreRunOrchestrator:
             agent_id = self.config.get('project_name', 'N/A')
             prompt_file_path = self.agent_config.get('prompt_configuration_file_path', 'N/A')
             old_prompt = self._load_config(prompt_file_path)
-            description = old_prompt['email_promotion_task']['description']
+            task_name = list(old_prompt.keys())[0]
+            description = old_prompt[task_name]['description']
             
             # Process parsed steps
             num_parsed_steps = len(self.parsed_steps)
@@ -666,6 +667,7 @@ class AdaptiqPreRunOrchestrator:
 
 
 def adaptiq_pre_run_pipeline(config_path: str, output_path: str = None) -> Any:
+    """Execute full pre-run pipeline workflow."""
     pre_run_orchestrator = AdaptiqPreRunOrchestrator(config_path=config_path, output_path=output_path)
     results = pre_run_orchestrator.execute_pre_run_pipeline()
     new_prompt = pre_run_orchestrator.generate_estimated_prompt()

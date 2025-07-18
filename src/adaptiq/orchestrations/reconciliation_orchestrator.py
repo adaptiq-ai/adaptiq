@@ -26,7 +26,8 @@ class AdaptiqReconciliationOrchestrator:
                  execution_data_file: str,
                  warmed_qtable_file: str,
                  reward_execs_file: str,
-                 config_file: str):
+                 config_file: str,
+                 feedback: str = None):
         """
         Initialize the orchestrator with file paths and configuration.
         
@@ -35,16 +36,7 @@ class AdaptiqReconciliationOrchestrator:
             warmed_qtable_file: Path to JSON file containing the warmed Q-table
             reward_execs_file: Path to JSON file containing reward execution data
             config_file: Path to YAML config file for AdaptiqPromptEngineer
-            extractor_model: Model name for AdaptiqStateActionExtractor
-            extractor_api_key: API key for extractor (if None, uses environment variable)
-            mapper_model: Model name for AdaptiqStateMapper
-            mapper_api_key: API key for mapper (if None, uses environment variable)
-            updater_model: Model name for AdaptiqQtablePostrunUpdate
-            updater_api_key: API key for updater (if None, uses environment variable)
-            task_key: Task key for prompt engineering (default: "email_promotion_task")
-            alpha: Learning rate for Q-learning updates
-            gamma: Discount factor for Q-learning updates
-            similarity_threshold: Threshold for action similarity matching
+            feedback: Human feedback for prompt evaluation
         """
         self.execution_data_file = Path(execution_data_file)
         self.warmed_qtable_file = Path(warmed_qtable_file)
@@ -53,6 +45,7 @@ class AdaptiqReconciliationOrchestrator:
         self.embedding_model = "text-embedding-3-small"
 
         self.config = self._load_config(config_path=self.config_file)
+        self.feedback = feedback
 
         # Extract key configuration
         self.llm_config = self.config.get('llm_config', {})
@@ -179,7 +172,8 @@ class AdaptiqReconciliationOrchestrator:
         """Initialize the AdaptiqPromptEngineer if not already done."""
         if self.prompt_engineer is None:
             self.prompt_engineer = AdaptiqPromptEngineer(
-                main_config_path=str(self.config_file)
+                main_config_path=str(self.config_file),
+                feedback=str(self.feedback)
             )
             logger.info("AdaptiqPromptEngineer initialized")
     
@@ -283,7 +277,8 @@ class AdaptiqReconciliationOrchestrator:
 
 
 
-def adaptiq_reconciliation_pipeline(config_path: str, output_path: str) -> Any:
+def adaptiq_reconciliation_pipeline(config_path: str, output_path: str, feedback: str = None) -> Any:
+    """Execute full reconciliation pipeline workflow."""
     # Ensure output directory exists
     output_dir = Path(output_path)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -303,7 +298,8 @@ def adaptiq_reconciliation_pipeline(config_path: str, output_path: str) -> Any:
         execution_data_file=str(execution_data_file),
         warmed_qtable_file=str(warmed_qtable_file),
         reward_execs_file=str(reward_execs_file),
-        config_file=config_path
+        config_file=config_path,
+        feedback=feedback
     )
     
     result = reconciliation_orchestrator.run_pipeline()

@@ -383,6 +383,7 @@ class AdaptiqPostRunOrchestrator:
 
 
 def adaptiq_post_run_pipeline(config_path: str, output_path: str = None) -> Any:
+    """Execute full post-run pipeline workflow."""
     post_run_orchestrator = AdaptiqPostRunOrchestrator(config_path=config_path, output_dir=output_path)
     results = post_run_orchestrator.run_full_pipeline()
 

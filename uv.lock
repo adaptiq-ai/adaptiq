@@ -10,7 +10,7 @@ resolution-markers = [
 
 [[package]]
 name = "adaptiq"
-version = "0.0.9"
+version = "2.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "crewai" },

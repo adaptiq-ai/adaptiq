@@ -47,7 +47,7 @@ def capture_llm_response(response):
     return response
 
 
-def instrumental_run(config_path=None, enabled=True):
+def instrumental_run(config_path=None, enabled=True, feedback=None):
     """
     Decorator to instrument a function with execution timing and optional AdaptiQ pipeline triggering.
 
@@ -63,6 +63,7 @@ def instrumental_run(config_path=None, enabled=True):
     Args:
         config_path (str, optional): Path to the adaptiq_config.yml file. If None, uses default path.
         enabled (bool, optional): Whether to trigger the AdaptiQ pipeline. Defaults to True.
+        feedback (str, optional): Human feedback about agent performance for prompt optimization. Defaults to None.
     """
     def find_results_folder():
         """Find the 'results' folder in current directory or parent directories."""
@@ -212,6 +213,11 @@ def instrumental_run(config_path=None, enabled=True):
                     crew_metrics_json = json.dumps(crew_metrics)
                     cmd_args.extend(["--crew_metrics", crew_metrics_json])
                     print(f"[INSTRUMENT] Crew metrics added to command args (size: {len(crew_metrics_json)} chars)")
+
+                # Add feedback if provided
+                if feedback:
+                    cmd_args.extend(["--feedback", feedback])
+                    print(f"[INSTRUMENT] Feedback added to command args: {feedback[:100]}{'...' if len(feedback) > 100 else ''}")
                 
                 # Add send_report flag
                 cmd_args.extend(["--send_report", str(should_send_report).lower()])

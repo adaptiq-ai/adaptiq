@@ -41,6 +41,15 @@ def create_agent_repo_template(project_name=None, base_path=".") -> str:
 # Please update the placeholder values with your actual project information.
 # Reports folder: Contains summary content for both the default run and optimized run, including the final optimized prompt and a general overview.
 # Results folder: Stores summary results for both runs, featuring the simulated optimized prompt and Q-table for each mode.
+#   - adaptiq_analysis_pre_run_report.txt: First simulated prompt suggestion analysis
+#   - adaptiq_q_table.json: Q-table insights with states and actions data
+#   - adaptiq_results.json: Full results containing all run information
+#   - adaptiq_simulated_scenarios.json: Suggested scenarios for testing and validation
+#   - parsed_logs.json: Parsed logs with attributed rewards for learning
+#   - raw_logs.json: Raw log data before processing
+#   - results.json: Complete information for both default run and optimized run
+#   - validated_logs.json: Logs verified with LLM when Q-values are uncertain
+#   - validation_summary.json: Summary explaining the validation process and results
 # Report_data folder: Holds updated JSON run results for local storage.
 
 # --- Project Information ---

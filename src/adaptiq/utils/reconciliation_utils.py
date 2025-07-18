@@ -343,24 +343,34 @@ class AdaptiqQtablePostrunUpdate:
         return updated_q_table
 
 class AdaptiqPromptEngineer:
-    def __init__(self, main_config_path: str):
+    """
+    AI Agent Prompt Engineer that analyzes agent performance and optimizes prompts.
+    
+    Uses Q-table insights from reinforcement learning to identify performance patterns
+    and leverages LLM analysis to generate improved prompts for better agent behavior.
+    Supports configuration-driven setup and automated report generation.
+    """
+    def __init__(self, main_config_path: str, feedback: str = None):
         """
         Initialize the PromptEngineerLLM.
 
         Args:
             main_config_path: Path to the main YAML configuration file.
+            feedback: Human feedback for agent's evaluation.
         """
         self.task_name = None
         self.new_prompt = None
+        self.feedback = feedback
+
         if not os.path.exists(main_config_path):
             logger.error(f"Main configuration file not found: {main_config_path}")
             raise FileNotFoundError(f"Main configuration file not found: {main_config_path}")
 
-        with open(main_config_path, 'r') as f:
+        with open(main_config_path, 'r', encoding='utf-8') as f:
             self.config = yaml.safe_load(f)
 
         llm_conf = self.config.get("llm_config", {})
-        self.model_name = llm_conf.get("model_name", "gpt-3.5-turbo") # Default if not specified
+        self.model_name = llm_conf.get("model_name", "gpt-4.1-mini") # Default if not specified
         self.api_key = llm_conf.get("api_key")
         self.provider = llm_conf.get("provider")
 
@@ -460,15 +470,22 @@ class AdaptiqPromptEngineer:
 
         system_prompt_content = f"""
         You are an expert AI Agent Prompt Engineer and Performance Diagnostician.
-        Your goal is to analyze an agent's current prompt and its recent performance (derived from a Q-table)
-        to provide a diagnostic review and suggest an enhanced prompt.
+        Your goal is to analyze an agent's current prompt and its recent performance data to provide a diagnostic review and suggest an enhanced prompt.
+
+        You have access to two key sources of performance data:
+        1. Q-table insights: Quantitative behavioral patterns showing state-action values and decision-making patterns
+        2. Human feedback: Qualitative evaluation of the agent's actual task performance and results
 
         The new prompt should:
-        - Address any observed weaknesses or suboptimal behaviors indicated by the Q-table insights.
-        - Guide the agent more effectively towards its objective for the task '{self.task_name}'.
-        - Maintain the original format and core intent of the prompt where appropriate.
-        - Be clearer, more specific, and provide better guidance if possible.
-        - If the original prompt has numbered steps or specific output format requirements, the new prompt should try to adhere to similar conventions.
+        - Address any observed weaknesses or suboptimal behaviors indicated by both Q-table insights and human feedback
+        - Incorporate lessons learned from human evaluations of the agent's actual task outcomes
+        - Guide the agent more effectively towards its objective for the task '{self.task_name}'
+        - Maintain the original format and core intent of the prompt where appropriate
+        - Be clearer, more specific, and provide better guidance based on both quantitative and qualitative performance data
+        - If the original prompt has numbered steps or specific output format requirements, the new prompt should try to adhere to similar conventions
+        - Prioritize addressing issues highlighted in human feedback, as these represent real-world performance gaps
+
+        When human feedback is available, use it as the primary guide for improvements, with Q-table insights providing supporting behavioral context. When no human feedback is provided, rely primarily on Q-table analysis.
         """
 
         user_prompt_content = f"""
@@ -490,13 +507,33 @@ class AdaptiqPromptEngineer:
         {q_table_insights}
         ---
 
-        Based on all the above, please provide the following in Markdown format:
+        4. Human Feedback on Agent Performance:
+        {self.feedback if self.feedback and self.feedback.strip() else "No human feedback provided for this optimization cycle."}
+        ---
+
+        Based on all the above information, please provide the following in Markdown format:
 
         ## Agent Review and Diagnostic
-        (Provide your analysis of the agent's likely behavior, strengths, weaknesses, and potential areas for improvement based on the Q-table data in conjunction with its current prompt. What patterns do you observe? Are there any confusing states or potentially suboptimal action choices suggested by the Q-values or state transitions? How well does the current prompt seem to guide the agent based on the observed behavior?)
+        (Provide your analysis of the agent's likely behavior, strengths, weaknesses, and potential areas for improvement. Consider both the Q-table behavioral patterns and any human feedback about actual task performance. What patterns do you observe? Are there disconnects between what the Q-table suggests the agent learned and what humans observed in the results? How well does the current prompt seem to guide the agent based on both the quantitative behavioral data and qualitative human evaluation?)
+
+        ## Key Issues Identified
+        (Summarize the main problems or improvement opportunities identified from:
+        - Human feedback (if available): What specific issues did humans identify with the agent's performance?
+        - Q-table patterns: What behavioral patterns suggest suboptimal decision-making?
+        - Prompt-performance gaps: Where does the current prompt appear insufficient based on the evidence?)
 
         ## Suggested Enhanced Prompt for Task '{self.task_name}'
-        (Provide the full text of the new, improved prompt for the agent. Enclose the prompt itself in a way that it can be easily copied, for example, within a code block or clearly delineated. The prompt should be directly usable by an agent.)
+        (Provide the full text of the new, improved prompt for the agent. The prompt should directly address the issues identified in human feedback and Q-table analysis. 
+        Enclose the prompt itself within a code block for easy copying. 
+        The prompt should be directly usable by an agent and incorporate specific improvements based on the performance data.)
+
+        ```
+        [Enhanced prompt text here]
+        ```
+
+        ## Rationale for Changes
+        (Explain the key changes made to the prompt and how they address the identified issues from human feedback and Q-table insights. 
+        Connect specific prompt modifications to specific problems observed in the performance data.)
         """
         messages = [
             SystemMessage(content=system_prompt_content),

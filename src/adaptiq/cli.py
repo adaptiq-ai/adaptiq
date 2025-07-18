@@ -283,7 +283,8 @@ def execute_post_run_and_reconciliation(args, logger, run_number=None, crew_metr
         
         reconciliation_results = adaptiq_reconciliation_pipeline(
             config_path=args.config,
-            output_path=args.output_path
+            output_path=args.output_path,
+            feedback=args.feedback
         )
         
         logger.info(f"{run_prefix}[SUCCESS] Reconciliation pipeline completed successfully")
@@ -673,6 +674,12 @@ def main():
         metavar="BOOL",
         default=True,
         help="Whether to send a report after execution. Accepts: true/false, 1/0, yes/no, on/off (default: true)."
+    )
+    parser_run.add_argument(
+    "--feedback",
+    type=str,
+    metavar="STRING",
+    help="Optional human feedback about the agent's performance to be used for prompt optimization."
     )
     # Set the function to call when 'run' is chosen
     parser_run.set_defaults(func=handle_run_command)
