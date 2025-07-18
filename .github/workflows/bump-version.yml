@@ -2,182 +2,253 @@ name: Bump Version
 
 on:
   pull_request:
-    branches: [ main ]
-    types: [ closed ]
+    types: [closed]
+    branches: [pre-release]
+
+permissions:
+  contents: write
 
 jobs:
   bump-version:
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
       version_type: ${{ steps.bump.outputs.version_type }}
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install bump2version packaging
-    
-    - name: Configure git
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-    
-    - name: Determine version bump type
-      id: determine-bump
-      uses: actions/github-script@v6
-      with:
-        result-encoding: string
-        script: |
-          const prTitle = context.payload.pull_request.title;
-          const prBody = context.payload.pull_request.body || '';
-          const labels = context.payload.pull_request.labels.map(label => label.name);
-          
-          console.log('PR Title:', prTitle);
-          console.log('PR Labels:', labels);
-          
-          // Check for breaking changes
-          if (labels.includes('breaking') || 
-              prTitle.includes('!') || 
-              prBody.includes('BREAKING CHANGE')) {
-            return 'major';
-          }
-          
-          // Check for features
-          if (labels.includes('feat') || 
-              prTitle.startsWith('feat:') || 
-              prTitle.startsWith('feature:')) {
-            return 'minor';
-          }
-          
-          // Check for fixes
-          if (labels.includes('fix') || 
-              prTitle.startsWith('fix:') || 
-              prTitle.startsWith('bugfix:')) {
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install packaging toml
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Determine version bump type
+        id: determine-bump
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          script: |
+            const prTitle = context.payload.pull_request.title;
+            const prBody = context.payload.pull_request.body || '';
+            const labels = context.payload.pull_request.labels.map(label => label.name);
+
+            if (labels.includes('breaking') || prTitle.includes('!') || prBody.includes('BREAKING CHANGE')) {
+              return 'major';
+            }
+            if (labels.includes('feat') || prTitle.startsWith('feat:') || prTitle.startsWith('feature:')) {
+              return 'minor';
+            }
+            if (labels.includes('fix') || prTitle.startsWith('fix:') || prTitle.startsWith('bugfix:')) {
+              return 'patch';
+            }
+            if (labels.includes('refactor') || prTitle.startsWith('refactor:')) {
+              return 'minor';
+            }
             return 'patch';
-          }
+
+      - name: Switch to pre-release branch
+        run: |
+          git fetch origin pre-release
+          git checkout pre-release
+          git reset --hard origin/pre-release
+
+      - name: Bump version
+        id: bump
+        run: |
+          BUMP_TYPE="${{ steps.determine-bump.outputs.result }}"
           
-          // Check for refactor that might be breaking
-          if (labels.includes('refactor') || prTitle.startsWith('refactor:')) {
-            return 'minor';
-          }
+          # Create Python script to handle version bumping
+          cat > version_bump.py << 'EOF'
+          import sys
+          import re
+          import os
+          from datetime import datetime
+          from packaging.version import Version
+
+          def bump_version(current_version, bump_type):
+              """Bump version and add .devYYYYMMDDHHMM"""
+              v = Version(current_version)
+              timestamp = datetime.now().strftime("%Y%m%d%H%M")
+
+              if bump_type == 'major':
+                  new_base = f"{v.major + 1}.0.0"
+              elif bump_type == 'minor':
+                  new_base = f"{v.major}.{v.minor + 1}.0"
+              elif bump_type == 'patch':
+                  new_base = f"{v.major}.{v.minor}.{v.micro + 1}"
+              else:
+                  raise ValueError(f"Unknown bump type: {bump_type}")
+
+              return f"{new_base}.dev{timestamp}"
+
+          def get_current_version():
+              try:
+                  import tomllib
+                  with open('pyproject.toml', 'rb') as f:
+                      data = tomllib.load(f)
+                      return data['project']['version']
+              except:
+                  try:
+                      with open('src/adaptiq/__init__.py', 'r') as f:
+                          content = f.read()
+                          match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
+                          if match:
+                              return match.group(1)
+                  except:
+                      pass
+                  return "0.0.0"
+
+          def update_version_in_files(new_version):
+              with open('pyproject.toml', 'r') as f:
+                  content = f.read()
+              content = re.sub(r'version\s*=\s*["\'][^"\']+["\']', f'version = "{new_version}"', content)
+              with open('pyproject.toml', 'w') as f:
+                  f.write(content)
+
+              init_file = 'src/adaptiq/__init__.py'
+              try:
+                  with open(init_file, 'r') as f:
+                      content = f.read()
+                  content = re.sub(r'__version__\s*=\s*["\'][^"\']+["\']', f'__version__ = "{new_version}"', content)
+              except FileNotFoundError:
+                  os.makedirs(os.path.dirname(init_file), exist_ok=True)
+                  content = f'__version__ = "{new_version}"\n'
+
+              with open(init_file, 'w') as f:
+                  f.write(content)
+
+          if __name__ == "__main__":
+              bump_type = sys.argv[1]
+              current_version = get_current_version()
+              new_version = bump_version(current_version, bump_type)
+
+              print(f"CURRENT_VERSION={current_version}")
+              print(f"NEW_VERSION={new_version}")
+              print(f"BUMP_TYPE={bump_type}")
+              update_version_in_files(new_version)
+          EOF
+                    
+          # Run the version bump script
+          python version_bump.py $BUMP_TYPE > version_output.txt
           
-          // Default to patch for other changes
-          return 'patch';
-    
-    - name: Get current version
-      id: current-version
-      run: |
-        if [ -f "setup.py" ]; then
-          CURRENT_VERSION=$(python -c "exec(open('setup.py').read()); print(version if 'version' in locals() else '')")
-        elif [ -f "pyproject.toml" ]; then
-          CURRENT_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-        elif [ -f "adaptiq/__init__.py" ]; then
-          CURRENT_VERSION=$(python -c "import re; content=open('adaptiq/__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"\'](.*?)[\"\']', content).group(1))")
-        else
-          CURRENT_VERSION="0.0.0"
-        fi
-        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-        echo "Current version: $CURRENT_VERSION"
-    
-    - name: Bump version
-      id: bump
-      run: |
-        BUMP_TYPE="${{ steps.determine-bump.outputs.result }}"
-        CURRENT_VERSION="${{ steps.current-version.outputs.current_version }}"
-        
-        echo "Bumping version: $CURRENT_VERSION -> $BUMP_TYPE"
-        
-        # Create .bumpversion.cfg if it doesn't exist
-        if [ ! -f ".bumpversion.cfg" ]; then
-          cat > .bumpversion.cfg << EOF
-        [bumpversion]
-        current_version = $CURRENT_VERSION
-        commit = True
-        tag = False
-        message = Bump version: {current_version} → {new_version}
+          # Extract values from output
+          CURRENT_VERSION=$(grep "CURRENT_VERSION=" version_output.txt | cut -d'=' -f2)
+          NEW_VERSION=$(grep "NEW_VERSION=" version_output.txt | cut -d'=' -f2)
+          
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "version_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          
+          # Clean up
+          rm version_bump.py version_output.txt
 
-        [bumpversion:file:setup.py]
-        search = version="{current_version}"
-        replace = version="{new_version}"
+      - name: Commit version changes
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          CURRENT_VERSION="${{ steps.bump.outputs.current_version }}"
+          
+          git add pyproject.toml src/adaptiq/__init__.py
+          git commit -m "Bump version: $CURRENT_VERSION → $NEW_VERSION"
+          
+          # Create and push tag
+          git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION (pre-release)"
 
-        [bumpversion:file:adaptiq/__init__.py]
-        search = __version__ = "{current_version}"
-        replace = __version__ = "{new_version}"
+      - name: Update CHANGELOG.md
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          if [ -f "CHANGELOG-pre-release.md" ]; then
+            # Create temp file
+            cat > temp_changelog.md << EOF
+          # Changelog (Pre-Release)
 
-        [bumpversion:file:pyproject.toml]
-        search = version = "{current_version}"
-        replace = version = "{new_version}"
-        EOF
-        fi
-        
-        # Bump version
-        bump2version $BUMP_TYPE --verbose
-        
-        # Get new version from the updated files
-        if [ -f "setup.py" ]; then
-          NEW_VERSION=$(python -c "exec(open('setup.py').read()); print(version if 'version' in locals() else '')")
-        elif [ -f "pyproject.toml" ]; then
-          NEW_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-        elif [ -f "adaptiq/__init__.py" ]; then
-          NEW_VERSION=$(python -c "import re; content=open('adaptiq/__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"\'](.*?)[\"\']', content).group(1))")
-        else
-          NEW_VERSION="0.0.1"
-        fi
-        
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "version_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
-        
-        echo "New version: $NEW_VERSION"
-    
-    - name: Update CHANGELOG.md
-      run: |
-        NEW_VERSION="${{ steps.bump.outputs.new_version }}"
-        DATE=$(date +"%Y-%m-%d")
-        
-        if [ -f "CHANGELOG.md" ]; then
-          # Add new version entry to changelog
-          sed -i "2i\\
-        ## [v$NEW_VERSION] - $DATE\\
-        \\
-        ### Added\\
-        - ${{ github.event.pull_request.title }}\\
-        \\
-        ### Changed\\
-        - Updated from PR #${{ github.event.pull_request.number }}\\
-        \\
-        " CHANGELOG.md
-        else
-          # Create new changelog
-          cat > CHANGELOG.md << EOF
-        # Changelog
+          ## [v$NEW_VERSION] - $DATE
 
-        ## [v$NEW_VERSION] - $DATE
+          ### Added
+          - ${{ github.event.pull_request.title }}
 
-        ### Added
-        - ${{ github.event.pull_request.title }}
+          ### Changed
+          - Updated from PR #${{ github.event.pull_request.number }}
 
-        ### Changed
-        - Updated from PR #${{ github.event.pull_request.number }}
+          EOF
 
-        EOF
-        fi
-        
-        git add CHANGELOG.md
-        git commit -m "Update CHANGELOG.md for v$NEW_VERSION" || echo "No changelog changes to commit"
-    
-    - name: Push changes
-      run: |
-        git push origin main
+            # Append existing content
+            tail -n +2 CHANGELOG-pre-release.md >> temp_changelog.md
+            mv temp_changelog.md CHANGELOG-pre-release.md
+          else
+            cat > CHANGELOG-pre-release.md << EOF
+          # Changelog (Pre-Release)
+
+          ## [v$NEW_VERSION] - $DATE
+
+          ### Added
+          - ${{ github.event.pull_request.title }}
+
+          ### Changed
+          - Updated from PR #${{ github.event.pull_request.number }}
+
+          EOF
+          fi
+
+          git add CHANGELOG-pre-release.md
+          git commit -m "Update CHANGELOG-pre-release.md for v$NEW_VERSION"
+
+      - name: Push version bump and tags
+        run: |
+          git push origin pre-release
+          git push origin --tags
+
+      - name: Build package
+        id: build-package
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Publish to PyPI Test
+        id: publish-test
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+          verbose: true
+
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Build or publish failed. Rolling back changes..."
+          
+          # Get the version that was just created
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          
+          # Delete the tag locally and remotely
+          if [ -n "$NEW_VERSION" ]; then
+            git tag -d "v$NEW_VERSION" || echo "Local tag not found"
+            git push origin --delete "v$NEW_VERSION" || echo "Remote tag not found"
+          else
+            echo "No NEW_VERSION to rollback"
+          fi
+          
+          # Reset pre-release branch to previous commit (accounting for both version and changelog commits)
+          git reset --hard HEAD~2
+          git push origin pre-release --force
+          
+          echo "Rollback completed. Version bump and tags have been reverted."
+          
+          # Exit with failure to mark the workflow as failed
+          exit 1
