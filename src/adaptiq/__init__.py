@@ -11,7 +11,14 @@ except ImportError:
 
 # --- Decorators ---
 try:
-    from .instrumental.instrumental import instrumental_run, instrumental_agent_logger, instrumental_crew_logger, instrumental_task_logger, instrumental_track_tokens, get_token_stats
+    from .instrumental.instrumental import (
+        instrumental_run,
+        instrumental_agent_logger,
+        instrumental_crew_logger,
+        instrumental_task_logger,
+        instrumental_track_tokens,
+        get_token_stats,
+    )
 except ImportError:
     pass
 
@@ -25,6 +32,7 @@ except ImportError:
 # --- Orchestration ---
 try:
     from .orchestrations.pre_run_orchestrator import AdaptiqPreRunOrchestrator
+
     # ADD THIS LINE TO EXPOSE THE PIPELINE FUNCTION:
     from .orchestrations.pre_run_orchestrator import adaptiq_pre_run_pipeline
 except ImportError:
@@ -32,15 +40,21 @@ except ImportError:
 
 try:
     from .orchestrations.post_run_orchestrator import AdaptiqPostRunOrchestrator
+
     # ADD THIS LINE TO EXPOSE THE PIPELINE FUNCTION:
     from .orchestrations.post_run_orchestrator import adaptiq_post_run_pipeline
 except ImportError:
     pass
 
 try:
-    from .orchestrations.reconciliation_orchestrator import AdaptiqReconciliationOrchestrator
+    from .orchestrations.reconciliation_orchestrator import (
+        AdaptiqReconciliationOrchestrator,
+    )
+
     # ADD THIS LINE TO EXPOSE THE PIPELINE FUNCTION:
-    from .orchestrations.reconciliation_orchestrator import adaptiq_reconciliation_pipeline
+    from .orchestrations.reconciliation_orchestrator import (
+        adaptiq_reconciliation_pipeline,
+    )
 except ImportError:
     pass
 
@@ -69,7 +83,10 @@ except ImportError:
 
 # --- Utilities (especially for pre-run phase) ---
 try:
-    from .utils.pre_run_utils import AdaptiqHypotheticalStateGenerator, AdaptiqPromptConsulting
+    from .utils.pre_run_utils import (
+        AdaptiqHypotheticalStateGenerator,
+        AdaptiqPromptConsulting,
+    )
 except ImportError:
     pass
 
@@ -79,7 +96,10 @@ except ImportError:
     pass
 
 try:
-    from .utils.reconciliation_utils import AdaptiqPromptEngineer, AdaptiqQtablePostrunUpdate
+    from .utils.reconciliation_utils import (
+        AdaptiqPromptEngineer,
+        AdaptiqQtablePostrunUpdate,
+    )
 except ImportError:
     pass
 
@@ -89,9 +109,12 @@ try:
 except ImportError:
     pass
 
+
 # --- Convenience function to get the package version ---
 def get_version():
     return __version__
 
+
 import logging
+
 logging.getLogger(__name__).addHandler(logging.NullHandler())

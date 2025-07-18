@@ -2,17 +2,14 @@ import datetime
 import json
 import os
 import re
-from crewai.agents.parser import (
-    AgentAction,
-    AgentFinish,
-    OutputParserException
-)
+from crewai.agents.parser import AgentAction, AgentFinish, OutputParserException
+
 
 class AdaptiqLogger:
     """
     AdaptiqLogger provides structured logging for CrewAI agent runs.
 
-    This logger writes both human-readable text logs and structured JSON logs for each agent action, 
+    This logger writes both human-readable text logs and structured JSON logs for each agent action,
     final result, or error during execution. It supports:
       - Logging agent thoughts, actions, tool usage, and results.
       - Logging final answers and output from the agent.
@@ -22,6 +19,7 @@ class AdaptiqLogger:
 
     Designed for use with CrewAI agents and compatible with AdaptiQ's reporting and analytics tools.
     """
+
     def __init__(self, log_file="log.txt", json_file="log.json"):
         self.log_file = log_file
         self.json_file = json_file
@@ -63,10 +61,14 @@ class AdaptiqLogger:
 
             # Extract Action and Observation from full text
             action_match = re.search(r"Action: (.+)", formatted_answer.text)
-            observation_match = re.search(r"Observation: (.+)", formatted_answer.text, re.DOTALL)
+            observation_match = re.search(
+                r"Observation: (.+)", formatted_answer.text, re.DOTALL
+            )
 
             action = action_match.group(1).strip() if action_match else ""
-            observation = observation_match.group(1).strip() if observation_match else ""
+            observation = (
+                observation_match.group(1).strip() if observation_match else ""
+            )
 
             log_entry = f"""
 {divider}
@@ -82,19 +84,27 @@ class AdaptiqLogger:
 {divider}
 """
 
-            json_log.update({
-                "type": "AgentAction",
-                "thought": formatted_answer.thought,
-                "text": f"Action: {action}\nObservation: {observation}",
-                "tool": formatted_answer.tool,
-                "tool_input": formatted_answer.tool_input,
-                "result": formatted_answer.result
-            })
+            json_log.update(
+                {
+                    "type": "AgentAction",
+                    "thought": formatted_answer.thought,
+                    "text": f"Action: {action}\nObservation: {observation}",
+                    "tool": formatted_answer.tool,
+                    "tool_input": formatted_answer.tool_input,
+                    "result": formatted_answer.result,
+                }
+            )
 
         elif isinstance(formatted_answer, AgentFinish):
             # Extract "Final Answer:" part from text
-            final_answer_match = re.search(r"Final Answer:\s*(.+)", formatted_answer.text, re.DOTALL)
-            final_answer = final_answer_match.group(1).strip() if final_answer_match else formatted_answer.output.strip()
+            final_answer_match = re.search(
+                r"Final Answer:\s*(.+)", formatted_answer.text, re.DOTALL
+            )
+            final_answer = (
+                final_answer_match.group(1).strip()
+                if final_answer_match
+                else formatted_answer.output.strip()
+            )
 
             log_entry = f"""
 {divider}
@@ -106,12 +116,14 @@ class AdaptiqLogger:
 {divider}
 """
 
-            json_log.update({
-                "type": "AgentFinish",
-                "thought": formatted_answer.thought,
-                "text": final_answer,
-                "output": formatted_answer.output
-            })
+            json_log.update(
+                {
+                    "type": "AgentFinish",
+                    "thought": formatted_answer.thought,
+                    "text": final_answer,
+                    "output": formatted_answer.output,
+                }
+            )
 
         elif isinstance(formatted_answer, OutputParserException):
             log_entry = f"""
@@ -122,10 +134,9 @@ class AdaptiqLogger:
 {formatted_answer.error}
 {divider}
 """
-            json_log.update({
-                "type": "OutputParserException",
-                "error": formatted_answer.error
-            })
+            json_log.update(
+                {"type": "OutputParserException", "error": formatted_answer.error}
+            )
 
         # Write to text file
         with open(self.log_file, "a", encoding="utf-8") as file:
@@ -157,7 +168,7 @@ class AdaptiqLogger:
             "agent": output.agent,
             "description": output.description,
             "raw": output.raw,
-            "summary": output.summary
+            "summary": output.summary,
         }
 
         with open(self.log_file, "a", encoding="utf-8") as file:
