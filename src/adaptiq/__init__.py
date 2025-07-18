@@ -1,7 +1,7 @@
 # src/adaptiq/__init__.py
 
 # --- Version of the adaptiq package ---
-__version__ = "2.0.0"  # Or your current version
+__version__ = "0.11.2.dev202507181556"  # Or your current version
 
 # --- Logging ---
 try:
@@ -11,36 +11,52 @@ except ImportError:
 
 # --- Decorators ---
 try:
-    from .instrumental.instrumental import instrumental_run, instrumental_agent_logger, instrumental_crew_logger, instrumental_task_logger, instrumental_track_tokens, get_token_stats
+    from .instrumental.instrumental import (
+        get_token_stats,
+        instrumental_agent_logger,
+        instrumental_crew_logger,
+        instrumental_run,
+        instrumental_task_logger,
+        instrumental_track_tokens,
+    )
 except ImportError:
     pass
 
 # --- Wizard ---
 try:
-    from .wizard.assistant import AdaptiqWizardAssistant
-    from .wizard.assistant import adaptiq_run_wizard, adaptiq_run_wizard_headless
+    from .wizard.assistant import (
+        AdaptiqWizardAssistant,
+        adaptiq_run_wizard,
+        adaptiq_run_wizard_headless,
+    )
 except ImportError:
     pass
 
 # --- Orchestration ---
 try:
-    from .orchestrations.pre_run_orchestrator import AdaptiqPreRunOrchestrator
     # ADD THIS LINE TO EXPOSE THE PIPELINE FUNCTION:
-    from .orchestrations.pre_run_orchestrator import adaptiq_pre_run_pipeline
+    from .orchestrations.pre_run_orchestrator import (
+        AdaptiqPreRunOrchestrator,
+        adaptiq_pre_run_pipeline,
+    )
 except ImportError:
     pass
 
 try:
-    from .orchestrations.post_run_orchestrator import AdaptiqPostRunOrchestrator
     # ADD THIS LINE TO EXPOSE THE PIPELINE FUNCTION:
-    from .orchestrations.post_run_orchestrator import adaptiq_post_run_pipeline
+    from .orchestrations.post_run_orchestrator import (
+        AdaptiqPostRunOrchestrator,
+        adaptiq_post_run_pipeline,
+    )
 except ImportError:
     pass
 
 try:
-    from .orchestrations.reconciliation_orchestrator import AdaptiqReconciliationOrchestrator
     # ADD THIS LINE TO EXPOSE THE PIPELINE FUNCTION:
-    from .orchestrations.reconciliation_orchestrator import adaptiq_reconciliation_pipeline
+    from .orchestrations.reconciliation_orchestrator import (
+        AdaptiqReconciliationOrchestrator,
+        adaptiq_reconciliation_pipeline,
+    )
 except ImportError:
     pass
 
@@ -69,7 +85,10 @@ except ImportError:
 
 # --- Utilities (especially for pre-run phase) ---
 try:
-    from .utils.pre_run_utils import AdaptiqHypotheticalStateGenerator, AdaptiqPromptConsulting
+    from .utils.pre_run_utils import (
+        AdaptiqHypotheticalStateGenerator,
+        AdaptiqPromptConsulting,
+    )
 except ImportError:
     pass
 
@@ -79,7 +98,10 @@ except ImportError:
     pass
 
 try:
-    from .utils.reconciliation_utils import AdaptiqPromptEngineer, AdaptiqQtablePostrunUpdate
+    from .utils.reconciliation_utils import (
+        AdaptiqPromptEngineer,
+        AdaptiqQtablePostrunUpdate,
+    )
 except ImportError:
     pass
 
@@ -89,9 +111,12 @@ try:
 except ImportError:
     pass
 
+
 # --- Convenience function to get the package version ---
 def get_version():
     return __version__
 
+
 import logging
+
 logging.getLogger(__name__).addHandler(logging.NullHandler())

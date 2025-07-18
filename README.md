@@ -284,9 +284,9 @@ Need hands‑free optimisation across hundreds of projects? 🏢
 
 | Quarter | Milestone |
 |---------|-----------|
-| **Q3 2025** | 📊 OpenTelemetry exporter, multi‑language prompts |
-| **Q4 2025** | 📱 Edge SDK (quantised Q‑table <16 MB) |
-| **2026** | 🔋 GPU‑Spot optimiser & carbon‑aware scheduler |
+| **Q3 2025** | 🔄 Support for More Models and Providers: Anthropic, Gemini, Llama, and multi-framework support |
+| **Q4 2025** | 🔄 Context Engineering Optimization: Memory Layer, Knowledge Graphs, External API Integration |
+| **2026** | 📱 Edge SDK (quantised Q‑table <16 MB), 🛡️ Governance & Constraints framework, GPU‑Spot optimiser |
 
 Vote or propose features in [`discussions/`](https://github.com/adaptiq-ai/adaptiq/discussions). 🗳️
 
