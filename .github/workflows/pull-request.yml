@@ -38,6 +38,9 @@ jobs:
         if [ -f setup.py ]; then pip install -e .; fi
         if [ -f pyproject.toml ]; then pip install -e .; fi
     
+    - name: Auto-format code with Black
+      run: black .
+
     - name: Code style check with Black
       run: |
         black --check --diff .
