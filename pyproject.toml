@@ -67,15 +67,3 @@ multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
-
-[tool.bumpversion]
-current_version = "0.0.0"
-commit = true
-tag = true
-tag_name = "v{new_version}"
-message = "Bump version: {current_version} → {new_version}"
-
-[tool.bumpversion.files]
-filename = "src/adaptiq/__init__.py"
-search = '__version__ = "{current_version}"'
-replace = '__version__ = "{new_version}"'

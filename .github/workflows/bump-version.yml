@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install bump2version packaging
+          pip install packaging toml
 
       - name: Configure Git
         run: |
@@ -62,51 +62,129 @@ jobs:
             }
             return 'patch';
 
-      - name: Get current version
-        id: current-version
-        run: |
-          if [ -f "pyproject.toml" ]; then
-            CURRENT_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          elif [ -f "src/adaptiq/__init__.py" ]; then
-            CURRENT_VERSION=$(python -c "import re; content=open('src/adaptiq/__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"'](.*?)[\"']', content).group(1))")
-          elif [ -f "adaptiq/__init__.py" ]; then
-            CURRENT_VERSION=$(python -c "import re; content=open('adaptiq/__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"'](.*?)[\"']', content).group(1))")
-          else
-            CURRENT_VERSION="0.0.0"
-          fi
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "Current version: $CURRENT_VERSION"
-
       - name: Switch to pre-release branch
         run: |
           git fetch origin pre-release
           git checkout pre-release
           git reset --hard origin/pre-release
 
-      - name: Bump version using pyproject.toml config
+      - name: Bump version
         id: bump
         run: |
           BUMP_TYPE="${{ steps.determine-bump.outputs.result }}"
-          CURRENT_VERSION="${{ steps.current-version.outputs.current_version }}"
-
-          echo "Bumping version: $CURRENT_VERSION -> $BUMP_TYPE"
-
-          # Use pyproject.toml for bumpversion configuration instead of .bumpversion.cfg
-          bump2version --config-file pyproject.toml $BUMP_TYPE --verbose
-
-          # Get the new version after bump
-          if [ -f "pyproject.toml" ]; then
-            NEW_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          elif [ -f "src/adaptiq/__init__.py" ]; then
-            NEW_VERSION=$(python -c "import re; content=open('src/adaptiq/__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"'](.*?)[\"']', content).group(1))")
-          elif [ -f "adaptiq/__init__.py" ]; then
-            NEW_VERSION=$(python -c "import re; content=open('adaptiq/__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"'](.*?)[\"']', content).group(1))")
-          else
-            NEW_VERSION="0.0.1"
-          fi
-
+          
+          # Create Python script to handle version bumping
+          cat > version_bump.py << 'EOF'
+          import sys
+          import re
+          from packaging.version import Version
+          
+          def bump_version(current_version, bump_type):
+              """Bump version based on semantic versioning"""
+              v = Version(current_version)
+              
+              if bump_type == 'major':
+                  return f"{v.major + 1}.0.0"
+              elif bump_type == 'minor':
+                  return f"{v.major}.{v.minor + 1}.0"
+              elif bump_type == 'patch':
+                  return f"{v.major}.{v.minor}.{v.micro + 1}"
+              else:
+                  raise ValueError(f"Unknown bump type: {bump_type}")
+          
+          def get_current_version():
+              """Get current version from pyproject.toml"""
+              try:
+                  import tomllib
+                  with open('pyproject.toml', 'rb') as f:
+                      data = tomllib.load(f)
+                      return data['project']['version']
+              except:
+                  # Fallback to reading from __init__.py
+                  try:
+                      with open('src/adaptiq/__init__.py', 'r') as f:
+                          content = f.read()
+                          match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
+                          if match:
+                              return match.group(1)
+                  except:
+                      pass
+                  return "0.0.0"
+          
+          def update_version_in_files(new_version):
+              """Update version in both pyproject.toml and __init__.py"""
+              
+              # Update pyproject.toml
+              with open('pyproject.toml', 'r') as f:
+                  content = f.read()
+              
+              updated_content = re.sub(
+                  r'version\s*=\s*["\'][^"\']+["\']',
+                  f'version = "{new_version}"',
+                  content
+              )
+              
+              with open('pyproject.toml', 'w') as f:
+                  f.write(updated_content)
+              
+              # Update __init__.py
+              init_file = 'src/adaptiq/__init__.py'
+              try:
+                  with open(init_file, 'r') as f:
+                      content = f.read()
+                  
+                  updated_content = re.sub(
+                      r'__version__\s*=\s*["\'][^"\']+["\']',
+                      f'__version__ = "{new_version}"',
+                      content
+                  )
+                  
+                  with open(init_file, 'w') as f:
+                      f.write(updated_content)
+              except FileNotFoundError:
+                  # Create __init__.py if it doesn't exist
+                  import os
+                  os.makedirs('src/adaptiq', exist_ok=True)
+                  with open(init_file, 'w') as f:
+                      f.write(f'__version__ = "{new_version}"\n')
+          
+          if __name__ == "__main__":
+              bump_type = sys.argv[1]
+              current_version = get_current_version()
+              new_version = bump_version(current_version, bump_type)
+              
+              print(f"Bumping version: {current_version} -> {new_version}")
+              update_version_in_files(new_version)
+              
+              print(f"CURRENT_VERSION={current_version}")
+              print(f"NEW_VERSION={new_version}")
+              print(f"BUMP_TYPE={bump_type}")
+          EOF
+          
+          # Run the version bump script
+          python version_bump.py $BUMP_TYPE > version_output.txt
+          
+          # Extract values from output
+          CURRENT_VERSION=$(grep "CURRENT_VERSION=" version_output.txt | cut -d'=' -f2)
+          NEW_VERSION=$(grep "NEW_VERSION=" version_output.txt | cut -d'=' -f2)
+          
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "version_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          
+          # Clean up
+          rm version_bump.py version_output.txt
+
+      - name: Commit version changes
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          CURRENT_VERSION="${{ steps.bump.outputs.current_version }}"
+          
+          git add pyproject.toml src/adaptiq/__init__.py
+          git commit -m "Bump version: $CURRENT_VERSION → $NEW_VERSION"
+          
+          # Create and push tag
+          git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
 
       - name: Update CHANGELOG.md
         run: |
@@ -114,16 +192,23 @@ jobs:
           DATE=$(date +"%Y-%m-%d")
 
           if [ -f "CHANGELOG.md" ]; then
-            sed -i "2i\\
-          ## [v$NEW_VERSION] - $DATE\\
-          \\
-          ### Added\\
-          - ${{ github.event.pull_request.title }}\\
-          \\
-          ### Changed\\
-          - Updated from PR #${{ github.event.pull_request.number }}\\
-          \\
-          " CHANGELOG.md
+            # Create temporary file with new content
+            cat > temp_changelog.md << EOF
+          # Changelog
+
+          ## [v$NEW_VERSION] - $DATE
+
+          ### Added
+          - ${{ github.event.pull_request.title }}
+
+          ### Changed
+          - Updated from PR #${{ github.event.pull_request.number }}
+
+          EOF
+            
+            # Append existing changelog content (skip the first line "# Changelog")
+            tail -n +2 CHANGELOG.md >> temp_changelog.md
+            mv temp_changelog.md CHANGELOG.md
           else
             cat > CHANGELOG.md << EOF
           # Changelog
@@ -177,7 +262,7 @@ jobs:
             echo "No NEW_VERSION to rollback"
           fi
           
-          # Reset pre-release branch to previous commit
+          # Reset pre-release branch to previous commit (accounting for both version and changelog commits)
           git reset --hard HEAD~2
           git push origin pre-release --force
           
