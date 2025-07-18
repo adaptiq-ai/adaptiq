@@ -40,7 +40,7 @@ jobs:
 
     - name: Code style check with Black
       run: |
-        black -v --check --diff ./src/adaptiq --include '\.py$'
+        black -v --check --diff --include '\.py$' ./src/adaptiq
     
     - name: Import sorting check with isort
       run: |
