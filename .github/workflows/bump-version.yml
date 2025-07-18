@@ -184,7 +184,7 @@ jobs:
           git commit -m "Bump version: $CURRENT_VERSION → $NEW_VERSION"
           
           # Create and push tag
-          git tag -a "v$NEW_VERSION-pre-release" -m "Version $NEW_VERSION (pre-release)"
+          git tag -a "v$NEW_VERSION.dev" -m "Version $NEW_VERSION (pre-release)"
 
       - name: Update CHANGELOG.md
         run: |
@@ -194,7 +194,7 @@ jobs:
             cat > temp_changelog.md << EOF
           # Changelog (Pre-Release)
 
-          ## [v$NEW_VERSION-pre-release] - $DATE
+          ## [v$NEW_VERSION.dev] - $DATE
 
           ### Added
           - ${{ github.event.pull_request.title }}
@@ -211,7 +211,7 @@ jobs:
             cat > CHANGELOG-pre-release.md << EOF
           # Changelog (Pre-Release)
 
-          ## [v$NEW_VERSION-pre-release] - $DATE
+          ## [v$NEW_VERSION.dev] - $DATE
 
           ### Added
           - ${{ github.event.pull_request.title }}
@@ -255,8 +255,8 @@ jobs:
           
           # Delete the tag locally and remotely
           if [ -n "$NEW_VERSION" ]; then
-            git tag -d "v$NEW_VERSION-pre-release" || echo "Local tag not found"
-            git push origin --delete "v$NEW_VERSION-pre-release" || echo "Remote tag not found"
+            git tag -d "v$NEW_VERSION.dev" || echo "Local tag not found"
+            git push origin --delete "v$NEW_VERSION.dev" || echo "Remote tag not found"
           else
             echo "No NEW_VERSION to rollback"
           fi

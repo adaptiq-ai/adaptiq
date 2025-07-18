@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "adaptiq"
-version = "0.11.1-pre-release" # Increment this for new releases
+version = "0.11.1.dev" # Increment this for new releases
 description = "An offline Q-learning framework for AI agent prompt optimization."
 readme = "README.md"
 requires-python = ">=3.11" # Consider widening compatibility if possible (3.12 is very new)
