@@ -77,30 +77,33 @@ jobs:
           cat > version_bump.py << 'EOF'
           import sys
           import re
+          import os
+          from datetime import datetime
           from packaging.version import Version
-          
+
           def bump_version(current_version, bump_type):
-              """Bump version based on semantic versioning"""
+              """Bump version and add .devYYYYMMDDHHMM"""
               v = Version(current_version)
-              
+              timestamp = datetime.now().strftime("%Y%m%d%H%M")
+
               if bump_type == 'major':
-                  return f"{v.major + 1}.0.0"
+                  new_base = f"{v.major + 1}.0.0"
               elif bump_type == 'minor':
-                  return f"{v.major}.{v.minor + 1}.0"
+                  new_base = f"{v.major}.{v.minor + 1}.0"
               elif bump_type == 'patch':
-                  return f"{v.major}.{v.minor}.{v.micro + 1}"
+                  new_base = f"{v.major}.{v.minor}.{v.micro + 1}"
               else:
                   raise ValueError(f"Unknown bump type: {bump_type}")
-          
+
+              return f"{new_base}.dev{timestamp}"
+
           def get_current_version():
-              """Get current version from pyproject.toml"""
               try:
                   import tomllib
                   with open('pyproject.toml', 'rb') as f:
                       data = tomllib.load(f)
                       return data['project']['version']
               except:
-                  # Fallback to reading from __init__.py
                   try:
                       with open('src/adaptiq/__init__.py', 'r') as f:
                           content = f.read()
@@ -110,57 +113,37 @@ jobs:
                   except:
                       pass
                   return "0.0.0"
-          
+
           def update_version_in_files(new_version):
-              """Update version in both pyproject.toml and __init__.py"""
-              
-              # Update pyproject.toml
               with open('pyproject.toml', 'r') as f:
                   content = f.read()
-              
-              updated_content = re.sub(
-                  r'version\s*=\s*["\'][^"\']+["\']',
-                  f'version = "{new_version}"',
-                  content
-              )
-              
+              content = re.sub(r'version\s*=\s*["\'][^"\']+["\']', f'version = "{new_version}"', content)
               with open('pyproject.toml', 'w') as f:
-                  f.write(updated_content)
-              
-              # Update __init__.py
+                  f.write(content)
+
               init_file = 'src/adaptiq/__init__.py'
               try:
                   with open(init_file, 'r') as f:
                       content = f.read()
-                  
-                  updated_content = re.sub(
-                      r'__version__\s*=\s*["\'][^"\']+["\']',
-                      f'__version__ = "{new_version}"',
-                      content
-                  )
-                  
-                  with open(init_file, 'w') as f:
-                      f.write(updated_content)
+                  content = re.sub(r'__version__\s*=\s*["\'][^"\']+["\']', f'__version__ = "{new_version}"', content)
               except FileNotFoundError:
-                  # Create __init__.py if it doesn't exist
-                  import os
-                  os.makedirs('src/adaptiq', exist_ok=True)
-                  with open(init_file, 'w') as f:
-                      f.write(f'__version__ = "{new_version}"\n')
-          
+                  os.makedirs(os.path.dirname(init_file), exist_ok=True)
+                  content = f'__version__ = "{new_version}"\n'
+
+              with open(init_file, 'w') as f:
+                  f.write(content)
+
           if __name__ == "__main__":
               bump_type = sys.argv[1]
               current_version = get_current_version()
               new_version = bump_version(current_version, bump_type)
-              
-              print(f"Bumping version: {current_version} -> {new_version}")
-              update_version_in_files(new_version)
-              
+
               print(f"CURRENT_VERSION={current_version}")
               print(f"NEW_VERSION={new_version}")
               print(f"BUMP_TYPE={bump_type}")
+              update_version_in_files(new_version)
           EOF
-          
+                    
           # Run the version bump script
           python version_bump.py $BUMP_TYPE > version_output.txt
           
@@ -184,7 +167,7 @@ jobs:
           git commit -m "Bump version: $CURRENT_VERSION → $NEW_VERSION"
           
           # Create and push tag
-          git tag -a "v$NEW_VERSION.dev" -m "Version $NEW_VERSION (pre-release)"
+          git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION (pre-release)"
 
       - name: Update CHANGELOG.md
         run: |
@@ -194,7 +177,7 @@ jobs:
             cat > temp_changelog.md << EOF
           # Changelog (Pre-Release)
 
-          ## [v$NEW_VERSION.dev] - $DATE
+          ## [v$NEW_VERSION] - $DATE
 
           ### Added
           - ${{ github.event.pull_request.title }}
@@ -211,7 +194,7 @@ jobs:
             cat > CHANGELOG-pre-release.md << EOF
           # Changelog (Pre-Release)
 
-          ## [v$NEW_VERSION.dev] - $DATE
+          ## [v$NEW_VERSION] - $DATE
 
           ### Added
           - ${{ github.event.pull_request.title }}
@@ -255,8 +238,8 @@ jobs:
           
           # Delete the tag locally and remotely
           if [ -n "$NEW_VERSION" ]; then
-            git tag -d "v$NEW_VERSION.dev" || echo "Local tag not found"
-            git push origin --delete "v$NEW_VERSION.dev" || echo "Remote tag not found"
+            git tag -d "v$NEW_VERSION" || echo "Local tag not found"
+            git push origin --delete "v$NEW_VERSION" || echo "Remote tag not found"
           else
             echo "No NEW_VERSION to rollback"
           fi
