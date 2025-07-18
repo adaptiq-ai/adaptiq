@@ -4,7 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "adaptiq"
-version = "2.0.0" # Increment this for new releases
+
+version = "0.11.2.dev202507181556" # Increment this for new releases
+
+
 description = "An offline Q-learning framework for AI agent prompt optimization."
 readme = "README.md"
 requires-python = ">=3.11" # Consider widening compatibility if possible (3.12 is very new)
@@ -45,7 +48,6 @@ dependencies = [
     "openai-agents>=0.1.0",
 ]
 
-
 [project.scripts]
 adaptiq = "adaptiq.cli:main" # Assumes adaptiq/cli.py exists with a main() function
 
@@ -55,3 +57,16 @@ package-dir = {"" = "src"} # Tells setuptools your package 'adaptiq' is in the '
 [tool.setuptools.packages.find]
 where = ["src"] # Location to find packages
 namespaces = false # Usually false unless you are using PEP 420 namespace packages
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+include = '\.py$'
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true

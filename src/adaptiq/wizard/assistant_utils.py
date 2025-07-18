@@ -1,40 +1,41 @@
 import os
 
+
 def create_agent_repo_template(project_name=None, base_path=".") -> str:
     """
     Creates a repository template structure for an agent example.
-    
+
     Args:
         project_name (str): Name of the project (replaces 'agent_example')
         base_path (str): The base directory where the template will be created
-    
+
     Returns:
         str: Success message or error message
     """
-    
+
     # Validate project name
     if not project_name:
         return "❌ Error: Project name not provided. Please specify a project name."
-    
+
     # Clean project name (remove spaces, special characters, etc.)
     project_name = project_name.replace(" ", "_").replace("-", "_")
     project_name = "".join(c for c in project_name if c.isalnum() or c == "_")
-    
+
     # Check if project directory already exists
     project_path = os.path.join(base_path, "src", project_name)
     if os.path.exists(project_path):
         return f"❌ Error: Folder template already exists at '{project_path}'"
-    
+
     # Define the directory structure
     directories = [
         f"src/{project_name}",
         f"src/{project_name}/config",
-        f"src/{project_name}/tools"
+        f"src/{project_name}/tools",
     ]
-    
+
     # Define the files with their content
     files_content = {
-        f"src/{project_name}/config/adaptiq_config.yml": f'''# =============================================================================
+        f"src/{project_name}/config/adaptiq_config.yml": f"""# =============================================================================
 # ADAPTIQ PROJECT CONFIGURATION
 # =============================================================================
 # This file contains all the configuration settings for your AdaptiQ project.
@@ -108,25 +109,25 @@ alert_mode:
 # 4. Instrument your code with @instrumental_logger and @instrumental_run decorators
 # 5. Run your full optimization: after executing your agent adaptiq will runs automatically the process
 # =============================================================================
-''',
-        f"src/{project_name}/config/agents.yaml": '''agent_template:
+""",
+        f"src/{project_name}/config/agents.yaml": """agent_template:
   role: >
     Describe the role of the agent here.
   goal: >
     Describe the main goal or mission of the agent.
   backstory: >
     Provide a brief background story that helps the agent perform its task with more context or personality.
-''',
-        f"src/{project_name}/config/tasks.yaml": '''generic_task_template:
+""",
+        f"src/{project_name}/config/tasks.yaml": """generic_task_template:
   description: >
     Describe your task here.
   expected_output: >
     Describe the expected output of the task here.
   agent: "{{ agent_type }}"
-''',
+""",
         f"src/{project_name}/tools/__init__.py": "",
         f"src/{project_name}/__init__.py": "",
-        f"src/{project_name}/tools/custom_tool.py": '''from typing import Type
+        f"src/{project_name}/tools/custom_tool.py": """from typing import Type
 from pydantic import BaseModel, Field
 from crewai.tools import BaseTool
 
@@ -150,7 +151,7 @@ class GenericActionTool(BaseTool):
     
     def _run(self, param1: str, param2: str) -> str:
         return f"Executed action with param1={param1}, param2={param2}"
-''',
+""",
         f"src/{project_name}/crew.py": '''import sys
 import os
 
@@ -271,29 +272,29 @@ def main():
 # ✅ Standard Python entry point check
 if __name__ == "__main__":
     main()
-'''
+''',
     }
-    
+
     try:
         # Create directories
         for directory in directories:
             full_path = os.path.join(base_path, directory)
             os.makedirs(full_path, exist_ok=True)
             print(f"Created directory: {full_path}")
-        
+
         # Create files with content
         for file_path, content in files_content.items():
             full_file_path = os.path.join(base_path, file_path)
-            
+
             # Create the file with content
             if not os.path.exists(full_file_path):
-                with open(full_file_path, 'w', encoding='utf-8') as f:
+                with open(full_file_path, "w", encoding="utf-8") as f:
                     f.write(content)
                 print(f"Created file: {full_file_path}")
             else:
                 print(f"File already exists: {full_file_path}")
-        
+
         return f"✅ Repository template created successfully!\n📁 Structure created under: {os.path.join(base_path, 'src', project_name)}"
-        
+
     except Exception as e:
         return f"❌ Error creating template: {str(e)}"

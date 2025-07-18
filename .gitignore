@@ -6,6 +6,8 @@ dist/
 wheels/
 *.egg-info
 
+
+
 adaptiq_run.log
 report_data
 reports_data
