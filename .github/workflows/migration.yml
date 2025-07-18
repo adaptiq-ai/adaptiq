@@ -6,6 +6,7 @@ on:
     tags:
       - 'v*.*.*'
 
+
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
