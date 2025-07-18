@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install bump2version packaging tomllib-w
+          pip install bump2version packaging
 
       - name: Configure Git
         run: |
