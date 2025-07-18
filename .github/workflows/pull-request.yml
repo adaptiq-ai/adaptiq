@@ -13,6 +13,22 @@ jobs:
         python-version: [3.11]
     
     steps:
+
+    - name: Validate PR branch name
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const branchName = context.payload.pull_request.head.ref;
+          const validPrefixes = ['feat/', 'fix/', 'chore/', 'refactor/', 'test/', 'docs/', 'breaking/'];
+          const hasValidPrefix = validPrefixes.some(prefix => branchName.startsWith(prefix));
+          
+          if (!hasValidPrefix) {
+            core.setFailed('Branch must start with: feat/, fix/, chore/, refactor/, test/, docs/, or breaking/');
+          }
+          
+          console.log('Branch name:', branchName);
+          console.log('Has valid prefix:', hasValidPrefix);
+
     - name: Checkout code
       uses: actions/checkout@v4
     
@@ -79,17 +95,4 @@ jobs:
         pip install build
         python -m build
     
-    - name: Validate PR labels
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const labels = context.payload.pull_request.labels.map(label => label.name);
-          const validLabels = ['feat', 'fix', 'chore', 'refactor', 'test', 'docs', 'breaking'];
-          const hasValidLabel = labels.some(label => validLabels.includes(label));
-          
-          if (!hasValidLabel) {
-            core.setFailed('PR must have at least one valid label: feat, fix, chore, refactor, test, docs, or breaking');
-          }
-          
-          console.log('PR labels:', labels);
-          console.log('Has valid label:', hasValidLabel);
+    
