@@ -49,6 +49,7 @@ jobs:
         run: |
           # Create Python script to handle version migration
           cat > version_migrate.py << 'EOF'
+          #!/usr/bin/env python3
           import sys
           import re
           import os
@@ -57,21 +58,29 @@ jobs:
 
           def get_current_version():
               """Get current version from pyproject.toml or __init__.py"""
+              # Try pyproject.toml first
               try:
                   import tomllib
                   with open('pyproject.toml', 'rb') as f:
                       data = tomllib.load(f)
                       return data['project']['version']
-              except:
+              except Exception as e:
+                  print(f"Could not read from pyproject.toml: {e}", file=sys.stderr)
+              
+              # Try __init__.py
+              init_files = ['src/adaptiq/__init__.py', 'adaptiq/__init__.py']
+              for init_file in init_files:
                   try:
-                      with open('src/adaptiq/__init__.py', 'r') as f:
+                      with open(init_file, 'r') as f:
                           content = f.read()
                           match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
                           if match:
                               return match.group(1)
-                  except:
-                      pass
-                  return "0.0.0"
+                  except Exception as e:
+                      print(f"Could not read from {init_file}: {e}", file=sys.stderr)
+                      continue
+              
+              return "0.0.0"
 
           def migrate_dev_to_release(dev_version):
               """Convert dev version to release version by removing .devXXXXXXXXXX"""
@@ -81,55 +90,131 @@ jobs:
 
           def update_version_in_files(new_version):
               """Update version in pyproject.toml and __init__.py"""
+              updated_files = []
+              
               # Update pyproject.toml
-              with open('pyproject.toml', 'r') as f:
-                  content = f.read()
-              content = re.sub(r'version\s*=\s*["\'][^"\']+["\']', f'version = "{new_version}"', content)
-              with open('pyproject.toml', 'w') as f:
-                  f.write(content)
-
-              # Update __init__.py
-              init_file = 'src/adaptiq/__init__.py'
               try:
-                  with open(init_file, 'r') as f:
+                  with open('pyproject.toml', 'r') as f:
                       content = f.read()
-                  content = re.sub(r'__version__\s*=\s*["\'][^"\']+["\']', f'__version__ = "{new_version}"', content)
-              except FileNotFoundError:
-                  os.makedirs(os.path.dirname(init_file), exist_ok=True)
-                  content = f'__version__ = "{new_version}"\n'
+                  
+                  new_content = re.sub(
+                      r'version\s*=\s*["\'][^"\']+["\']', 
+                      f'version = "{new_version}"', 
+                      content
+                  )
+                  
+                  if new_content != content:
+                      with open('pyproject.toml', 'w') as f:
+                          f.write(new_content)
+                      updated_files.append('pyproject.toml')
+              except Exception as e:
+                  print(f"Warning: Could not update pyproject.toml: {e}", file=sys.stderr)
 
-              with open(init_file, 'w') as f:
-                  f.write(content)
+              # Update __init__.py (try both locations)
+              init_files = ['src/adaptiq/__init__.py', 'adaptiq/__init__.py']
+              
+              for init_file in init_files:
+                  try:
+                      if os.path.exists(init_file):
+                          with open(init_file, 'r') as f:
+                              content = f.read()
+                          
+                          new_content = re.sub(
+                              r'__version__\s*=\s*["\'][^"\']+["\']', 
+                              f'__version__ = "{new_version}"', 
+                              content
+                          )
+                          
+                          if new_content != content:
+                              with open(init_file, 'w') as f:
+                                  f.write(new_content)
+                              updated_files.append(init_file)
+                          break
+                      else:
+                          # Create file if it doesn't exist
+                          os.makedirs(os.path.dirname(init_file), exist_ok=True)
+                          with open(init_file, 'w') as f:
+                              f.write(f'__version__ = "{new_version}"\n')
+                          updated_files.append(init_file)
+                          break
+                  except Exception as e:
+                      print(f"Warning: Could not update {init_file}: {e}", file=sys.stderr)
+                      continue
+              
+              return updated_files
 
           if __name__ == "__main__":
-              current_version = get_current_version()
-              release_version = migrate_dev_to_release(current_version)
-
-              print(f"PRE_RELEASE_VERSION={current_version}")
-              print(f"RELEASE_VERSION={release_version}")
+              try:
+                  current_version = get_current_version()
+                  release_version = migrate_dev_to_release(current_version)
+                  
+                  # Clean version strings (remove any whitespace/newlines)
+                  current_version = current_version.strip()
+                  release_version = release_version.strip()
+                  
+                  print(f"PRE_RELEASE_VERSION={current_version}")
+                  print(f"RELEASE_VERSION={release_version}")
+                  
+                  # Only update if there's actually a change
+                  if current_version != release_version:
+                      updated_files = update_version_in_files(release_version)
+                      if updated_files:
+                          print("VERSION_UPDATED=true")
+                          print(f"Updated files: {', '.join(updated_files)}", file=sys.stderr)
+                      else:
+                          print("VERSION_UPDATED=false")
+                          print("No files were updated", file=sys.stderr)
+                  else:
+                      print("VERSION_UPDATED=false")
+                      print("No version change needed", file=sys.stderr)
               
-              # Only update if there's actually a change
-              if current_version != release_version:
-                  update_version_in_files(release_version)
-                  print("VERSION_UPDATED=true")
-              else:
-                  print("VERSION_UPDATED=false")
+              except Exception as e:
+                  print(f"Error: {e}", file=sys.stderr)
+                  sys.exit(1)
           EOF
                     
           # Run the version migration script
-          python version_migrate.py > version_output.txt
+          echo "Running version migration..."
+          python version_migrate.py > version_output.txt 2> version_errors.txt
           
-          # Extract values from output
-          PRE_RELEASE_VERSION=$(grep "PRE_RELEASE_VERSION=" version_output.txt | cut -d'=' -f2)
-          RELEASE_VERSION=$(grep "RELEASE_VERSION=" version_output.txt | cut -d'=' -f2)
-          VERSION_UPDATED=$(grep "VERSION_UPDATED=" version_output.txt | cut -d'=' -f2)
+          # Check if script ran successfully
+          if [ $? -ne 0 ]; then
+              echo "Error: Version migration script failed"
+              cat version_errors.txt
+              exit 1
+          fi
           
-          echo "pre_release_version=$PRE_RELEASE_VERSION" >> $GITHUB_OUTPUT
-          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
-          echo "version_updated=$VERSION_UPDATED" >> $GITHUB_OUTPUT
+          # Extract values from output with better error handling
+          PRE_RELEASE_VERSION=$(grep "PRE_RELEASE_VERSION=" version_output.txt | cut -d'=' -f2- | tr -d '\n\r')
+          RELEASE_VERSION=$(grep "RELEASE_VERSION=" version_output.txt | cut -d'=' -f2- | tr -d '\n\r')
+          VERSION_UPDATED=$(grep "VERSION_UPDATED=" version_output.txt | cut -d'=' -f2- | tr -d '\n\r')
+          
+          # Validate extracted values
+          if [ -z "$PRE_RELEASE_VERSION" ] || [ -z "$RELEASE_VERSION" ] || [ -z "$VERSION_UPDATED" ]; then
+              echo "Error: Failed to extract version information"
+              echo "Script output:"
+              cat version_output.txt
+              echo "Script errors:"
+              cat version_errors.txt
+              exit 1
+          fi
+          
+          echo "Extracted versions:"
+          echo "  Pre-release: '$PRE_RELEASE_VERSION'"
+          echo "  Release: '$RELEASE_VERSION'"
+          echo "  Updated: '$VERSION_UPDATED'"
+          
+          # Set GitHub Actions outputs with proper escaping
+          {
+              echo "pre_release_version=$PRE_RELEASE_VERSION"
+              echo "release_version=$RELEASE_VERSION"
+              echo "version_updated=$VERSION_UPDATED"
+          } >> "$GITHUB_OUTPUT"
           
           # Clean up
-          rm version_migrate.py version_output.txt
+          rm -f version_migrate.py version_output.txt version_errors.txt
+          
+          echo "Version migration completed successfully"
 
       - name: Commit version changes
         if: steps.migrate.outputs.version_updated == 'true'
