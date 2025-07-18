@@ -45,7 +45,6 @@ dependencies = [
     "openai-agents>=0.1.0",
 ]
 
-
 [project.scripts]
 adaptiq = "adaptiq.cli:main" # Assumes adaptiq/cli.py exists with a main() function
 
@@ -77,7 +76,7 @@ tag_name = "v{new_version}"
 message = "Bump version: {current_version} → {new_version}"
 
 [[tool.bumpversion.files]]
-filename = "adaptiq/__init__.py"
+filename = "src/adaptiq/__init__.py"
 search = '__version__ = "{current_version}"'
 replace = '__version__ = "{new_version}"'
 
