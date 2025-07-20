@@ -284,7 +284,7 @@ Need hands‑free optimisation across hundreds of projects? 🏢
 
 | Quarter | Milestone |
 |---------|-----------|
-| **Q3 2025** | 🔄 Support for More Models and Providers: Anthropic, Gemini, Llama, and multi-framework support |
+| **Q3 2025** | 🔄 Support for More Models and Providers & Cost optimization via LLM routing |
 | **Q4 2025** | 🔄 Context Engineering Optimization: Memory Layer, Knowledge Graphs, External API Integration |
 | **2026** | 📱 Edge SDK (quantised Q‑table <16 MB), 🛡️ Governance & Constraints framework, GPU‑Spot optimiser |
 
@@ -297,7 +297,7 @@ Vote or propose features in [`discussions/`](https://github.com/adaptiq-ai/adapt
 We ❤️ PRs: bug fixes, lint rules, language support.  
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
-* 💬 **Discord**: **#adaptiq** (roadmap call 1st Tuesday)  
+* 💬 **Discord**: [**#adaptiq**](https://discord.com/invite/tZZUvcSY) (roadmap call 1st Tuesday) 
 * 🐦 **X/Twitter**: [@adaptiq_ai](https://x.com/adaptiq_ai)
 
 ---
