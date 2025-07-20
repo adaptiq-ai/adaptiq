@@ -346,7 +346,7 @@ AdaptIQ AI Team. "AdaptIQ: Adaptive Optimization Framework for AI Agents." GitHu
 ### 📊 Research Papers
 
 If you publish research using AdaptIQ, we'd love to hear about it! Please:
-- 📧 Email us at research@adaptiq.ai
+- 📧 Email us at research@getadaptiq.io
 - 🐦 Tag us on Twitter [@adaptiq_ai](https://x.com/adaptiq_ai)
 - 💬 Share in our Discord **#research** channel
 
