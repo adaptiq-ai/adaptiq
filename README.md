@@ -1,6 +1,6 @@
 # AdaptIQ — Adaptive Optimization Framework for AI Agents
 
-[![CI](https://img.shields.io/github/actions/workflow/status/adaptiq-ai/adaptiq/ci.yml?label=CI)](https://github.com/adaptiq-ai/adaptiq/actions)
+[![Made with Python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/adaptiq.svg)](https://pypi.org/project/adaptiq)
 [![Cost Saving](https://img.shields.io/badge/cost%20saving-30%25-brightgreen)](#benchmarks--methodology)
 [![CO₂ Aware](https://img.shields.io/badge/CO%E2%82%82%20aware-yes-1abc9c)](#benchmarks--methodology)
