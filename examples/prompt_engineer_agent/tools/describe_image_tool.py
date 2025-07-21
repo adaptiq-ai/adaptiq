@@ -1,14 +1,17 @@
+import os
 from typing import Type
+
+import google.generativeai as genai
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
-import google.generativeai as genai
-import os
 from settings import settings
 
 genai.configure(api_key=settings.GOOGLE_API_KEY)
 
+
 class DescribeImageInput(BaseModel):
     """Input schema for DescribeImageTool."""
+
     image_path: str = Field(..., description="Path to the image to describe.")
 
 
@@ -34,8 +37,8 @@ class DescribeImageTool(BaseTool):
                     "Describe this image in details and extract all details.",
                     {
                         "mime_type": "image/jpeg",  # adjust if needed
-                        "data": image_data
-                    }
+                        "data": image_data,
+                    },
                 ]
             )
 

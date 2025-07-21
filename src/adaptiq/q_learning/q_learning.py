@@ -8,7 +8,6 @@ for offline analysis of agent execution traces to improve an agent's prompt/conf
 
 import json
 import logging
-import os
 import uuid
 import warnings
 from datetime import datetime
