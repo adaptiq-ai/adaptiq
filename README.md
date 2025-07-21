@@ -33,8 +33,7 @@ AdaptIQ uses reinforcement learning to automatically optimize your AI agents. Po
 10. [☁️ Upgrade Path → AdaptiQ FinOps Cloud](#️-upgrade-path--adaptiq-finops-cloud)
 11. [🗺️ Roadmap](#️-roadmap)
 12. [🤝 Community & Contributing](#-community--contributing)
-13. [📊 Telemetry & Privacy](#-telemetry--privacy)
-14. [📄 License](#-license)
+13. [📄 License](#-license)
 
 ---
 
@@ -53,7 +52,10 @@ AdaptIQ addresses the critical challenge of optimizing AI agent performance thro
 
 ## 🎬 Demo Video
 
-![AdaptIQ Demo Video](./docs/assets/demo.gif)
+<video width="100%" controls>
+  <source src="./docs/assets/demo.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 ---
 
@@ -299,16 +301,6 @@ See [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 * 💬 **Discord**: [**#adaptiq**](https://discord.com/invite/tZZUvcSY) (roadmap call 1st Tuesday) 
 * 🐦 **X/Twitter**: [@adaptiq_ai](https://x.com/adaptiq_ai)
-
----
-
-## 📊 Telemetry & Privacy
-
-*🔒 Opt‑in only.*  
-Data: anonymised project hash, rule IDs, optional cost/CO₂ deltas.  
-Disable via `--no-telemetry` or env `ADAPTIQ_OPTOUT=1`.
-
-Vectors older than 30 days are pruned unless cloud sync under DPA.
 
 ---
 
