@@ -59,7 +59,7 @@ class AdaptiqAggregator:
         self._default_run_mode = True
 
         self.task_name = None
-        self.url_report = "https://metrics.adaptiq.twinmakers.fr/projects"
+        self.url_report = "https://api.getadaptiq.io/projects"
 
         self.pricings = {
             "openai": {
