@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   bump-version:
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true && !contains(github.event.pull_request.labels.*.name, 'test') && !contains(github.event.pull_request.title, 'test')
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
@@ -38,7 +38,36 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
+      - name: Check if should skip version bump
+        id: check-skip
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          script: |
+            const prTitle = context.payload.pull_request.title.toLowerCase();
+            const prBody = (context.payload.pull_request.body || '').toLowerCase();
+            const labels = context.payload.pull_request.labels.map(label => label.name.toLowerCase());
+
+            // Skip version bump for test-related PRs
+            if (
+              labels.includes('test') ||
+              labels.includes('testing') ||
+              prTitle.includes('test') ||
+              prTitle.startsWith('test:') ||
+              prTitle.startsWith('test/') ||
+              prBody.includes('[skip-version]') ||
+              prBody.includes('[no-version]')
+            ) {
+              core.setOutput('skip', 'true');
+              console.log('Skipping version bump - test-related PR detected');
+              return 'skip';
+            }
+            
+            core.setOutput('skip', 'false');
+            return 'proceed';
+
       - name: Determine version bump type
+        if: steps.check-skip.outputs.skip != 'true'
         id: determine-bump
         uses: actions/github-script@v6
         with:
@@ -83,12 +112,14 @@ jobs:
             return 'patch';
 
       - name: Switch to pre-release branch
+        if: steps.check-skip.outputs.skip != 'true'
         run: |
           git fetch origin pre-release
           git checkout pre-release
           git reset --hard origin/pre-release
 
       - name: Bump version
+        if: steps.check-skip.outputs.skip != 'true'
         id: bump
         run: |
           BUMP_TYPE="${{ steps.determine-bump.outputs.result }}"
@@ -154,11 +185,13 @@ jobs:
           rm version_bump.py version_output.txt
 
       - name: Commit version changes
+        if: steps.check-skip.outputs.skip != 'true'
         run: |
           git add pyproject.toml src/adaptiq/__init__.py
           git commit -m "Bump version: ${{ steps.bump.outputs.current_version }} → ${{ steps.bump.outputs.new_version }}"
 
       - name: Update CHANGELOG.md
+        if: steps.check-skip.outputs.skip != 'true'
         run: |
           DATE=$(date +"%Y-%m-%d")
           TITLE="${{ github.event.pull_request.title }}"
@@ -191,23 +224,33 @@ jobs:
           git commit -m "Update CHANGELOG.md for v$NEW_VERSION"
 
       - name: Push version bump
+        if: steps.check-skip.outputs.skip != 'true'
         run: |
           git push origin pre-release
 
       - name: Build package
+        if: steps.check-skip.outputs.skip != 'true'
         run: |
           python -m pip install --upgrade build
           python -m build
 
       - name: Publish to PyPI Test
+        if: steps.check-skip.outputs.skip != 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
           verbose: true
 
+      - name: Log skip reason
+        if: steps.check-skip.outputs.skip == 'true'
+        run: |
+          echo "Version bump skipped - test-related PR detected"
+          echo "PR Title: ${{ github.event.pull_request.title }}"
+          echo "Labels: ${{ join(github.event.pull_request.labels.*.name, ', ') }}"
+
       - name: Rollback on failure
-        if: failure()
+        if: failure() && steps.check-skip.outputs.skip != 'true'
         run: |
           echo "Build or publish failed. Rolling back changes..."
           git reset --hard HEAD~2
