@@ -16,3 +16,8 @@ results
 src/agent_example
 # Virtual environments
 .venv
+
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
