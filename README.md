@@ -52,10 +52,9 @@ AdaptIQ addresses the critical challenge of optimizing AI agent performance thro
 
 ## 🎬 Demo Video
 
-<video width="100%" controls>
-  <source src="./docs/assets/demo.webm" type="video/webm">
-  Your browser does not support the video tag.
-</video>
+[![Demo Video](https://img.youtube.com/vi/ymNvLe73EhI/maxresdefault.jpg)](https://www.youtube.com/watch?v=ymNvLe73EhI)
+
+*Click the image above to watch the demo video*
 
 ---
 

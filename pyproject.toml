@@ -17,7 +17,6 @@ license = { file = "LICENSE" } # IMPORTANT: Add a LICENSE file
 authors = [
   { name = "Youssef ALWAZ / KOSMOS Technologies", email = "alwaz.youssef@kosmostechnologies.fr" },
   { name = "Wassim AMRI / KOSMOS Technologies", email = "w.amri@kosmostechnologies.fr" },
-  { name = "Abderrazak SOUGUIR / KOSMOS Technologies", email = "abderrazek.souguir@kosmostechnologies.fr" }
 ]
 keywords = ["ai", "agent", "reinforcement learning", "q-learning", "prompt engineering", "llm", "crewai"] # Helpful for discoverability
 classifiers = [
