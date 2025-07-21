@@ -57,9 +57,7 @@ class AdaptiqWizardAssistant:
 
         if self.llm_provider == "openai":
             # Initialize OpenAI client with OpenAI-compatible interface
-            self.client = AsyncOpenAI(
-                api_key=self.api_key
-            )
+            self.client = AsyncOpenAI(api_key=self.api_key)
 
             # Initialize the model format api
             self.model = OpenAIChatCompletionsModel(

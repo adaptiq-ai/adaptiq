@@ -505,10 +505,10 @@ class AdaptiqScenarioSimulator:
         components = self._parse_state_tuple(state_str)
 
         description = f"""
-        Task Type: {components['task_type']}
-        Last Action: {components['last_action']}
-        Last Outcome: {components['outcome_type']}
-        Current Context: {components['context']}
+        Task Type: {components["task_type"]}
+        Last Action: {components["last_action"]}
+        Last Outcome: {components["outcome_type"]}
+        Current Context: {components["context"]}
         """
 
         return description
