@@ -233,7 +233,10 @@ def execute_pre_run_only(args, logger):
 
         # Build and send project result even for failed runs
         project_result = aggregator.build_project_result()
-        aggregator.send_run_results(project_result)
+        aggregator.save_json_report(data=project_result)
+
+        if aggregator.email != "":
+            aggregator.send_run_results(project_result)
 
         return False
 
