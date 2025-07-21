@@ -20,3 +20,18 @@ src/agent_example
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+
+# PDM
+__pypackages__/
+
+# Editor backups
+*~
+*.bak
+*.swp
+*.swo
+*.tmp
+
+
+# System files
+.DS_Store
+Thumbs.db
