@@ -48,18 +48,38 @@ jobs:
             const prBody = context.payload.pull_request.body || '';
             const labels = context.payload.pull_request.labels.map(label => label.name);
 
-            if (labels.includes('breaking') || prTitle.includes('!') || prBody.includes('BREAKING CHANGE')) {
+            if (
+              labels.includes('breaking') ||
+              prTitle.includes('!') ||
+              prBody.includes('BREAKING CHANGE')
+            ) {
               return 'major';
             }
-            if (labels.includes('feat') || prTitle.startsWith('feat:') || prTitle.startsWith('feature:')) {
+
+            if (
+              labels.includes('feat') ||
+              prTitle.startsWith('feat:') ||
+              prTitle.startsWith('feat/')
+            ) {
               return 'minor';
             }
-            if (labels.includes('fix') || prTitle.startsWith('fix:') || prTitle.startsWith('bugfix:')) {
+
+            if (
+              labels.includes('fix') ||
+              prTitle.startsWith('fix:') ||
+              prTitle.startsWith('fix/')
+            ) {
               return 'patch';
             }
-            if (labels.includes('refactor') || prTitle.startsWith('refactor:')) {
+
+            if (
+              labels.includes('refactor') ||
+              prTitle.startsWith('refactor:') ||
+              prTitle.startsWith('refactor/')
+            ) {
               return 'minor';
             }
+
             return 'patch';
 
       - name: Switch to pre-release branch
