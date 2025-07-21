@@ -17,7 +17,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Required to access full git history
+
+      - name: Ensure on Main Branch
+        run: |
+          git checkout main
+          git pull origin main
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -41,12 +46,12 @@ jobs:
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Create Git Tag
+      - name: Tag and Push
         run: |
           VERSION=${{ steps.get-version.outputs.version }}
           git config user.name "GitHub Actions"
           git config user.email "action@github.com"
-          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git tag -a "v$VERSION" $GITHUB_SHA -m "Release v$VERSION"
           git push origin "v$VERSION"
 
       # - name: Build Package
