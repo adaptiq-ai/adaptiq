@@ -54,11 +54,11 @@ jobs:
           git tag -a "v$VERSION" $GITHUB_SHA -m "Release v$VERSION"
           git push origin "v$VERSION"
 
-      # - name: Build Package
-      #   run: |
-      #     python -m build
+      - name: Build Package
+        run: |
+          python -m build
 
-      # - name: Publish to PyPI
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
