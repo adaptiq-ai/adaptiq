@@ -2,7 +2,7 @@
 
 # --- Version of the adaptiq package ---
 
-__version__ = "0.0.0"  # Or your current version
+__version__ = "0.12.0"  # Or your current version
 
 
 # --- Logging ---
