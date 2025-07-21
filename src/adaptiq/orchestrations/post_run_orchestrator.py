@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -328,12 +328,12 @@ class AdaptiqPostRunOrchestrator:
         }
 
         if self.validate_results:
-            pipeline_results["outputs"][
-                "validated_logs_path"
-            ] = self.validated_logs_path
-            pipeline_results["outputs"][
-                "validation_summary_path"
-            ] = self.validation_summary_path
+            pipeline_results["outputs"]["validated_logs_path"] = (
+                self.validated_logs_path
+            )
+            pipeline_results["outputs"]["validation_summary_path"] = (
+                self.validation_summary_path
+            )
 
             if validation_results and "summary" in validation_results:
                 pipeline_results["stats"]["validation_summary"] = validation_results[

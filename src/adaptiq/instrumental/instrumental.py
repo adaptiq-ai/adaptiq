@@ -536,7 +536,7 @@ def instrumental_crew_logger(log_to_console: bool = True) -> Callable:
 
                 # Display model information
                 if models_used:
-                    print(f"🤖 Models Used:")
+                    print("🤖 Models Used:")
                     for model_info in models_used:
                         print(f"   • {model_info['agent_role']}: {model_info['model']}")
                 else:

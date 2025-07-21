@@ -1,8 +1,9 @@
+import os
 from typing import Type
+
+import google.generativeai as genai
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
-import google.generativeai as genai
-import os
 from settings import settings
 
 genai.configure(api_key=settings.GOOGLE_API_KEY)
@@ -16,9 +17,7 @@ class DescribeImageInput(BaseModel):
 
 class DescribeImageTool(BaseTool):
     name: str = "describe_image"
-    description: str = (
-        "This tool takes the local image file path and returns a detailed description using Vision model."
-    )
+    description: str = "This tool takes the local image file path and returns a detailed description using Vision model."
     args_schema: Type[BaseModel] = DescribeImageInput
 
     def _run(self, image_path: str) -> str:

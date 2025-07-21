@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 # ✅ Add the current directory to the Python path to enable relative imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -7,15 +7,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # ✅ Import CrewAI components
 from crewai import LLM, Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
+
+# ✅ Load environment variables
+from dotenv import load_dotenv
 from settings import settings
 
 # ✅ AdaptiQ-specific decorators for instrumentation
 # - Logs agent thoughts, tool usage, reasoning
 # - Logs task execution lifecycle and state
 from adaptiq import instrumental_agent_logger, instrumental_task_logger
-
-# ✅ Load environment variables
-from dotenv import load_dotenv
 
 load_dotenv()
 

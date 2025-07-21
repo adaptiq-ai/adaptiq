@@ -352,9 +352,7 @@ class AdaptiqQtablePostrunUpdate:
                         similarities = self._calculate_action_similarity(
                             input_action, available_actions
                         )
-                        if (
-                            not similarities
-                        ):  # No similar actions could be computed or no actions available
+                        if not similarities:  # No similar actions could be computed or no actions available
                             logger.info(
                                 f"No similar actions found or could be computed for {input_action} in state {matched_state}. Adding as new action."
                             )

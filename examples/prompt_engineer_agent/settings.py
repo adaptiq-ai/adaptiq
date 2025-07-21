@@ -1,7 +1,8 @@
-import os
 import logging
-from dotenv import load_dotenv
+import os
 from threading import Lock
+
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 
