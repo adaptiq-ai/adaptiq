@@ -278,7 +278,7 @@ def execute_post_run_and_reconciliation(
             total_successful_requests += successful_requests
 
             logger.info(
-                f"{run_prefix}Metrics {i+1}/{len(crew_metrics)}: "
+                f"{run_prefix}Metrics {i + 1}/{len(crew_metrics)}: "
                 f"time={execution_time_seconds:.2f}s, "
                 f"tokens={prompt_tokens + completion_tokens}, "
                 f"requests={successful_requests}"
