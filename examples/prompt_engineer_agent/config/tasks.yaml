@@ -1,0 +1,28 @@
+prompt_task:
+  description: >
+    Given a natural language description of an image or scene, your task is to convert it into a highly-optimized, one-line prompt
+    for a Diffusion model.
+ 
+    The final prompt must:
+    - Include a **clearly defined subject**
+    - Capture the **environmental context** (e.g., foggy forest, neon-lit alley, candlelit library)
+    - Reference **lighting or camera techniques** (e.g., volumetric light, soft focus, ultra-wide angle)
+    - Mention the **artistic style or medium** (e.g., digital painting, concept art, watercolor, cyberpunk)
+    - Optionally include **famous artist references** for better stylistic alignment (e.g., by Artgerm, Ghibli, Loish, Moebius)
+ 
+    Avoid:
+    - Repeating adjectives
+    - Generic phrases like "beautiful" or "cool"
+    - Camera brand names or model-specific jargon
+    - Abstract or subjective terms not visually actionable
+ 
+    Ensure the final output is syntactically tight, visual-heavy, and directly compatible with Stable Diffusion, SDXL, or Midjourney.
+ 
+    image_path: {image_path}
+ 
+  expected_output: >
+    positive prompt: ....
+ 
+    negative prompt: ....
+ 
+  agent: prompt_engineer
