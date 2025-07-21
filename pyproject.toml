@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "adaptiq"
 
 
-version = "0.11.1" # Increment this for new releases
+version = "0.0.0" # Increment this for new releases
 
 
 

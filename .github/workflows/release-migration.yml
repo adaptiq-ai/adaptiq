@@ -9,349 +9,51 @@ permissions:
   contents: write
 
 jobs:
-  migrate-to-release:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'pre-release'
+  release:
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'pre-release'
     runs-on: ubuntu-latest
-    outputs:
-      release_version: ${{ steps.migrate.outputs.release_version }}
-      pre_release_version: ${{ steps.migrate.outputs.pre_release_version }}
 
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install build tools
         run: |
           python -m pip install --upgrade pip
-          pip install packaging toml
+          pip install build toml
 
-      - name: Configure Git
+      - name: Get Version
+        id: get-version
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-
-      - name: Switch to main branch
-        run: |
-          git fetch origin main
-          git checkout main
-          git reset --hard origin/main
-
-      - name: Migrate version to release
-        id: migrate
-        run: |
-          # Create Python script to handle version migration
-          cat > version_migrate.py << 'EOF'
-          #!/usr/bin/env python3
-          import sys
-          import re
-          import os
-          from datetime import datetime
-          from packaging.version import Version
-
-          def get_current_version():
-              """Get current version from pyproject.toml or __init__.py"""
-              # Try pyproject.toml first
-              try:
-                  import tomllib
-                  with open('pyproject.toml', 'rb') as f:
-                      data = tomllib.load(f)
-                      return data['project']['version']
-              except Exception as e:
-                  print(f"Could not read from pyproject.toml: {e}", file=sys.stderr)
-              
-              # Try __init__.py
-              init_files = ['src/adaptiq/__init__.py', 'adaptiq/__init__.py']
-              for init_file in init_files:
-                  try:
-                      with open(init_file, 'r') as f:
-                          content = f.read()
-                          match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
-                          if match:
-                              return match.group(1)
-                  except Exception as e:
-                      print(f"Could not read from {init_file}: {e}", file=sys.stderr)
-                      continue
-              
-              return "0.0.0"
-
-          def migrate_dev_to_release(dev_version):
-              """Convert dev version to release version by removing .devXXXXXXXXXX"""
-              if '.dev' in dev_version:
-                  return dev_version.split('.dev')[0]
-              return dev_version
-
-          def update_version_in_files(new_version):
-              """Update version in pyproject.toml and __init__.py"""
-              updated_files = []
-              
-              # Update pyproject.toml
-              try:
-                  with open('pyproject.toml', 'r') as f:
-                      content = f.read()
-                  
-                  new_content = re.sub(
-                      r'(version\s*=\s*["\'])([^"\']+)(["\'])(.*)', 
-                      rf'\1{new_version}\3\4', 
-                      content
-                  )
-                  
-                  if new_content != content:
-                      with open('pyproject.toml', 'w') as f:
-                          f.write(new_content)
-                      updated_files.append('pyproject.toml')
-              except Exception as e:
-                  print(f"Warning: Could not update pyproject.toml: {e}", file=sys.stderr)
-
-              # Update __init__.py (try both locations)
-              init_files = ['src/adaptiq/__init__.py', 'adaptiq/__init__.py']
-              
-              for init_file in init_files:
-                  try:
-                      if os.path.exists(init_file):
-                          with open(init_file, 'r') as f:
-                              content = f.read()
-                          
-                          new_content = re.sub(
-                              r'(__version__\s*=\s*["\'])([^"\']+)(["\'])(.*)', 
-                              rf'\1{new_version}\3\4', 
-                              content
-                          )
-                                                    
-                          if new_content != content:
-                              with open(init_file, 'w') as f:
-                                  f.write(new_content)
-                              updated_files.append(init_file)
-                          break
-                      else:
-                          # Create file if it doesn't exist
-                          os.makedirs(os.path.dirname(init_file), exist_ok=True)
-                          with open(init_file, 'w') as f:
-                              f.write(f'__version__ = "{new_version}"\n')
-                          updated_files.append(init_file)
-                          break
-                  except Exception as e:
-                      print(f"Warning: Could not update {init_file}: {e}", file=sys.stderr)
-                      continue
-              
-              return updated_files
-
-          if __name__ == "__main__":
-              try:
-                  current_version = get_current_version()
-                  release_version = migrate_dev_to_release(current_version)
-                  
-                  # Clean version strings (remove any whitespace/newlines)
-                  current_version = current_version.strip()
-                  release_version = release_version.strip()
-                  
-                  print(f"PRE_RELEASE_VERSION={current_version}")
-                  print(f"RELEASE_VERSION={release_version}")
-                  
-                  # Only update if there's actually a change
-                  if current_version != release_version:
-                      updated_files = update_version_in_files(release_version)
-                      if updated_files:
-                          print("VERSION_UPDATED=true")
-                          print(f"Updated files: {', '.join(updated_files)}", file=sys.stderr)
-                      else:
-                          print("VERSION_UPDATED=false")
-                          print("No files were updated", file=sys.stderr)
-                  else:
-                      print("VERSION_UPDATED=false")
-                      print("No version change needed", file=sys.stderr)
-              
-              except Exception as e:
-                  print(f"Error: {e}", file=sys.stderr)
-                  sys.exit(1)
-          EOF
-                    
-          # Run the version migration script
-          echo "Running version migration..."
-          python version_migrate.py > version_output.txt 2> version_errors.txt
-          
-          # Check if script ran successfully
-          if [ $? -ne 0 ]; then
-              echo "Error: Version migration script failed"
-              cat version_errors.txt
-              exit 1
+          VERSION=""
+          if [ -f "pyproject.toml" ]; then
+            VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          elif [ -f "src/adaptiq/__init__.py" ]; then
+            VERSION=$(grep '__version__' src/adaptiq/__init__.py | sed -E "s/.*['\"](.+)['\"].*/\1/")
           fi
-          
-          # Extract values from output with better error handling
-          PRE_RELEASE_VERSION=$(grep "PRE_RELEASE_VERSION=" version_output.txt | cut -d'=' -f2- | tr -d '\n\r')
-          RELEASE_VERSION=$(grep "RELEASE_VERSION=" version_output.txt | cut -d'=' -f2- | tr -d '\n\r')
-          VERSION_UPDATED=$(grep "VERSION_UPDATED=" version_output.txt | cut -d'=' -f2- | tr -d '\n\r')
-          
-          # Validate extracted values
-          if [ -z "$PRE_RELEASE_VERSION" ] || [ -z "$RELEASE_VERSION" ] || [ -z "$VERSION_UPDATED" ]; then
-              echo "Error: Failed to extract version information"
-              echo "Script output:"
-              cat version_output.txt
-              echo "Script errors:"
-              cat version_errors.txt
-              exit 1
-          fi
-          
-          echo "Extracted versions:"
-          echo "  Pre-release: '$PRE_RELEASE_VERSION'"
-          echo "  Release: '$RELEASE_VERSION'"
-          echo "  Updated: '$VERSION_UPDATED'"
-          
-          # Set GitHub Actions outputs with proper escaping
-          {
-              echo "pre_release_version=$PRE_RELEASE_VERSION"
-              echo "release_version=$RELEASE_VERSION"
-              echo "version_updated=$VERSION_UPDATED"
-          } >> "$GITHUB_OUTPUT"
-          
-          # Clean up
-          rm -f version_migrate.py version_output.txt version_errors.txt
-          
-          echo "Version migration completed successfully"
+          echo "VERSION=$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Commit version changes
-        if: steps.migrate.outputs.version_updated == 'true'
+      - name: Create Git Tag
         run: |
-          RELEASE_VERSION="${{ steps.migrate.outputs.release_version }}"
-          PRE_RELEASE_VERSION="${{ steps.migrate.outputs.pre_release_version }}"
-          
-          git add pyproject.toml src/adaptiq/__init__.py
-          git commit -m "Release version: $PRE_RELEASE_VERSION → $RELEASE_VERSION"
-          
-          # Create and push release tag
-          git tag -a "v$RELEASE_VERSION" -m "Release $RELEASE_VERSION"
+          VERSION=${{ steps.get-version.outputs.version }}
+          git config user.name "GitHub Actions"
+          git config user.email "action@github.com"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
 
-      - name: Update CHANGELOG.md
+      - name: Build Package
         run: |
-          RELEASE_VERSION="${{ steps.migrate.outputs.release_version }}"
-          DATE=$(date '+%Y-%m-%d')
-          
-          if [ -f "CHANGELOG.md" ]; then
-            # Create temp file with new release entry
-            cat > temp_changelog.md << EOF
-          # Changelog
-
-          ## [v$RELEASE_VERSION] - $DATE
-
-          ### Released
-          - Migrated from pre-release v${{ steps.migrate.outputs.pre_release_version }}
-          - Merged PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
-
-          EOF
-
-            # Append existing content (skip first line if it's just "# Changelog")
-            if head -n 1 CHANGELOG.md | grep -q "^# Changelog$"; then
-              tail -n +2 CHANGELOG.md >> temp_changelog.md
-            else
-              cat CHANGELOG.md >> temp_changelog.md
-            fi
-            mv temp_changelog.md CHANGELOG.md
-          else
-            cat > CHANGELOG.md << EOF
-          # Changelog
-
-          ## [v$RELEASE_VERSION] - $DATE
-
-          ### Released
-          - Migrated from pre-release v${{ steps.migrate.outputs.pre_release_version }}
-          - Merged PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
-
-          EOF
-          fi
-
-          git add CHANGELOG.md
-          git commit -m "Update CHANGELOG.md for release v$RELEASE_VERSION"
-
-      - name: Push release changes and tags
-        run: |
-          git push origin main
-          git push origin --tags
-
-      - name: Build package
-        id: build-package
-        run: |
-          python -m pip install --upgrade build
           python -m build
 
-      # - name: Publish to PyPI
-      #   id: publish-pypi
-      #   uses: pypa/gh-action-pypi-publish@release/v1
-      #   with:
-      #     password: ${{ secrets.PYPI_API_TOKEN }}
-      #     verbose: true
-
-      - name: Create GitHub Release
-        id: create-release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          tag_name: v${{ steps.migrate.outputs.release_version }}
-          release_name: Release v${{ steps.migrate.outputs.release_version }}
-          body: |
-            ## Release v${{ steps.migrate.outputs.release_version }}
-            
-            This release was automatically created from pre-release v${{ steps.migrate.outputs.pre_release_version }}.
-            
-            ### Changes
-            - Migrated from pre-release branch
-            - Merged PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}
-            
-            ### Installation
-            ```bash
-            pip install adaptiq==${{ steps.migrate.outputs.release_version }}
-            ```
-          draft: false
-          prerelease: false
-
-      # - name: Upload Release Assets
-      #   uses: actions/upload-release-asset@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ steps.create-release.outputs.upload_url }}
-      #     asset_path: ./dist/
-      #     asset_name: distribution-files
-      #     asset_content_type: application/zip
-
-      - name: Rollback on failure
-        if: failure()
-        run: |
-          echo "Release process failed. Rolling back changes..."
-          
-          # Get the version that was just created
-          RELEASE_VERSION="${{ steps.migrate.outputs.release_version }}"
-          
-          # Delete the tag locally and remotely
-          if [ -n "$RELEASE_VERSION" ]; then
-            git tag -d "v$RELEASE_VERSION" || echo "Local tag not found"
-            git push origin --delete "v$RELEASE_VERSION" || echo "Remote tag not found"
-          fi
-          
-          # Reset main branch to previous commit (accounting for both version and changelog commits)
-          git reset --hard HEAD~2
-          git push origin main --force
-          
-          echo "Rollback completed. Release has been reverted."
-          
-          # Exit with failure to mark the workflow as failed
-          exit 1
-
-  notify-success:
-    needs: migrate-to-release
-    runs-on: ubuntu-latest
-    if: success()
-    steps:
-      - name: Notify Success
-        run: |
-          echo "🎉 Successfully released version ${{ needs.migrate-to-release.outputs.release_version }}"
-          # echo "📦 Package published to PyPI"
-          # echo "🏷️ GitHub release created"
-          echo "📋 CHANGELOG.md updated"
+          password: ${{ secrets.PYPI_API_TOKEN }}

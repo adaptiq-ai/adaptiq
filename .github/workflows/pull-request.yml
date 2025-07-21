@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.11]
+        python-version: [3.12]
     
     steps:
 
@@ -82,7 +82,7 @@ jobs:
         fi
     
     # - name: Upload coverage to Codecov
-    #   if: matrix.python-version == '3.11'
+    #   if: matrix.python-version == '3.12'
     #   uses: codecov/codecov-action@v3
     #   with:
     #     file: ./coverage.xml
