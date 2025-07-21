@@ -19,7 +19,7 @@ jobs:
       with:
         script: |
           const branchName = context.payload.pull_request.head.ref;
-          const validPrefixes = ['feat/', 'fix/', 'chore/', 'refactor/', 'test/', 'docs/', 'breaking/'];
+          const validPrefixes = ['feat/', 'fix/', 'chore/', 'refactor/', 'test/', 'docs/', 'breaking/', 'perf/', 'ci/'];
           const hasValidPrefix = validPrefixes.some(prefix => branchName.startsWith(prefix));
           
           if (!hasValidPrefix) {
