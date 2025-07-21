@@ -22,6 +22,19 @@ class AdaptiqLogger:
     """
 
     def __init__(self, log_file="log.txt", json_file="log.json"):
+        """
+        Initialize an AdaptiqLogger.
+
+        Ensures that the structured JSON log file exists and is initialized
+        as an empty JSON array so that subsequent logging calls can append
+        structured entries safely.
+
+        Args:
+            log_file (str, optional): Path to the human‑readable plaintext log
+                file. Written in append mode. Defaults to "log.txt".
+            json_file (str, optional): Path to the structured JSON log file that
+                stores a list of log entry objects. Defaults to "log.json".
+        """
         self.log_file = log_file
         self.json_file = json_file
 
@@ -31,6 +44,18 @@ class AdaptiqLogger:
                 json.dump([], f, ensure_ascii=False, indent=2)
 
     def _append_to_json(self, log_data):
+        """
+        Append a structured log entry to the JSON log file.
+
+        Reads the current JSON array from disk (recovering gracefully from
+        JSON decode errors by starting a new list), appends `log_data`,
+        and rewrites the file. Entries that contain only a timestamp (i.e.,
+        no additional diagnostic fields) are ignored to avoid noise.
+
+        Args:
+            log_data (dict): Structured log payload to append. Must contain at
+                least one key in addition to "timestamp" to be written.
+        """
         # Skip writing logs with only timestamp (invalid)
         if len(log_data.keys()) <= 1:
             return
@@ -47,6 +72,24 @@ class AdaptiqLogger:
             f.truncate()
 
     def log_thoughts(self, formatted_answer):
+        """
+        Log an agent step, final result, or parsing error from a CrewAI run.
+
+        Interprets the incoming object type and emits a rich, human-readable
+        log block plus a structured JSON record:
+
+        * AgentAction  – logs thought, action text, tool name, tool input, result.
+        * AgentFinish  – logs final thought and output text.
+        * OutputParserException – logs the parser error message.
+
+        Text logs are appended to `self.log_file`; structured entries are appended
+        to `self.json_file`.
+
+        Args:
+            formatted_answer (AgentAction | AgentFinish | OutputParserException | Any):
+                Object produced during agent execution. Only the above three types
+                receive specialized formatting; other types result in a minimal entry.
+        """
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         divider = "=" * 80
         log_entry = "- Agent In Progress -"
@@ -147,6 +190,17 @@ class AdaptiqLogger:
         self._append_to_json(json_log)
 
     def log_task(self, output):
+        """
+        Log a high-level task record summarizing an agent's work.
+
+        Intended for top-level task checkpoints (e.g., after a CrewAI Task run).
+        Captures the agent name, task description, raw details, and a short
+        summary into both plaintext and structured JSON logs.
+
+        Args:
+            output: An object with the attributes `agent`, `description`, `raw`,
+                and `summary` (such as a CrewAI Task output object).
+        """
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         divider = "=" * 80
 

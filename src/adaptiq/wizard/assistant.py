@@ -55,25 +55,19 @@ class AdaptiqWizardAssistant:
 
         self.llm_provider = llm_provider
 
-        if self.llm_provider == "groq":
-            # Initialize Groq client with OpenAI-compatible interface
-            self.client = AsyncOpenAI(
-                api_key=self.api_key, base_url="https://api.groq.com/openai/v1"
-            )
-
-            # Initialize the model format api
-            self.model = OpenAIChatCompletionsModel(
-                model="qwen/qwen3-32b", openai_client=self.client
-            )
-        else:
+        if self.llm_provider == "openai":
+            # Initialize OpenAI client with OpenAI-compatible interface
             self.client = AsyncOpenAI(
                 api_key=self.api_key
-                # No base_url needed for OpenAI - uses default
             )
 
             # Initialize the model format api
             self.model = OpenAIChatCompletionsModel(
                 model="gpt-4.1", openai_client=self.client
+            )
+        else:
+            raise ValueError(
+                f"Unsupported provider: {self.llm_provider}. Only 'openai' is currently supported."
             )
 
         # Define the system prompt for the wizard
@@ -216,8 +210,6 @@ class AdaptiqWizardAssistant:
             - **Agentic Framework:** CrewAI (only)
             - **LLM Provider:** OpenAI models (only)
 
-            To run the full AdaptiQ optimization pipeline, use the 'run' command with your configuration file. This will execute all three stages: pre-run, post-run, and reconciliation, guiding you through the process with the Wizard interface.
-
             **This guide will walk you through the essential steps to prepare your agent for optimization.**
 
             ---
@@ -261,10 +253,10 @@ class AdaptiqWizardAssistant:
             Once your config file is created and your code is instrumented, use these commands:
 
             1.  **Validate your setup:**
-                `wizard check config /path/to/your/adaptiq_config.yml`
+                `wizard validate config /path/to/your/adaptiq_config.yml`
 
             2.  **Run the optimization pipeline:**
-                `wizard run pipeline`
+                `wizard start`
 
             To see general help about AdaptiQ's concepts at any time, use `wizard info`.
 
@@ -397,7 +389,6 @@ class AdaptiqWizardAssistant:
                     return os.path.join(current_dir, path_value)
 
                 # Check if file paths exist (with relative path support)
-                # NOTE: Log file path check has been removed as requested
                 paths_to_check = []
                 agent_config = config_data.get("agent_modifiable_config", {})
                 if "prompt_configuration_file_path" in agent_config:
