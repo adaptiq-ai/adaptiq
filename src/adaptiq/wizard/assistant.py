@@ -499,8 +499,8 @@ class AdaptiqWizardAssistant:
                     config_data = yaml.safe_load(f)
                 email = config_data.get("email", None)
 
-                log_filename = f"adaptiq_run.log"
-                results_folder_name = f"results"
+                log_filename = "adaptiq_run.log"
+                results_folder_name = "results"
 
                 # Get absolute path for log file (in current working directory)
                 abs_log_path = os.path.abspath(log_filename)
@@ -609,8 +609,8 @@ class AdaptiqWizardAssistant:
                     config_data = yaml.safe_load(f)
                 email = config_data.get("email", None)
 
-                log_filename = f"adaptiq_run.log"
-                results_folder_name = f"results"
+                log_filename = "adaptiq_run.log"
+                results_folder_name = "results"
 
                 # Get absolute path for log file (in current working directory)
                 abs_log_path = os.path.abspath(log_filename)
@@ -636,7 +636,7 @@ class AdaptiqWizardAssistant:
 
                 # Initialize log file with UTF-8 encoding
                 with open(log_filename, "w", encoding="utf-8") as log_file:
-                    log_file.write(f"=== AdaptiQ run started (detached mode) ===\n")
+                    log_file.write("=== AdaptiQ run started (detached mode) ===\n")
                     log_file.write(f"Command: {' '.join(cmd_args)}\n")
                     log_file.write(
                         f"Config file: {config_path} (resolved to: {abs_config_path})\n"

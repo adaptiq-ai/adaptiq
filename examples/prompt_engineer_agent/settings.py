@@ -1,12 +1,15 @@
-import os
 import logging
-from dotenv import load_dotenv
+import os
 from threading import Lock
+
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 
+
 class Settings:
     """Singleton class to manage application settings."""
+
     _instance = None
     _lock = Lock()
 
@@ -24,6 +27,6 @@ class Settings:
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
         self.GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
         logging.info("All settings loaded successfully.")
-        
+
 
 settings = Settings()
