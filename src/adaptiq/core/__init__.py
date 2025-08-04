@@ -3,8 +3,10 @@
 __version__ = "0.12.2"  
 
 try:
-    from .agents import *
-    from .core import *
+    from .abstract import *
+    from .pipelines import *
+    from .q_table import *
+    from .reporting import *
     
 except ImportError:
     pass

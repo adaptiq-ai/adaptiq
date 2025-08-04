@@ -6,16 +6,10 @@ import sys  # To get command line arguments
 import time
 import tracemalloc
 
-from adaptiq import (
-    AdaptiqAggregator,
-    AdaptiqTraceLogger,
-    adaptiq_post_run_pipeline,
-    adaptiq_pre_run_pipeline,
-    adaptiq_reconciliation_pipeline,
-    adaptiq_run_wizard,
-    adaptiq_run_wizard_headless,
-    get_token_stats,
-)
+
+from adaptiq.core.reporting import Aggregator, AdaptiqLogger
+from adaptiq.core.pipelines.pre_run import PreRunPipeline
+from adaptiq.core.pipelines.post_run import PostRunPipeline, adaptiq_reconciliation_pipeline
 
 
 def setup_logging(log_path=None):
@@ -72,7 +66,7 @@ def find_and_clear_log_files(
     """
 
     # Search for files in the directory
-    for root, dirs, files in os.walk(search_directory):
+    for root, _, files in os.walk(search_directory):
         for file in files:
             file_path = os.path.join(root, file)
 
@@ -95,8 +89,8 @@ def execute_pre_run_only(args, logger):
     """Execute only the pre_run pipeline (runs once) and report time and memory usage."""
 
     # Initialize the aggregator
-    aggregator = AdaptiqAggregator(config_path=args.config)
-    tracer = AdaptiqTraceLogger.setup()
+    aggregator = Aggregator(config_path=args.config)
+    tracer = AdaptiqLogger.setup()
 
     try:
         logger.info("STEP : Executing pre_run pipeline...")
@@ -106,7 +100,7 @@ def execute_pre_run_only(args, logger):
         tracemalloc.start()
 
         # Execute pre_run pipeline
-        simulation_results, pre_run_prompt = adaptiq_pre_run_pipeline(
+        simulation_results, pre_run_prompt = PreRunPipeline(
             config_path=args.config, output_path=args.output_path
         )
 
@@ -115,11 +109,10 @@ def execute_pre_run_only(args, logger):
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
 
-        token_stats = get_token_stats(mode="pre_run")
 
-        input_tokens = token_stats.get("total_input_tokens", 0)
-        output_tokens = token_stats.get("total_output_tokens", 0)
-        total_calls = token_stats.get("total_calls", 0)
+        input_tokens = 0
+        output_tokens = 0
+        total_calls = 0
 
         execution_time = end_time - start_time
         peak_memory = peak / 1024 / 1024  # Convert to MB
@@ -248,9 +241,9 @@ def execute_post_run_and_reconciliation(
     run_prefix = f"[RUN {run_number}] " if run_number is not None else ""
 
     # Initialize the aggregator
-    aggregator = AdaptiqAggregator(config_path=args.config)
+    aggregator = Aggregator(config_path=args.config)
     aggregator._default_run_mode = False
-    tracer = AdaptiqTraceLogger.setup()
+    tracer = AdaptiqLogger.setup()
 
     # Process ALL crew metrics entries, not just the last one
     total_execution_time = 0
@@ -291,7 +284,7 @@ def execute_post_run_and_reconciliation(
         # Step 1: Execute post_run pipeline
         logger.info(f"{run_prefix}STEP 1: Executing post_run pipeline...")
 
-        post_run_results = adaptiq_post_run_pipeline(
+        post_run_results = PostRunPipeline(
             config_path=args.config, output_path=args.output_path
         )
 
@@ -615,45 +608,6 @@ def handle_run_command(args):
     logger.info("=" * 60)
 
 
-def handle_wizard_command(args):
-    """Handles the logic for the 'wizard' subcommand."""
-    logger = setup_logging(args.log if hasattr(args, "log") else None)
-
-    logger.info(f"Starting Adaptiq Wizard with LLM provider: {args.llm_provider}")
-
-    try:
-        # Call the wizard function with the provided LLM provider and API key
-        adaptiq_run_wizard(llm_provider=args.llm_provider, api_key=args.api_key)
-
-        logger.info("Wizard session completed successfully")
-    except Exception as e:
-        logger.error(f"Error executing wizard: {str(e)}")
-        sys.exit(1)
-
-
-def handle_wizard_headless_command(args):
-    """Handles the logic for the 'wizard-headless' subcommand."""
-    logger = setup_logging(args.log if hasattr(args, "log") else None)
-
-    logger.info(
-        f"Starting Adaptiq Wizard in headless mode with LLM provider: {args.llm_provider}"
-    )
-
-    try:
-        # Call the headless wizard function with the provided arguments
-        adaptiq_run_wizard_headless(
-            llm_provider=args.llm_provider,
-            api_key=args.api_key,
-            prompt=args.prompt,
-            output_format=args.output_format,
-        )
-
-        logger.info("Wizard headless session completed successfully")
-    except Exception as e:
-        logger.error(f"Error executing wizard in headless mode: {str(e)}")
-        sys.exit(1)
-
-
 def main():
     """Main entry point for the adaptiq CLI."""
     parser = argparse.ArgumentParser(
@@ -767,8 +721,7 @@ def main():
         metavar="PATH",
         help="Optional path to a file for logging output.",
     )
-    # Set the function to call when 'wizard' is chosen
-    parser_wizard.set_defaults(func=handle_wizard_command)
+
 
     # --- Define the 'wizard-headless' command ---
     parser_wizard_headless = subparsers.add_parser(
@@ -811,8 +764,7 @@ def main():
         metavar="PATH",
         help="Optional path to a file for logging output.",
     )
-    # Set the function to call when 'wizard-headless' is chosen
-    parser_wizard_headless.set_defaults(func=handle_wizard_headless_command)
+
 
     # If no arguments are given (just 'adaptiq'), argparse automatically shows help
     # because subparsers are 'required'.

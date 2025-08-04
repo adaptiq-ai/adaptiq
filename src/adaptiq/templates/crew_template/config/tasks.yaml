@@ -1,0 +1,6 @@
+generic_task_template:
+    description: >
+        Describe your task here.
+    expected_output: >
+        Describe the expected output of the task here.
+    agent: agent_template

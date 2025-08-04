@@ -1,0 +1,158 @@
+import json
+from typing import Dict, List,  Union
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
+from adaptiq.core.abstract.q_table.base_state_mapper import BaseStateMapper
+
+class StateMapper(BaseStateMapper):
+    """
+    AdaptiqStateMapper - Matches execution trace states with Q-table states.
+
+    Takes the "Warmed Q-table" (from previous runs) and matches input states to see
+    if they correspond to any known state from the Q-table, ignoring actions completely.
+    """
+
+    def _initialize_reconciliation_llm(self):
+        """Initialize the LLM for state reconciliation."""
+        if self.provider == "openai":
+            return ChatOpenAI(
+                model=self.llm_model_name, api_key=self.llm_api_key
+            )
+        else:
+            raise ValueError(
+                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
+            )
+
+    def _create_classification_prompt(self):
+        """Create the prompt template for state classification."""
+        classification_template = """You are an AI Agent State Classifier specializing in semantic matching.
+
+        # Input State to Classify:
+        ```
+        {input_state}
+        ```
+
+        # KNOWN STATES (Find the closest semantic match):
+        ```
+        {known_states}
+        ```
+
+        # Your Task:
+        1. Analyze the provided input state components WITHOUT considering any action values.
+        2. Find the semantically closest match from the known states list.
+        3. Focus ONLY on matching the core state concepts (ignore syntax differences between arrays/tuples).
+        4. Pay attention to the semantic meaning of the state components:
+           - First component: Task/phase name (e.g., "RetrieveCompanyInfo" vs "InformationRetrieval_Company")
+           - Second component: Previous tool used
+           - Third component: Status/outcome
+           - Fourth component: Context/data description
+
+        # Examples of semantic matches:
+        - "RetrieveCompanyInfo" could match with "InformationRetrieval_Company" (both about company info retrieval)
+        - "CompanyData" could match with "company background" (both about company information)
+        - "None" should match with "None" (both indicate no previous state)
+
+        Output a JSON object with these fields:
+        ```
+        {{
+        "classification": {{
+            "is_known_state": true/false,
+            "matched_state": "The exact matching state from the known states if found, null if not found",
+            "reasoning": "Explanation of why this state matches or doesn't match a known state, with component-by-component comparison"
+        }}
+        }}
+        ```
+
+        CRITICAL REQUIREMENTS:
+        - IGNORE any "action" field in the input state - ONLY match on the state components
+        - If the input is a dictionary with a "state" key, extract and use ONLY that state field
+        - Find the CLOSEST semantic match, not just exact string matches
+        - You must return the EXACT matching state string from the known states without modification
+        - Only return is_known_state: true if there's a clear semantic match
+        - Be thorough in your reasoning, explaining similarities and differences by component
+
+        Output ONLY the JSON object, no additional text."""
+
+        return ChatPromptTemplate.from_template(classification_template)
+
+    def _invoke_llm_for_classification(self, input_state: Union[str, List, Dict]) -> Dict:
+        """
+        Invoke the LLM to classify a state.
+
+        Args:
+            input_state: State to classify (can be string, list, or dict)
+
+        Returns:
+            Dict containing the LLM's classification output
+        """
+        # Extract just the state part if input is a dict with state key
+        state_to_classify = self._extract_state_from_input(input_state)
+
+        # Convert to string for LLM input
+        if not isinstance(state_to_classify, str):
+            state_str = json.dumps(state_to_classify)
+        else:
+            state_str = state_to_classify
+
+        # Create formatted known states for better comparison
+        formatted_known_states = []
+        for original, parsed in self.parsed_states:
+            formatted_known_states.append({"original": original, "components": parsed})
+
+        # Create inputs for the LLM
+        inputs = {
+            "input_state": state_str,
+            "known_states": json.dumps(formatted_known_states, indent=2),
+        }
+
+        # Create and invoke the prompt
+        prompt = self.classification_prompt_template.format_messages(**inputs)
+        response = self.reconciliation_llm.invoke(prompt)
+
+        # Parse the response content as JSON
+        try:
+            classification_output = json.loads(response.content)
+            return classification_output
+        except json.JSONDecodeError:
+            # If JSON parsing fails, extract just the JSON portion
+            content = response.content
+            start_idx = content.find("{")
+            end_idx = content.rfind("}") + 1
+            if start_idx >= 0 and end_idx > start_idx:
+                json_content = content[start_idx:end_idx]
+                try:
+                    return json.loads(json_content)
+                except json.JSONDecodeError:
+                    pass
+
+            # If we can't parse JSON, return a default structure
+            return {
+                "classification": {
+                    "is_known_state": False,
+                    "matched_state": None,
+                    "reasoning": "Error parsing LLM output",
+                }
+            }
+
+    @classmethod
+    def from_qtable_file(
+        cls, qtable_file_path: str, llm_model_name: str, llm_api_key: str, provider: str
+    ) -> "StateMapper":
+        """
+        Create an AdaptiqStateMapper instance from a Q-table file.
+
+        Args:
+            qtable_file_path: Path to the Q-table JSON file
+            llm_model_name: OpenAI model name to use for reconciliation
+            llm_api_key: API key for OpenAI
+            provider: Provider for the LLM (currently only "openai" is supported)
+
+        Returns:
+            AdaptiqStateMapper instance
+        """
+        with open(qtable_file_path, "r") as f:
+            qtable_data = json.load(f)
+
+        return cls(qtable_data, provider, llm_model_name, llm_api_key)
