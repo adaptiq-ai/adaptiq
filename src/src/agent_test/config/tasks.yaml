@@ -1,6 +1,0 @@
-generic_task:
-    description: >
-        Describe your task here.
-    expected_output: >
-        Describe the expected output of the task here.
-    agent: generic_agent

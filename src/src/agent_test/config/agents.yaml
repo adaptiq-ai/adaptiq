@@ -1,7 +1,0 @@
-generic_agent:
-    role: >
-        Describe the role of the agent here.
-    goal: >
-        Describe the main goal or mission of the agent.
-    backstory: >
-        Provide a brief background story that helps the agent perform its task with more context or personality.
