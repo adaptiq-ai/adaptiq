@@ -10,6 +10,7 @@ import logging
 from adaptiq.core.reporting import Aggregator, AdaptiqLogger, get_logger
 from adaptiq.core.pipelines.pre_run import PreRunPipeline
 from adaptiq.core.pipelines.post_run import PostRunPipeline, adaptiq_reconciliation_pipeline
+from adaptiq.agents.crew_ai import CrewConfig, CrewPromptParser
 
 get_logger()
 
@@ -27,30 +28,40 @@ def find_and_clear_log_files(
     """
 
     # Search for files in the directory
-    for root, _, files in os.walk(search_directory):
-        for file in files:
-            file_path = os.path.join(root, file)
+    # for root, _, files in os.walk(search_directory):
+    #     for file in files:
+    #         file_path = os.path.join(root, file)
 
-            # Check if it's a text log file
-            if file == log_filename:
-                print(f"Found text log file: {file_path}")
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write("")
-                print(f"Cleared content from: {file_path}")
+    #         # Check if it's a text log file
+    #         if file == log_filename:
+    #             print(f"Found text log file: {file_path}")
+    #             with open(file_path, "w", encoding="utf-8") as f:
+    #                 f.write("")
+    #             print(f"Cleared content from: {file_path}")
 
-            # Check if it's a JSON log file
-            elif file == json_filename:
-                print(f"Found JSON log file: {file_path}")
-                with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump([], f, ensure_ascii=False, indent=2)
-                print(f"Cleared content from: {file_path}")
+    #         # Check if it's a JSON log file
+    #         elif file == json_filename:
+    #             print(f"Found JSON log file: {file_path}")
+    #             with open(file_path, "w", encoding="utf-8") as f:
+    #                 json.dump([], f, ensure_ascii=False, indent=2)
+    #             print(f"Cleared content from: {file_path}")
+
+    pass
 
 
 def execute_pre_run_only(args):
     """Execute only the pre_run pipeline (runs once) and report time and memory usage."""
 
+    config_path:str = args.config_path
+    template:str = args.template
+    base_config = None
+    base_prompt_parser= None
+    if template == "crew-ai":
+        base_config = CrewConfig(config_path=config_path, preload=True)
+        base_prompt_parser = CrewPromptParser(config_path=config_path)
+
     # Initialize the aggregator
-    aggregator = Aggregator(config_path=args.config)
+    aggregator = Aggregator(config_path=config_path)
     tracer = AdaptiqLogger.setup()
 
     try:
@@ -59,11 +70,10 @@ def execute_pre_run_only(args):
         # Start tracking time and memory
         start_time = time.time()
         tracemalloc.start()
-
+        
         # Execute pre_run pipeline
-        simulation_results, pre_run_prompt = PreRunPipeline(
-            config_path=args.config, output_path=args.output_path
-        )
+        pipeline = PreRunPipeline(base_config = base_config , base_prompt_parser =base_prompt_parser, output_path=None)
+        simulation_results = pipeline.execute_pre_run_pipeline()
 
         # Stop tracking
         end_time = time.time()
@@ -118,14 +128,14 @@ def execute_pre_run_only(args):
         aggregator._last_original_prompt = (
             ""  # You might want to extract this from config
         )
-        aggregator._last_suggested_prompt = pre_run_prompt
+        aggregator._last_suggested_prompt = simulated_scenarios
 
         # Build and add run summary
         aggregator.add_run_summary(
             run_name="default_run",
             reward=avg_reward,
             api_calls=total_calls,
-            suggested_prompt=pre_run_prompt,
+            suggested_prompt=simulation_results["new_prompt"],
             status="completed",
             issues=[],
             error=None,
@@ -134,22 +144,22 @@ def execute_pre_run_only(args):
             execution_logs=tracer.get_logs(),
         )
 
-        # Build project result JSON
-        project_result = aggregator.build_project_result()
+        # # Build project result JSON
+        # project_result = aggregator.build_project_result()
 
-        # Save default_run report
-        aggregator.save_json_report(data=project_result)
+        # # Save default_run report
+        # aggregator.save_json_report(data=project_result)
 
-        if aggregator.email != "":
-            # Send results to endpoint
-            success = aggregator.send_run_results(project_result)
+        # if aggregator.email != "":
+        #     # Send results to endpoint
+        #     success = aggregator.send_run_results(project_result)
 
-            if success:
-                logging.info("Successfully sent run results to reporting endpoint")
-            else:
-                logging.warning("Failed to send run results to reporting endpoint")
-        else:
-            logging.info("Default run results are saved locally")
+        #     if success:
+        #         logging.info("Successfully sent run results to reporting endpoint")
+        #     else:
+        #         logging.warning("Failed to send run results to reporting endpoint")
+        # else:
+        #     logging.info("Default run results are saved locally")
 
         return True
 
@@ -484,7 +494,6 @@ def handle_init_command(args):
 
     # Initialize the project with the specified template
     try:
-        from adaptiq.agents.crew_ai.crew_config import CrewConfig
 
         if args.template == "crew-ai":
             crew_config = CrewConfig()
@@ -508,7 +517,7 @@ def handle_validate_command(args):
 
     # Validate the project configuration
     try:
-        from adaptiq.agents.crew_ai.crew_config import CrewConfig
+        
 
 
         if args.template == "crew-ai":
@@ -528,18 +537,16 @@ def handle_validate_command(args):
         logging.error(f"Validation failed: {str(e)}")
         return False
 
-
 def handle_default_run_command(args):
     """Handles the logic for the 'default-run' command - executes only pre_run pipeline."""
 
     logging.info("Executing the 'default-run' command...")
-    logging.info(f"Configuration file: {args.config}")
 
-    if args.output_path:
-        logging.info(f"Results will be saved to: {args.output_path}")
+    # if args.output_path:
+    #     logging.info(f"Results will be saved to: {args.output_path}")
 
-    if args.log:
-        logging.info(f"Logging to file: {args.log}")
+    # if args.log:
+    #     logging.info(f"Logging to file: {args.log}")
 
     logging.info("DEFAULT-RUN MODE: Executing pre-run pipeline only")
 
@@ -554,7 +561,6 @@ def handle_default_run_command(args):
     else:
         logging.error("DEFAULT-RUN FAILED!")
         sys.exit(1)
-
 
 def handle_run_command(args):
     """Handles the logic for the 'run' command - executes post_run and reconciliation sequentially."""
@@ -655,9 +661,10 @@ def main():
     parser_init.add_argument(
         "--template",
         type=str,
-        metavar="TEMPLATE_NAME",
+        metavar="TEMPLATE",
         default="crew-ai",
         help="Template to use for initialization (default: crew-ai).",
+        
     )
 
     parser_init.add_argument(
@@ -689,9 +696,9 @@ def main():
     parser_validate.add_argument(
         "--template",
         type=str,
-        metavar="TEMPLATE_TYPE",
-        required=True,
-        help="Type of template to validate against.",
+        metavar="TEMPLATE",
+        default="crew-ai",
+        help="Template to use for initialization (default: crew-ai)",
     )
 
     # Set the function to call when 'validate' is chosen
@@ -703,24 +710,32 @@ def main():
     )
     # Add arguments specific to the 'default-run' command
     parser_default_run.add_argument(
-        "--config",
+        "--config_path",
         type=str,
         metavar="PATH",
         required=True,
         help="Path to the configuration file for the pre_run pipeline.",
     )
     parser_default_run.add_argument(
-        "--output_path",
+        "--template",
         type=str,
-        metavar="PATH",
-        help="Path to save the results of the pre_run pipeline.",
+        metavar="TEMPLATE",
+        default="crew-ai",
+        help="Template to use for initialization (default: crew-ai)",
     )
-    parser_default_run.add_argument(
-        "--log",
-        type=str,  # Expecting a string (path)
-        metavar="PATH",  # Placeholder name shown in help message
-        help="Optional path to a file for logging output.",
-    )
+    
+    # parser_default_run.add_argument(
+    #     "--output_path",
+    #     type=str,
+    #     metavar="PATH",
+    #     help="Path to save the results of the pre_run pipeline.",
+    # )
+    # parser_default_run.add_argument(
+    #     "--log",
+    #     type=str,  # Expecting a string (path)
+    #     metavar="PATH",  # Placeholder name shown in help message
+    #     help="Optional path to a file for logging output.",
+    # )
     # Set the function to call when 'default-run' is chosen
     parser_default_run.set_defaults(func=handle_default_run_command)
 
@@ -731,11 +746,19 @@ def main():
     )
     # Add arguments specific to the 'run' command
     parser_run.add_argument(
-        "--config",
+        "--config_path",
         type=str,
         metavar="PATH",
         required=True,
         help="Path to the configuration file for post_run and reconciliation pipelines.",
+    )
+
+    parser_run.add_argument(
+        "--template",
+        type=str,
+        metavar="TEMPLATE",
+        required=True,
+        help="Type of template to validate against.",
     )
     parser_run.add_argument(
         "--output_path",

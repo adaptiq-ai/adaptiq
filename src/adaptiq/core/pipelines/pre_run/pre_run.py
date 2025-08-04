@@ -48,7 +48,6 @@ class PreRunPipeline:
         # Store configuration and paths
         self.base_config = base_config
         self.config = base_config.config
-        self.config_path = base_config.config_path
         self.output_path = output_path
         self.configuration = self.base_config.get_config()
 
@@ -98,7 +97,6 @@ class PreRunPipeline:
         self.hypothetical_states = []
         self.prompt_analysis = {}
         self.simulated_scenarios = []
-
 
     def _ensure_output_directory(self) -> str:
         """
@@ -504,9 +502,3 @@ class PreRunPipeline:
             },
         }
 
-
-
-def adaptiq_pre_run_pipeline(config_path: str, output_path: str = None) -> Any:
-    """Execute full pre-run pipeline workflow."""
-    
-    return {}
