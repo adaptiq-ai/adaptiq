@@ -55,6 +55,9 @@ class PreRunPipeline:
         # Ensure output directory exists
         self.q_table_path = os.path.join(self._ensure_output_directory(), "adaptiq_q_table.json")
 
+        # Loading the old prompt of agent
+        self.old_prompt = self.base_config.get_prompt()
+
         # Store the prompt parser
         self.prompt_parser = base_prompt_parser
 
@@ -387,7 +390,7 @@ class PreRunPipeline:
             self.prompt_estimator = PromptEstimator(
                 status=self.get_status_summary(),
                 agent_id=self.configuration.get("project_name", "N/A"),
-                old_prompt= self.configuration.get("agent_modifiable_config", {}).get("prompt_configuration_file_path", "N/A"),
+                old_prompt=self.old_prompt,
                 parsed_steps=self.parsed_steps,
                 hypothetical_states=self.hypothetical_states,
                 offline_learner=self.offline_learner.Q_table if self.offline_learner else {},

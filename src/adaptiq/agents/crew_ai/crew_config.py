@@ -75,8 +75,12 @@ class CrewConfig(BaseConfig):
         with open(file_path, 'r', encoding='utf-8') as f:
             yaml_content = yaml.safe_load(f)
 
-        # Convert to string
-        return yaml.dump(yaml_content, default_flow_style=False)
+        task_name = list(yaml_content.keys())[0]
+        description = yaml_content[task_name]["description"]
+        expected_output = yaml_content[task_name]["expected_output"]
+
+        # Combine both sections
+        return f"{description}\n\n{expected_output}"
 
     def _validate_config(self) -> Tuple[bool, str]:
         """
