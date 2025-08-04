@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from adaptiq.core.abstract.integrations.base_config import BaseConfig
 from adaptiq.core.abstract.integrations.base_prompt_parser import BasePromptParser
-from adaptiq.core.abstract.q_table.base_q_table_manager import BaseQTableManager
+from adaptiq.core.q_table.q_table_manager import QTableManager
 from adaptiq.core.pipelines.pre_run.tools.hypothetical_state_generator import HypotheticalStateGenerator 
 from adaptiq.core.pipelines.pre_run.tools.prompt_consulting import PromptConsulting
 from adaptiq.core.pipelines.pre_run.tools.scenario_simulator import ScenarioSimulator
@@ -59,7 +59,7 @@ class PreRunPipeline:
         self.prompt_parser = base_prompt_parser
 
         # Extract key configuration
-        self.agent_config = self.config.get("agent_modifiable_config", {})
+        self.agent_config = self.configuration.get("agent_modifiable_config", {})
 
         # Load environment variables for API access
         load_dotenv()
@@ -88,7 +88,7 @@ class PreRunPipeline:
         self.prompt_consultant = None
         self.scenario_simulator = None
         self.prompt_estimator = None
-        self.offline_learner = BaseQTableManager(file_path=self.q_table_path)
+        self.offline_learner = QTableManager(file_path=self.q_table_path)
 
         # Results storage
         self.parsed_steps = []
@@ -248,7 +248,7 @@ class PreRunPipeline:
 
         # Initialize offline learner if not present
         if not self.offline_learner:
-            self.offline_learner = BaseQTableManager(file_path=self.q_table_path)
+            self.offline_learner = QTableManager(file_path=self.q_table_path)
         else:
             self.offline_learner.alpha = alpha
             self.offline_learner.gamma = gamma
@@ -315,7 +315,7 @@ class PreRunPipeline:
                     # Direct assignment if no next state info
                     self.offline_learner.Q_table[(state, action)] = reward
 
-            except Exception as e:
+            except (KeyError, TypeError, ValueError) as e:
                 self.logger.error("Failed to process scenario: %s", e)
                 continue
 
