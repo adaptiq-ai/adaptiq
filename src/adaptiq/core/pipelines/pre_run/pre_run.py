@@ -3,21 +3,15 @@ import logging
 import os
 from typing import Any, Dict, List
 
-import yaml
 from dotenv import load_dotenv
-from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 
-from adaptiq.core.reporting.adaptiq_metrics import (
-    capture_llm_response,
-    instrumental_track_tokens,
-)
-
+from adaptiq.core.abstract.integrations.base_config import BaseConfig
 from adaptiq.core.abstract.integrations.base_prompt_parser import BasePromptParser
 from adaptiq.core.abstract.q_table.base_q_table_manager import BaseQTableManager
 from adaptiq.core.pipelines.pre_run.tools.hypothetical_state_generator import HypotheticalStateGenerator 
 from adaptiq.core.pipelines.pre_run.tools.prompt_consulting import PromptConsulting
 from adaptiq.core.pipelines.pre_run.tools.scenario_simulator import ScenarioSimulator
+from adaptiq.core.pipelines.pre_run.tools.prompt_estimator import PromptEstimator
 
 
 class PreRunPipeline:
@@ -31,12 +25,18 @@ class PreRunPipeline:
     This orchestration prepares the agent for execution with optimized configuration.
     """
 
-    def __init__(self, config_path: str, output_path: str):
+    def __init__(self, 
+    base_config: BaseConfig, 
+    base_prompt_parser: BasePromptParser,
+    output_path: str,
+    ):
         """
         Initialize the PreRunOrchestrator with configuration.
 
         Args:
-            config_path: Path to the ADAPTIQ configuration YAML file
+            base_config: An instance of BaseConfig (or its subclasses like CrewConfig, OpenAIConfig, etc.)
+            base_prompt_parser: An instance of BasePromptParser for prompt parsing functionality
+            output_path: Path where output files will be saved
         """
         # Configure logging
         logging.basicConfig(
@@ -45,23 +45,30 @@ class PreRunPipeline:
         )
         self.logger = logging.getLogger("ADAPTIQ-PreRun")
 
-        # Load configuration
-        self.config = self._load_config(config_path)
-        self.config_path = config_path
+        # Store configuration and paths
+        self.base_config = base_config
+        self.config = base_config.config
+        self.config_path = base_config.config_path
         self.output_path = output_path
+        self.configuration = self.base_config.get_config()
+
+        # Ensure output directory exists
+        self.q_table_path = os.path.join(self._ensure_output_directory(), "adaptiq_q_table.json")
+
+        # Store the prompt parser
+        self.prompt_parser = base_prompt_parser
 
         # Extract key configuration
-        self.llm_config = self.config.get("llm_config", {})
         self.agent_config = self.config.get("agent_modifiable_config", {})
 
         # Load environment variables for API access
         load_dotenv()
-        self.api_key = self.llm_config.get("api_key") or os.getenv("OPENAI_API_KEY")
-        self.model_name = self.llm_config.get("model_name")
-        self.provider = self.llm_config.get("provider")
+        self.api_key = self.configuration.get("llm_config", {}).get("api_key") or os.getenv("OPENAI_API_KEY")
+        self.model_name = self.configuration.get("llm_config", {}).get("model_name")
+        self.provider = self.configuration.get("llm_config", {}).get("providedr", "openai")
 
         # Get the list of tools available to the agent
-        tools_config = self.config.get("agent_modifiable_config", {}).get(
+        tools_config = self.configuration.get("agent_modifiable_config", {}).get(
             "agent_tools", []
         )
         self.agent_tools = (
@@ -70,23 +77,18 @@ class PreRunPipeline:
             else []
         )
 
-        self.tool_strings = [
-            f"{name}: {desc}"
-            for tool_dict in self.agent_tools
-            for name, desc in tool_dict.items()
-        ]
-        self.tools_string = "\n".join(self.tool_strings)
-
         if not self.api_key:
             raise ValueError("API key not provided in config or environment variables")
         if not self.model_name:
             raise ValueError("Model name not provided in configuration")
 
         # Initialize component instances
-        self.prompt_parser = None
         self.state_generator = None
         self.offline_learner = None
         self.prompt_consultant = None
+        self.scenario_simulator = None
+        self.prompt_estimator = None
+        self.offline_learner = BaseQTableManager(file_path=self.q_table_path)
 
         # Results storage
         self.parsed_steps = []
@@ -94,24 +96,6 @@ class PreRunPipeline:
         self.prompt_analysis = {}
         self.simulated_scenarios = []
 
-    def _load_config(self, config_path: str) -> Dict:
-        """
-        Load and parse the ADAPTIQ configuration YAML file
-
-        Args:
-            config_path: Path to the configuration file
-
-        Returns:
-            dict: The parsed configuration
-        """
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f)
-            self.logger.info(f"Successfully loaded configuration from {config_path}")
-            return config
-        except Exception as e:
-            self.logger.error(f"Failed to load configuration: {str(e)}")
-            raise
 
     def _ensure_output_directory(self) -> str:
         """
@@ -129,28 +113,9 @@ class PreRunPipeline:
         # Create the directory if it doesn't exist
         if not os.path.exists(self.output_path):
             os.makedirs(self.output_path)
-            self.logger.info(f"Created output directory: {self.output_path}")
+            self.logger.info("Created output directory: %s", self.output_path)
 
         return self.output_path
-
-    def _load_agent_prompt(self) -> str:
-        """
-        Load the agent's prompt from the specified file.
-
-        Returns:
-            String containing the agent's prompt
-        """
-        prompt_path = self.agent_config.get("prompt_configuration_file_path")
-        if not prompt_path:
-            raise ValueError("Agent prompt path not specified in configuration")
-
-        try:
-            with open(prompt_path, "r") as file:
-                content = file.read()
-            return content
-        except Exception as e:
-            self.logger.error(f"Failed to load agent prompt: {str(e)}")
-            raise
 
     def run_prompt_parsing(self) -> List[Dict[str, Any]]:
         """
@@ -162,19 +127,17 @@ class PreRunPipeline:
         self.logger.info("Starting Prompt Parsing...")
 
         try:
-            # Initialize the prompt parser
-            self.prompt_parser = BasePromptParser(self.config_path)
-
             # Parse the prompt
             self.parsed_steps = self.prompt_parser.parse_prompt()
 
             self.logger.info(
-                f"Prompt Parsing complete. Identified {len(self.parsed_steps)} steps."
+                "Prompt Parsing complete. Identified %d steps.",
+                len(self.parsed_steps)
             )
             return self.parsed_steps
 
         except Exception as e:
-            self.logger.error(f"Prompt Parsing failed: {str(e)}")
+            self.logger.error("Prompt Parsing failed: %s", str(e))
             raise
 
     def run_hypothetical_representation(self) -> List[Dict]:
@@ -208,12 +171,13 @@ class PreRunPipeline:
             )
 
             self.logger.info(
-                f"Hypothetical State Generation complete. Generated {len(self.hypothetical_states)} state-action pairs."
+                "Hypothetical State Generation complete. Generated %d state-action pairs.",
+                len(self.hypothetical_states)
             )
             return self.hypothetical_states
 
         except Exception as e:
-            self.logger.error(f"Hypothetical State Generation failed: {str(e)}")
+            self.logger.error("Hypothetical State Generation failed: %s", str(e))
             raise
 
     def run_simulation(self) -> List[Dict]:
@@ -255,12 +219,13 @@ class PreRunPipeline:
             )
 
             self.logger.info(
-                f"Scenario Simulation complete. Generated {len(self.simulated_scenarios)} scenarios."
+                "Scenario Simulation complete. Generated %d scenarios.",
+                len(self.simulated_scenarios)
             )
             return self.simulated_scenarios
 
         except Exception as e:
-            self.logger.error(f"Scenario Simulation failed: {str(e)}")
+            self.logger.error("Scenario Simulation failed: %s", str(e))
             raise
 
     def run_qtable_initialization(self, alpha: float = 0.8, gamma: float = 0.8) -> Dict:
@@ -283,7 +248,7 @@ class PreRunPipeline:
 
         # Initialize offline learner if not present
         if not self.offline_learner:
-            self.offline_learner = BaseQTableManager(alpha=alpha, gamma=gamma)
+            self.offline_learner = BaseQTableManager(file_path=self.q_table_path)
         else:
             self.offline_learner.alpha = alpha
             self.offline_learner.gamma = gamma
@@ -310,10 +275,11 @@ class PreRunPipeline:
                 def ensure_tuple(s):
                     if isinstance(s, str) and s.startswith("(") and s.endswith(")"):
                         try:
-                            return eval(
+                            import ast
+                            return ast.literal_eval(
                                 s
-                            )  # safer if you trust input; otherwise parse manually
-                        except Exception:
+                            )  # safer than eval for parsing tuples
+                        except (ValueError, SyntaxError):
                             return s
                     return s
 
@@ -321,7 +287,7 @@ class PreRunPipeline:
                 next_state = ensure_tuple(next_state)
 
                 if not state or not action:
-                    self.logger.warning(f"Skipping incomplete scenario: {scenario}")
+                    self.logger.warning("Skipping incomplete scenario: %s", scenario)
                     continue
 
                 self.offline_learner.seen_states.add(state)
@@ -350,7 +316,7 @@ class PreRunPipeline:
                     self.offline_learner.Q_table[(state, action)] = reward
 
             except Exception as e:
-                self.logger.error(f"Failed to process scenario: {e}")
+                self.logger.error("Failed to process scenario: %s", e)
                 continue
 
         # Add default Q-values for all seen states and actions
@@ -362,17 +328,14 @@ class PreRunPipeline:
                     self.offline_learner.Q_table[(state, action)] = 0.0
 
         self.logger.info(
-            f"Q-table initialized with {len(self.offline_learner.Q_table)} entries."
+            "Q-table initialized with %d entries.",
+            len(self.offline_learner.Q_table)
         )
 
-        output_dir = self._ensure_output_directory()
-        q_table_path = os.path.join(output_dir, "adaptiq_q_table.json")
-        save_success = self.offline_learner.save_q_table(
-            file_path=q_table_path, prefix_version="pre_run"
-        )
+        save_success = self.offline_learner.save_q_table(prefix_version="pre_run")
 
         if not save_success:
-            self.logger.warning(f"Failed to save Q-table to {q_table_path}")
+            self.logger.warning("Failed to save Q-table to %s", self.q_table_path)
 
         return self.offline_learner.Q_table
 
@@ -387,7 +350,7 @@ class PreRunPipeline:
 
         try:
             # Load the agent prompt
-            agent_prompt = self._load_agent_prompt()
+            agent_prompt = self.configuration.get("agent_modifiable_config", {}).get("prompt_configuration_file_path")
 
             # Initialize the prompt consultant
             self.prompt_consultant = PromptConsulting(
@@ -407,7 +370,43 @@ class PreRunPipeline:
             return self.prompt_analysis
 
         except Exception as e:
-            self.logger.error(f"Prompt Analysis failed: {str(e)}")
+            self.logger.error("Prompt Analysis failed: %s", str(e))
+            raise
+
+    def run_prompt_estimation(self) -> str:
+        """
+        Generate an optimized system prompt for the agent based on pre-run analysis results.
+
+        Returns:
+            The generated system prompt as a string
+        """
+        self.logger.info("Starting Prompt Estimation...")
+
+        try:
+            # Initialize the prompt estimator
+            self.prompt_estimator = PromptEstimator(
+                status=self.get_status_summary(),
+                agent_id=self.configuration.get("project_name", "N/A"),
+                old_prompt= self.configuration.get("agent_modifiable_config", {}).get("prompt_configuration_file_path", "N/A"),
+                parsed_steps=self.parsed_steps,
+                hypothetical_states=self.hypothetical_states,
+                offline_learner=self.offline_learner.Q_table if self.offline_learner else {},
+                prompt_analysis=self.prompt_analysis,
+                model_name=self.model_name,
+                api_key=self.api_key,
+                provider=self.provider,
+                agent_tools= self.agent_tools,
+                output_path= self.output_path,
+            )
+
+            # Generate the optimized prompt
+            optimized_prompt = self.prompt_estimator.generate_estimated_prompt()
+
+            self.logger.info("Prompt Estimation complete.")
+            return optimized_prompt
+
+        except Exception as e:
+            self.logger.error("Prompt Estimation failed: %s", str(e))
             raise
 
     def execute_pre_run_pipeline(self, save_results: bool = True) -> Dict:
@@ -429,6 +428,7 @@ class PreRunPipeline:
         simulated_scenarios = self.run_simulation()
         q_table = self.run_qtable_initialization()
         prompt_analysis = self.run_prompt_analysis()
+        new_prompt = self.run_prompt_estimation()
 
         # Compile results
         results = {
@@ -437,6 +437,7 @@ class PreRunPipeline:
             "simulated_scenarios": simulated_scenarios,
             "q_table_size": len(q_table),
             "prompt_analysis": prompt_analysis,
+            "new_prompt": new_prompt,
         }
 
         # Save results if requested
@@ -446,9 +447,9 @@ class PreRunPipeline:
             try:
                 with open(results_path, "w", encoding="utf-8") as f:
                     json.dump(results, f, indent=2)
-                self.logger.info(f"Results saved to {results_path}")
-            except Exception as e:
-                self.logger.error(f"Failed to save results: {str(e)}")
+                self.logger.info("Results saved to %s", results_path)
+            except (OSError, TypeError, json.JSONDecodeError) as e:
+                self.logger.error("Failed to save results: %s", str(e))
 
         self.logger.info("ADAPTIQ Pre-Run Pipeline complete.")
         return results
@@ -500,281 +501,9 @@ class PreRunPipeline:
             },
         }
 
-    @instrumental_track_tokens(mode="pre_run", provider="openai")
-    def generate_estimated_prompt(self) -> str:
-        """
-        Generate an optimized system prompt for the agent based on the full results of the pre-run pipeline.
-
-        This method:
-        - Ensures all pre-run pipeline components have completed (parsing, hypothetical states, simulation, Q-table, analysis).
-        - Summarizes key findings from each phase, including parsed steps, hypothetical states, Q-table heuristics, and prompt analysis.
-        - Uses an LLM to synthesize a new, improved system prompt that incorporates best practices and recommendations.
-        - Saves the generated prompt to a report file in the output directory.
-
-        Returns:
-            str: The optimized system prompt generated by the LLM.
-        """
-        self.logger.info("Generating comprehensive pre-run analysis report...")
-
-        # Ensure we have results from all pipeline components
-        status = self.get_status_summary()
-        missing_components = []
-
-        for component, data in status.items():
-            if not data["completed"]:
-                missing_components.append(component)
-
-        if missing_components:
-            self.logger.warning(
-                "Missing results from: %s. Running complete pipeline...",
-                ", ".join(missing_components),
-            )
-            self.execute_pre_run_pipeline(save_results=False)
-
-        try:
-            # Extract key information from results
-            agent_id = self.config.get("project_name", "N/A")
-            prompt_file_path = self.agent_config.get(
-                "prompt_configuration_file_path", "N/A"
-            )
-            old_prompt = self._load_config(prompt_file_path)
-            task_name = list(old_prompt.keys())[0]
-            description = old_prompt[task_name]["description"]
-
-            # Process parsed steps
-            num_parsed_steps = len(self.parsed_steps)
-            first_few_subtasks = []
-            for step in self.parsed_steps[:3]:  # Get first three steps
-                subtask_name = step.get("subtask_name", "Unnamed task")
-                first_few_subtasks.append(subtask_name)
-
-            # Process hypothetical states
-            num_hypothetical_states = len(self.hypothetical_states)
-
-            # Process Q-table information
-            q_table_size = (
-                len(self.offline_learner.Q_table) if self.offline_learner else 0
-            )
-
-            # Get heuristics summary
-            heuristic_counts = {}
-            if self.offline_learner and hasattr(self.offline_learner, "Q_table"):
-                for i, hypothetical_step in enumerate(
-                    self.hypothetical_states[:20]
-                ):  # Sample from first 20 states
-                    state_repr = hypothetical_step.get("state")
-                    action = hypothetical_step.get("action")
-
-                    # Convert state representation to a tuple if it's in string form
-                    state_key = None
-                    try:
-                        import ast
-
-                        if (
-                            isinstance(state_repr, str)
-                            and state_repr.strip().startswith("(")
-                            and state_repr.strip().endswith(")")
-                        ):
-                            state_key = ast.literal_eval(state_repr)
-                        else:
-                            state_key = state_repr
-                    except Exception:
-                        state_key = state_repr
-
-                    if (state_key, action) in self.offline_learner.Q_table:
-                        q_value = self.offline_learner.Q_table[(state_key, action)]
-
-                        # Infer which heuristics might have been applied based on Q-value
-                        if q_value < 0:
-                            if "undeclared_tool" in action.lower() or not any(
-                                tool in action
-                                for tool in self.config.get(
-                                    "agent_modifiable_config", {}
-                                ).get("agent_tools", [])
-                            ):
-                                heuristic_counts["undeclared_tool_penalty"] = (
-                                    heuristic_counts.get("undeclared_tool_penalty", 0)
-                                    + 1
-                                )
-                            if "unknown" in action.lower():
-                                heuristic_counts["ambiguous_action_penalty"] = (
-                                    heuristic_counts.get("ambiguous_action_penalty", 0)
-                                    + 1
-                                )
-                        elif q_value > 0:
-                            if isinstance(state_key, tuple) and len(state_key) >= 2:
-                                if (state_key[1] == "None" or not state_key[1]) and any(
-                                    x in str(state_key[0])
-                                    for x in ["Information", "Initial", "Query"]
-                                ):
-                                    heuristic_counts["good_first_step_reward"] = (
-                                        heuristic_counts.get(
-                                            "good_first_step_reward", 0
-                                        )
-                                        + 1
-                                    )
-
-            # Format heuristics summary
-            key_heuristics = []
-            for heuristic, count in heuristic_counts.items():
-                key_heuristics.append(f"{heuristic} (applied {count} times)")
-
-            # Process prompt analysis
-            weaknesses = self.prompt_analysis.get("weaknesses", [])
-            suggestions = self.prompt_analysis.get("suggested_modifications", [])
-            strengths = self.prompt_analysis.get("strengths", [])
-
-            # Create prompt analysis summary text
-            prompt_analysis_summary = ""
-            if strengths:
-                prompt_analysis_summary += "Strengths:\n"
-                for i, strength in enumerate(
-                    strengths[:3]
-                ):  # Limit to first 3 for brevity
-                    prompt_analysis_summary += f"- {strength}\n"
-
-            if weaknesses:
-                prompt_analysis_summary += "\nWeaknesses:\n"
-                for i, weakness in enumerate(
-                    weaknesses[:3]
-                ):  # Limit to first 3 for brevity
-                    prompt_analysis_summary += f"- {weakness}\n"
-
-            if suggestions:
-                prompt_analysis_summary += "\nSuggested Modifications:\n"
-                for i, suggestion in enumerate(
-                    suggestions[:3]
-                ):  # Limit to first 3 for brevity
-                    prompt_analysis_summary += f"- {suggestion}\n"
-
-            # Create LLM report generation prompt
-            template = """
-            You are Adaptiq, an AI assistant specializing in optimizing AI agent prompts through reinforcement learning analysis. You have completed a comprehensive 'Pre-Run Analysis Phase' for a developer's agent and must now generate an improved, optimized version of their agent's prompt.
-
-            ## Analysis Summary:
-
-            ### Agent Configuration Context:
-            - **Agent ID**: {agent_id}
-            - **Current Prompt**: {old_prompt}
-
-            ### Available Agent Tools:
-            {agent_tools}
-
-            ### Analysis Results:
-            - **Prompt Structure Analysis**: {num_parsed_steps} intended steps identified
-            - **Key Sub-Tasks Extracted**: {first_few_subtasks}
-            - **Hypothetical State Generation**: {num_hypothetical_states} state-action pairs created
-            - **Representative States**: {hypothetical_states_sample}
-            - **Q-Table Initialization**: {q_table_size} entries with heuristics: {key_heuristics}
-            - **Automated Prompt Analysis**: {prompt_analysis_summary}
-
-            ## Optimization Guidelines:
-
-            Your optimized prompt must:
-
-            1. **Preserve All Placeholders**: Any placeholders (variables in curly braces, template syntax, or dynamic content markers) found in the original prompt are agent inputs that process runtime data. These MUST be preserved exactly as they appear - they represent essential dynamic content that the agent needs to function.
-
-            2. **Structural Optimization**: 
-            - Reflect the intended workflow from the parsed steps and sub-tasks
-            - Create clear, logical instruction sequences
-            - Eliminate redundancy and ambiguity
-
-            3. **Analysis-Driven Improvements**:
-            - Incorporate specific recommendations from the prompt analysis phase
-            - Address weaknesses identified in the hypothetical state generation
-            - Leverage insights from Q-table heuristics
-
-            4. **Tool Integration**:
-            - Ensure seamless integration with available tools
-            - Provide clear guidance on when and how to use each tool
-            - Align tool usage with the hypothetical states and decision patterns
-
-            5. **Clarity and Efficiency**:
-            - Use precise, actionable language
-            - Remove unnecessary verbosity
-            - Structure information hierarchically for better comprehension
-            - Focus on decision-making support
-
-            6. **Quality Assurance**:
-            - Ensure the prompt supports robust error handling
-            - Include guidance for edge cases identified in analysis
-            - Maintain consistency with the agent's intended behavior patterns
-
-            ## Output Requirements:
-
-            Return ONLY the optimized prompt. Do not include:
-            - Explanations of changes made
-            - Reasoning behind modifications  
-            - Additional commentary or analysis
-            - Formatting beyond the prompt itself
-            """
-            # Create the prompt
-            prompt = ChatPromptTemplate.from_template(template)
-
-            # Initialize the LLM
-            if self.provider == "openai":
-                chat_model = ChatOpenAI(
-                    api_key=self.api_key,
-                    model_name=self.model_name,
-                    temperature=0.7,  # Balanced between creativity and consistency
-                )
-            else:
-                raise ValueError(
-                    f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-                )
-
-            # Format the message with our data
-            formatted_prompt = prompt.format(
-                agent_id=agent_id,
-                old_prompt=description,
-                agent_tools=self.tools_string,
-                num_parsed_steps=num_parsed_steps,
-                first_few_subtasks=", ".join(first_few_subtasks),
-                num_hypothetical_states=num_hypothetical_states,
-                hypothetical_states_sample=self.hypothetical_states,
-                q_table_size=q_table_size,
-                key_heuristics=(
-                    ", ".join(key_heuristics) if key_heuristics else "None identified"
-                ),
-                prompt_analysis_summary=prompt_analysis_summary,
-            )
-
-            # Generate the report
-            response = chat_model.invoke(formatted_prompt)
-            capture_llm_response(response)
-            report = response.content
-
-            self.logger.info("Report generation complete")
-
-            # Save the report if desired
-            output_dir = self._ensure_output_directory()
-            report_path = os.path.join(
-                output_dir, "adaptiq_analysis_pre_run_report.txt"
-            )
-
-            try:
-                with open(report_path, "w", encoding="utf-8") as f:
-                    f.write(report)
-                self.logger.info(f"Report saved to {report_path}")
-            except Exception as e:
-                self.logger.warning(f"Failed to save report: {str(e)}")
-
-            return report
-
-        except ImportError as e:
-            self.logger.error(f"Required package not installed: {str(e)}")
-            return f"Failed to generate report: {str(e)}. Please ensure langchain and openai packages are installed."
-        except Exception as e:
-            self.logger.error(f"Report generation failed: {str(e)}")
-            return f"Failed to generate report: {str(e)}"
 
 
 def adaptiq_pre_run_pipeline(config_path: str, output_path: str = None) -> Any:
     """Execute full pre-run pipeline workflow."""
-    pre_run_orchestrator = PreRunPipeline(
-        config_path=config_path, output_path=output_path
-    )
-    results = pre_run_orchestrator.execute_pre_run_pipeline()
-    new_prompt = pre_run_orchestrator.generate_estimated_prompt()
-
-    return results, new_prompt
+    
+    return {}
