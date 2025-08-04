@@ -18,7 +18,7 @@ class BaseConfig(ABC):
     for specific applications or services.
     """
     
-    def __init__(self, config_path: str, auto_create: bool = False):
+    def __init__(self, config_path: str = None, preload: bool = False):
         """
         Initialize the configuration manager with the path to the configuration file.
         
@@ -30,34 +30,15 @@ class BaseConfig(ABC):
             FileNotFoundError: If the configuration file does not exist and auto_create is False.
             ValueError: If the configuration file cannot be parsed.
         """
-        self.config_path = config_path
-        self.config = {}
-        self._file_format = self._detect_file_format(config_path)
-        
-        if auto_create and not os.path.isfile(config_path):
-            self._create_default_config()
-        
-        self.config = self._load_config(config_path)
-    
-    def _detect_file_format(self, config_path: str) -> str:
-        """
-        Detect the file format based on the file extension.
-        
-        Args:
-            config_path (str): Path to the configuration file.
-            
-        Returns:
-            str: 'json' or 'yaml'
-        """
-        _, ext = os.path.splitext(config_path.lower())
-        if ext in ['.json']:
-            return 'json'
-        elif ext in ['.yaml', '.yml']:
-            return 'yaml'
-        else:
-            # Default to JSON if extension is unclear
-            logger.warning(f"Unknown file extension {ext}, defaulting to JSON format")
-            return 'json'
+        if preload:
+            if not config_path:
+                raise ValueError("Configuration path must be provided for preloading.")
+            self.config = self._load_config(config_path)
+
+            return
+
+        self.config_path = None
+        self.config = None
     
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """
@@ -77,13 +58,10 @@ class BaseConfig(ABC):
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
         
         try:
+            
             with open(config_path, "r", encoding="utf-8") as file:
-                if self._file_format == 'json':
-                    return json.load(file)
-                else:  # yaml
-                    return yaml.safe_load(file) or {}
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse JSON configuration file: {e}")
+                return yaml.safe_load(file) or {}
+        
         except yaml.YAMLError as e:
             raise ValueError(f"Failed to parse YAML configuration file: {e}")
         except Exception as e:
@@ -107,10 +85,7 @@ class BaseConfig(ABC):
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             
             with open(save_path, "w", encoding="utf-8") as file:
-                if self._file_format == 'json':
-                    json.dump(self.config, file, indent=2, ensure_ascii=False)
-                else:  # yaml
-                    yaml.safe_dump(self.config, file, default_flow_style=False, 
+                yaml.safe_dump(self.config, file, default_flow_style=False, 
                                  allow_unicode=True, indent=2)
             
             logger.info(f"Configuration saved successfully to: {save_path}")
@@ -192,35 +167,28 @@ class BaseConfig(ABC):
         self.config = self._load_config(self.config_path)
         logger.info(f"Configuration reloaded from: {self.config_path}")
     
-    def validate_config(self) -> bool:
+    def validate_config(self) -> Tuple[bool, str]:
         """
         Validate the current configuration.
         This method should be implemented by subclasses to provide specific validation logic.
         
         Returns:
             bool: True if configuration is valid, False otherwise.
+            str: Validation message.
         """
         return self._validate_config()
     
     @abstractmethod
-    def _validate_config(self) -> bool:
+    def _validate_config(self) -> Tuple[bool, str]:
         """
         Abstract method for configuration validation.
         Must be implemented by subclasses.
         
         Returns:
-            bool: True if configuration is valid, False otherwise.
+            Tuple[bool, str]: A tuple containing a boolean indicating validity and a validation message.
         """
         pass
     
-    @abstractmethod
-    def _create_default_config(self) -> None:
-        """
-        Abstract method to create a default configuration file.
-        Must be implemented by subclasses.
-        """
-        pass
-
     @abstractmethod
     def create_project_template(project_name=None, base_path=".") -> Tuple[bool, str]:
         """
@@ -236,12 +204,16 @@ class BaseConfig(ABC):
 
         pass
     
+    @abstractmethod 
+    def get_prompt() -> str:
+        pass
+    
     def __str__(self) -> str:
         """String representation of the configuration manager."""
-        return f"{self.__class__.__name__}(config_path='{self.config_path}', format='{self._file_format}')"
+        return f"{self.__class__.__name__}(config_path='{self.config_path}')"
     
     def __repr__(self) -> str:
         """Detailed string representation of the configuration manager."""
-        return f"{self.__class__.__name__}(config_path='{self.config_path}', format='{self._file_format}', keys={list(self.config.keys())})"
+        return f"{self.__class__.__name__}(config_path='{self.config_path}', keys={list(self.config.keys())})"
 
 

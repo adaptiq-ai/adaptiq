@@ -25,7 +25,7 @@ class CallInfo(BaseModel):
         except ValueError:
             raise ValueError('timestamp must be in ISO format')
     
-    @model_validator
+    @model_validator(mode='before')
     def validate_token_consistency(cls, values):
         """Validate that total_tokens >= input_tokens + output_tokens"""
         input_tokens = values.get('input_tokens', 0)

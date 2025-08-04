@@ -16,7 +16,7 @@
 # Report_data folder: Holds updated JSON run results for local storage.
 
 # --- Project Information ---
-project_name: "{project_name}"        # Name of your project
+project_name: "agent_test"        # Name of your project
 email: ""          # Developer's email for reporting (By entering your email, you agree to receive the report and allow us to process your data for this purpose. If you do not agree, leave it as an empty string: "")
 
 # --- LLM Configuration ---
@@ -24,7 +24,7 @@ email: ""          # Developer's email for reporting (By entering your email, yo
 llm_config:
     provider: "openai"                     # LLM provider (only 'openai' supported)
     model_name: "gpt-4.1-mini"              # OpenAI model to use (Currently, only the gpt-4.1-mini model is supported. More models will be available in future versions.)
-    api_key: "your_openai_api_key"         # Your OpenAI API key
+    api_key: "..."         # Your OpenAI API key
 
 # --- Framework Adapter Configuration ---
 # Currently only CrewAI is supported
@@ -49,7 +49,7 @@ agent_modifiable_config:
 # --- Report Output Configuration ---
 # Where AdaptiQ will save optimization reports
 report_config:
-    output_path: "reports/{project_name}.md"    # Path for the optimization report (Been set by default)
+    output_path: "reports/agent_test.md"    # Path for the optimization report (Been set by default)
 
 # --- Alert Mode Configuration ---
 # Configure when AdaptiQ should generate reports

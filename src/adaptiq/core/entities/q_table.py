@@ -1,11 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 
 
-class QTableStateActions(BaseModel):
-    __root__: Dict[str, float]  # action: Q-value
-
+class QTableStateActions(RootModel[Dict[str, float] ]):
+    pass
 
 class QTablePayload(BaseModel):
     Q_table: Dict[str, QTableStateActions] = Field(

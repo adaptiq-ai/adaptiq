@@ -9,6 +9,11 @@ try:
 except ImportError:
     pass
 
+import importlib.resources
+
+with importlib.resources.path("adaptiq.templates.crew_template", "__init__.py") as template_path:
+    template_source = str(template_path.parent)
+
 
 def get_version():
     return __version__

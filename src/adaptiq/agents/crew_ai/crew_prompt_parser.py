@@ -13,10 +13,6 @@ from adaptiq.core.reporting.adaptiq_metrics import (
 )
 from adaptiq.core.abstract.integrations.base_prompt_parser import BasePromptParser
 
-instance = CrewPromptParser("path/to/adaptiq_config.yml")
-
-
-pipeline ()
 
 class CrewPromptParser(BasePromptParser):
     """

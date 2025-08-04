@@ -5,52 +5,13 @@ import os
 import sys  # To get command line arguments
 import time
 import tracemalloc
+import logging
 
-
-from adaptiq.core.reporting import Aggregator, AdaptiqLogger
+from adaptiq.core.reporting import Aggregator, AdaptiqLogger, get_logger
 from adaptiq.core.pipelines.pre_run import PreRunPipeline
 from adaptiq.core.pipelines.post_run import PostRunPipeline, adaptiq_reconciliation_pipeline
 
-
-def setup_logging(log_path=None):
-    """
-    Sets up logging configuration with both console and file handlers.
-
-    Args:
-        log_path (str, optional): Path to log file. If None, only console logging.
-    """
-    # Create logger
-    logger = logging.getLogger("AdaptiQ CLI")
-    logger.setLevel(logging.INFO)
-
-    # Clear any existing handlers
-    logger.handlers.clear()
-
-    # Create formatter
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    # File handler (if log_path is provided)
-    if log_path:
-        # Create directory if it doesn't exist
-        log_dir = os.path.dirname(log_path)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-
-        file_handler = logging.FileHandler(log_path)
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    return logger
+get_logger()
 
 
 def find_and_clear_log_files(
@@ -85,7 +46,7 @@ def find_and_clear_log_files(
                 print(f"Cleared content from: {file_path}")
 
 
-def execute_pre_run_only(args, logger):
+def execute_pre_run_only(args):
     """Execute only the pre_run pipeline (runs once) and report time and memory usage."""
 
     # Initialize the aggregator
@@ -93,7 +54,7 @@ def execute_pre_run_only(args, logger):
     tracer = AdaptiqLogger.setup()
 
     try:
-        logger.info("STEP : Executing pre_run pipeline...")
+        logging.info("STEP : Executing pre_run pipeline...")
 
         # Start tracking time and memory
         start_time = time.time()
@@ -117,11 +78,11 @@ def execute_pre_run_only(args, logger):
         execution_time = end_time - start_time
         peak_memory = peak / 1024 / 1024  # Convert to MB
 
-        logger.info("[SUCCESS] Pre-run pipeline completed successfully")
-        logger.info(
+        logging.info("[SUCCESS] Pre-run pipeline completed successfully")
+        logging.info(
             f"tokens input: {input_tokens}, output: {output_tokens}, total calls: {total_calls}"
         )
-        logger.info(
+        logging.info(
             f"Execution time: {execution_time:.2f} seconds, Peak memory usage: {peak_memory:.2f} MB"
         )
 
@@ -184,17 +145,17 @@ def execute_pre_run_only(args, logger):
             success = aggregator.send_run_results(project_result)
 
             if success:
-                logger.info("Successfully sent run results to reporting endpoint")
+                logging.info("Successfully sent run results to reporting endpoint")
             else:
-                logger.warning("Failed to send run results to reporting endpoint")
+                logging.warning("Failed to send run results to reporting endpoint")
         else:
-            logger.info("Default run results are saved locally")
+            logging.info("Default run results are saved locally")
 
         return True
 
     except Exception as e:
-        logger.error(f"Error during pre-run pipeline execution: {str(e)}")
-        logger.error("Pre-run pipeline execution stopped due to error.")
+        logging.error(f"Error during pre-run pipeline execution: {str(e)}")
+        logging.error("Pre-run pipeline execution stopped due to error.")
 
         # Update aggregator with error information
         aggregator.increment_run_count()
@@ -253,7 +214,7 @@ def execute_post_run_and_reconciliation(
     total_successful_requests = 0
 
     if crew_metrics:
-        logger.info(
+        logging.info(
             f"{run_prefix}Processing {len(crew_metrics)} crew metrics entries..."
         )
 
@@ -273,7 +234,7 @@ def execute_post_run_and_reconciliation(
             total_completion_tokens += completion_tokens
             total_successful_requests += successful_requests
 
-            logger.info(
+            logging.info(
                 f"{run_prefix}Metrics {i + 1}/{len(crew_metrics)}: "
                 f"time={execution_time_seconds:.2f}s, "
                 f"tokens={prompt_tokens + completion_tokens}, "
@@ -282,16 +243,16 @@ def execute_post_run_and_reconciliation(
 
     try:
         # Step 1: Execute post_run pipeline
-        logger.info(f"{run_prefix}STEP 1: Executing post_run pipeline...")
+        logging.info(f"{run_prefix}STEP 1: Executing post_run pipeline...")
 
         post_run_results = PostRunPipeline(
             config_path=args.config, output_path=args.output_path
         )
 
-        logger.info(f"{run_prefix}[SUCCESS] Post-run pipeline completed successfully")
+        logging.info(f"{run_prefix}[SUCCESS] Post-run pipeline completed successfully")
 
         # Step 2: Execute reconciliation pipeline
-        logger.info(f"{run_prefix}STEP 2: Executing reconciliation pipeline...")
+        logging.info(f"{run_prefix}STEP 2: Executing reconciliation pipeline...")
 
         reconciliation_results = adaptiq_reconciliation_pipeline(
             config_path=args.config,
@@ -299,13 +260,13 @@ def execute_post_run_and_reconciliation(
             feedback=args.feedback,
         )
 
-        logger.info(
+        logging.info(
             f"{run_prefix}[SUCCESS] Reconciliation pipeline completed successfully"
         )
-        logger.info(
+        logging.info(
             f"{run_prefix}Agent token stats: input={total_prompt_tokens}, output={total_completion_tokens}, calls={total_successful_requests}"
         )
-        logger.info(
+        logging.info(
             f"{run_prefix}Total execution time: {total_execution_time:.2f} seconds, Peak memory usage: {total_peak_memory:.2f} MB"
         )
 
@@ -374,12 +335,12 @@ def execute_post_run_and_reconciliation(
                     execution_logs=tracer.get_logs(),
                 )
 
-                logger.info(
+                logging.info(
                     f"{run_prefix}Added run summary for execution {execution_count}"
                 )
         else:
             # Handle case where no crew metrics provided - add single summary
-            logger.info(
+            logging.info(
                 f"{run_prefix}No crew metrics provided, adding single run summary..."
             )
 
@@ -417,7 +378,7 @@ def execute_post_run_and_reconciliation(
 
         # Only send results if should_send_report is True
         if should_send_report:
-            logger.info(
+            logging.info(
                 f"{run_prefix}Building and sending comprehensive project results..."
             )
 
@@ -433,17 +394,17 @@ def execute_post_run_and_reconciliation(
                 success = aggregator.send_run_results(merged_result)
 
                 if success:
-                    logger.info(
+                    logging.info(
                         f"{run_prefix}Successfully sent comprehensive run results to reporting endpoint"
                     )
                 else:
-                    logger.warning(
+                    logging.warning(
                         f"{run_prefix}Failed to send run results to reporting endpoint"
                     )
             else:
-                logger.info(f"{run_prefix} are successfully saved locally")
+                logging.info(f"{run_prefix} are successfully saved locally")
         else:
-            logger.info(
+            logging.info(
                 f"{run_prefix}Run summaries added to aggregator - report will be sent when all runs complete"
             )
 
@@ -452,8 +413,8 @@ def execute_post_run_and_reconciliation(
         return True
 
     except Exception as e:
-        logger.error(f"{run_prefix}Error during pipeline execution: {str(e)}")
-        logger.error(f"{run_prefix}Pipeline execution stopped due to error.")
+        logging.error(f"{run_prefix}Error during pipeline execution: {str(e)}")
+        logging.error(f"{run_prefix}Pipeline execution stopped due to error.")
 
         # Handle errors for all runs if crew_metrics provided
         if crew_metrics:
@@ -499,64 +460,118 @@ def execute_post_run_and_reconciliation(
 
         # Only send results if should_send_report is True (even for failed runs)
         if should_send_report:
-            logger.info(
+            logging.info(
                 f"{run_prefix}Building and sending project results for failed run..."
             )
             project_result = aggregator.build_project_result()
             aggregator.send_run_results(project_result)
         else:
-            logger.info(
+            logging.info(
                 f"{run_prefix}Failed run summary added to aggregator - report will be sent when all runs complete"
             )
 
         return False
 
 
+def handle_init_command(args):
+    """Handles the logic for the 'init' command - initializes a new Adaptiq project."""
+    logging
+
+    logging.info("Executing the 'init' command...")
+    logging.info(f"Project name: {args.name}")
+    logging.info(f"Template: {args.template}")
+    logging.info(f"Path: {args.path}")
+
+    # Initialize the project with the specified template
+    try:
+        from adaptiq.agents.crew_ai.crew_config import CrewConfig
+
+        if args.template == "crew-ai":
+            crew_config = CrewConfig()
+            is_created, msg = crew_config.create_project_template(base_path=args.path, project_name=args.name)
+
+            logging.info(msg)
+            return is_created
+
+        return False
+
+    except Exception as e:
+        logging.error(f"Error initializing project: {str(e)}")
+        return False
+
+def handle_validate_command(args):
+    """Handles the logic for the 'validate' command - validates project configuration and template structure."""
+
+    logging.info("Executing the 'validate' command...")
+    logging.info(f"Configuration file: {args.config_path}")
+    logging.info(f"Template type: {args.template}")
+
+    # Validate the project configuration
+    try:
+        from adaptiq.agents.crew_ai.crew_config import CrewConfig
+
+
+        if args.template == "crew-ai":
+            crew_config = CrewConfig(config_path=args.config_path, preload=True)
+            is_valid, msg = crew_config.validate_config()
+
+            if is_valid:
+                logging.info("Project configuration and template structure are valid.")
+                return True
+            else:
+                logging.error(f"Validation failed: {msg}")
+                return False
+
+        return False
+
+    except Exception as e:
+        logging.error(f"Validation failed: {str(e)}")
+        return False
+
+
 def handle_default_run_command(args):
     """Handles the logic for the 'default-run' command - executes only pre_run pipeline."""
-    logger = setup_logging(args.log)
 
-    logger.info("Executing the 'default-run' command...")
-    logger.info(f"Configuration file: {args.config}")
+    logging.info("Executing the 'default-run' command...")
+    logging.info(f"Configuration file: {args.config}")
 
     if args.output_path:
-        logger.info(f"Results will be saved to: {args.output_path}")
+        logging.info(f"Results will be saved to: {args.output_path}")
 
     if args.log:
-        logger.info(f"Logging to file: {args.log}")
+        logging.info(f"Logging to file: {args.log}")
 
-    logger.info("DEFAULT-RUN MODE: Executing pre-run pipeline only")
+    logging.info("DEFAULT-RUN MODE: Executing pre-run pipeline only")
 
     # Execute pre-run pipeline (runs only once)
-    success = execute_pre_run_only(args, logger)
+    success = execute_pre_run_only(args)
 
     if success:
-        logger.info("=" * 60)
-        logger.info("[SUCCESS] ADAPTIQ DEFAULT-RUN COMPLETED SUCCESSFULLY")
-        logger.info("Pre-run pipeline executed successfully!")
-        logger.info("=" * 60)
+        logging.info("=" * 60)
+        logging.info("[SUCCESS] ADAPTIQ DEFAULT-RUN COMPLETED SUCCESSFULLY")
+        logging.info("Pre-run pipeline executed successfully!")
+        logging.info("=" * 60)
     else:
-        logger.error("DEFAULT-RUN FAILED!")
+        logging.error("DEFAULT-RUN FAILED!")
         sys.exit(1)
 
 
 def handle_run_command(args):
     """Handles the logic for the 'run' command - executes post_run and reconciliation sequentially."""
-    logger = setup_logging(args.log)
 
-    logger.info("Executing the 'run' command...")
-    logger.info(f"Configuration file: {args.config}")
+    logging.info("Executing the 'run' command...")
+    logging.info(f"Configuration file: {args.config}")
 
     if args.output_path:
-        logger.info(f"Results will be saved to: {args.output_path}")
+        logging.info(f"Results will be saved to: {args.output_path}")
 
     if args.log:
-        logger.info(f"Logging to file: {args.log}")
+        logging.info(f"Logging to file: {args.log}")
 
     # Handle crew metrics if provided
     crew_metrics_list = []
     if hasattr(args, "crew_metrics") and args.crew_metrics:
-        logger.info("Crew metrics provided:")
+        logging.info("Crew metrics provided:")
         try:
             crew_metrics_list = json.loads(args.crew_metrics)
             print(f"[CREW_METRICS] {crew_metrics_list}")
@@ -566,46 +581,46 @@ def handle_run_command(args):
                 current_execution_count = crew_metrics_list[-1].get(
                     "execution_count", 0
                 )
-                logger.info(
+                logging.info(
                     f"Current execution count from crew metrics: {current_execution_count}"
                 )
 
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON format for crew metrics: {e}")
+            logging.error(f"Invalid JSON format for crew metrics: {e}")
             print(f"[CREW_METRICS_RAW] {args.crew_metrics}")
 
     # Get send_report flag (defaults to True if not provided)
     should_send_report = True
     if hasattr(args, "send_report"):
         should_send_report = args.send_report
-        logger.info(f"Send report flag: {should_send_report}")
+        logging.info(f"Send report flag: {should_send_report}")
 
     # Execute single run (post_run and reconciliation only)
-    logger.info("=" * 60)
-    logger.info("[START] STARTING ADAPTIQ RUN")
-    logger.info("=" * 60)
+    logging.info("=" * 60)
+    logging.info("[START] STARTING ADAPTIQ RUN")
+    logging.info("=" * 60)
 
     success = execute_post_run_and_reconciliation(
         args,
-        logger,
+        logger = None,
         run_number=None,
         crew_metrics=crew_metrics_list,
         should_send_report=should_send_report,
     )
 
     if success:
-        logger.info("[SUCCESS] ADAPTIQ RUN COMPLETED SUCCESSFULLY")
-        logger.info("All pipelines (post_run -> reconciliation) executed successfully!")
+        logging.info("[SUCCESS] ADAPTIQ RUN COMPLETED SUCCESSFULLY")
+        logging.info("All pipelines (post_run -> reconciliation) executed successfully!")
         if should_send_report:
-            logger.info("[REPORT] Report sent successfully!")
+            logging.info("[REPORT] Report sent successfully!")
         else:
-            logger.info("[REPORT] Report sending skipped (send_report=False)")
+            logging.info("[REPORT] Report sending skipped (send_report=False)")
     else:
-        logger.error("ADAPTIQ RUN FAILED!")
-        logger.error("Execution failed during pipeline execution.")
+        logging.error("ADAPTIQ RUN FAILED!")
+        logging.error("Execution failed during pipeline execution.")
         sys.exit(1)
 
-    logger.info("=" * 60)
+    logging.info("=" * 60)
 
 
 def main():
@@ -615,12 +630,72 @@ def main():
         description="Adaptiq CLI: Run and manage prompt optimization tasks.",
     )
 
+
     # Create subparsers for different commands (like 'run')
     subparsers = parser.add_subparsers(
         dest="command",  # Attribute name to store which subcommand was used
         help="Available commands",
         required=True,  # Make choosing a command mandatory
     )
+
+     # --- Define the 'init' command ---
+    parser_init = subparsers.add_parser(
+        "init", help="Initialize a new Adaptiq project with configuration templates."
+    )
+
+    # Add arguments specific to the 'init' command
+    parser_init.add_argument(
+        "--name",
+        type=str,
+        metavar="PROJECT_NAME",
+        required=True,
+        help="Name of the project to initialize.",
+    )
+
+    parser_init.add_argument(
+        "--template",
+        type=str,
+        metavar="TEMPLATE_NAME",
+        default="crew-ai",
+        help="Template to use for initialization (default: crew-ai).",
+    )
+
+    parser_init.add_argument(
+        "--path",
+        type=str,
+        metavar="PROJECT_PATH",
+        default=".",
+        help="Path to the current directory.",
+    )
+
+    # Set the function to call when 'init' is chosen
+    parser_init.set_defaults(func=handle_init_command)
+
+    
+    # --- Define the 'validate' command ---
+    parser_validate = subparsers.add_parser(
+        "validate", help="Validate project configuration and template structure."
+    )
+
+    # Add arguments specific to the 'validate' command
+    parser_validate.add_argument(
+        "--config-path",
+        type=str,
+        metavar="CONFIG_PATH",
+        required=True,
+        help="Path to the configuration file to validate.",
+    )
+
+    parser_validate.add_argument(
+        "--template",
+        type=str,
+        metavar="TEMPLATE_TYPE",
+        required=True,
+        help="Type of template to validate against.",
+    )
+
+    # Set the function to call when 'validate' is chosen
+    parser_validate.set_defaults(func=handle_validate_command)
 
     # --- Define the 'default-run' command ---
     parser_default_run = subparsers.add_parser(
@@ -695,76 +770,6 @@ def main():
     )
     # Set the function to call when 'run' is chosen
     parser_run.set_defaults(func=handle_run_command)
-
-    # --- Define the 'wizard' command ---
-    parser_wizard = subparsers.add_parser(
-        "wizard", help="Start the interactive Adaptiq wizard assistant."
-    )
-    # Add arguments specific to the 'wizard' command
-    parser_wizard.add_argument(
-        "--llm_provider",
-        type=str,
-        metavar="PROVIDER",
-        required=True,
-        help="LLM provider to use for the wizard assistant (e.g., 'openai', 'groq').",
-    )
-    parser_wizard.add_argument(
-        "--api_key",
-        type=str,
-        metavar="API_KEY",
-        required=True,
-        help="API key for the wizard assistant.",
-    )
-    parser_wizard.add_argument(
-        "--log",
-        type=str,
-        metavar="PATH",
-        help="Optional path to a file for logging output.",
-    )
-
-
-    # --- Define the 'wizard-headless' command ---
-    parser_wizard_headless = subparsers.add_parser(
-        "wizard-headless",
-        help="Run the Adaptiq wizard assistant in non-interactive headless mode.",
-    )
-    # Add arguments specific to the 'wizard-headless' command
-    parser_wizard_headless.add_argument(
-        "--llm_provider",
-        type=str,
-        metavar="PROVIDER",
-        required=True,
-        help="LLM provider to use for the wizard assistant (e.g., 'openai', 'groq').",
-    )
-    parser_wizard_headless.add_argument(
-        "--api_key",
-        type=str,
-        metavar="API_KEY",
-        required=True,
-        help="API key for the wizard assistant.",
-    )
-    parser_wizard_headless.add_argument(
-        "--prompt",
-        type=str,
-        metavar="PROMPT",
-        required=True,
-        help="The prompt/question to process in headless mode.",
-    )
-    parser_wizard_headless.add_argument(
-        "--output_format",
-        type=str,
-        metavar="FORMAT",
-        choices=["text", "json", "stream-json"],
-        default="text",
-        help="Output format: 'text', 'json', or 'stream-json' (default: text).",
-    )
-    parser_wizard_headless.add_argument(
-        "--log",
-        type=str,
-        metavar="PATH",
-        help="Optional path to a file for logging output.",
-    )
-
 
     # If no arguments are given (just 'adaptiq'), argparse automatically shows help
     # because subparsers are 'required'.

@@ -2,8 +2,10 @@
 import os
 import shutil
 from typing import Dict, Any, Optional, Tuple
-import json
+
+import yaml
 from adaptiq.core.abstract.integrations.base_config import BaseConfig
+from importlib.resources import files
 import logging
 
 
@@ -17,130 +19,236 @@ class CrewConfig(BaseConfig):
     The class supports both development and production modes, allowing for flexible log access based on the execution context.
     """
     
-    def __init__(self, config_path: str, auto_create: bool = True):
-        """
-        Initialize the AdaptiqAgentTracer with the path to the configuration file.
-        
-        Args:
-            config_path (str): Path to the configuration file in JSON or YAML format.
-            auto_create (bool): If True, creates a default config file if it doesn't exist.
-        """
-        super().__init__(config_path, auto_create)
-    
-    def create_project_template(project_name=None, base_path=".") -> Tuple[bool, str]:
-        # Validate project name
+    def __init__(self, config_path: str = None, preload: bool = False):
+        super().__init__(config_path=config_path, preload=preload)
+
+    def create_project_template(self, base_path: str, project_name: str = None) -> Tuple[bool, str]:
         if not project_name:
             return False, "❌ Error: Project name not provided. Please specify a project name."
+        if not base_path:
+            return False, "❌ Error: Base path not provided. Please specify a base path."
 
-        # Clean project name (remove spaces, special characters, etc.)
+        # Clean project name
         project_name = project_name.replace(" ", "_").replace("-", "_")
         project_name = "".join(c for c in project_name if c.isalnum() or c == "_")
 
         # Ensure src directory exists
         src_path = os.path.join(base_path, "src")
-        if not os.path.exists(src_path):
-            os.makedirs(src_path, exist_ok=True)
-            print(f"Created src directory: {src_path}")
+        os.makedirs(src_path, exist_ok=True)
 
-        # Check if project directory already exists
         project_path = os.path.join(src_path, project_name)
         if os.path.exists(project_path):
             return False, f"❌ Error: Folder template already exists at '{project_path}'"
 
-        # Define template source path
-        template_source = os.path.join("adaptiq.template", "crew_template")
-        
-        # Check if template source exists
-        if not os.path.exists(template_source):
-            return False, f"❌ Error: Template source not found at '{template_source}'"
+        # Locate the template directory
+        template_source = files("adaptiq.templates.crew_template")
 
         try:
-            # Copy the entire crew_template directory to the new project location
-            # The destination is already named with the project_name, so this effectively renames the folder
+            # Copy the template to the new location
             shutil.copytree(template_source, project_path)
-            print(f"Copied template from '{template_source}' to '{project_path}'")
 
-            return True, f"✅ Repository template created successfully!\n📁 Structure created under: {project_path}"
+            # 🔧 Modify the copied config YAML
+            config_path = os.path.join(project_path, "config", "adaptiq_config.yml")
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+
+                # Replace placeholder
+                content = content.replace("{project_name}", project_name)
+
+                with open(config_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+            return True, f"✅ Repository template created successfully!\n📁 Structure: {project_path}"
 
         except Exception as e:
-            # Clean up partial creation if error occurs
             if os.path.exists(project_path):
                 shutil.rmtree(project_path)
             return False, f"❌ Error creating template: {str(e)}"
 
-    def _create_default_config(self) -> None:
-        """Create a default configuration for the AdaptiqAgentTracer."""
-        default_config = {
-            "agent": {
-                "name": "default_agent",
-                "mode": "development",
-                "trace_enabled": True
-            },
-            "logging": {
-                "level": "INFO",
-                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                "file_path": "logs/agent_trace.log"
-            },
-            "output": {
-                "trace_format": "json",
-                "include_timestamps": True,
-                "max_trace_size": 1048576  # 1MB
-            }
-        }
-        
-        self.config = default_config
-        self.save_config()
-        logger.info(f"Created default configuration at: {self.config_path}")
-    
-    def _validate_config(self) -> bool:
+    def get_prompt(self) -> str:
+        prompt_path = self.config["agent_modifiable_config"]["prompt_configuration_file_path"]
+        current_dir = os.getcwd()
+        file_path = os.path.join(current_dir, prompt_path)
+
+        # Read YAML file
+        with open(file_path, 'r', encoding='utf-8') as f:
+            yaml_content = yaml.safe_load(f)
+
+        # Convert to string
+        return yaml.dump(yaml_content, default_flow_style=False)
+
+    def _validate_config(self) -> Tuple[bool, str]:
         """
         Validate the AdaptiqAgentTracer configuration.
         
         Returns:
-            bool: True if configuration is valid, False otherwise.
+            Tuple[bool, str]: A tuple containing a boolean indicating validity and a validation message.
         """
-        required_sections = ["agent", "logging", "output"]
-        required_agent_keys = ["name", "mode", "trace_enabled"]
-        required_logging_keys = ["level", "format", "file_path"]
-        required_output_keys = ["trace_format", "include_timestamps"]
-        
-        # Check required sections
-        for section in required_sections:
-            if section not in self.config:
-                logger.error(f"Missing required configuration section: {section}")
+        try:
+            current_dir = os.getcwd()
+            # Check required top-level keys
+            required_keys = [
+                "project_name",
+                "email",
+                "llm_config",
+                "framework_adapter",
+                "agent_modifiable_config",
+                "report_config",
+                "alert_mode",
+            ]
+
+            missing_keys = [key for key in required_keys if key not in self.config]
+            if missing_keys:
+                return False, f"❌ Missing required configuration keys: {', '.join(missing_keys)}"
+
+            # Check required nested keys
+            llm_required = ["model_name", "api_key", "provider"]
+            llm_missing = [
+                key
+                for key in llm_required
+                if key not in self.config.get("llm_config", {})
+            ]
+            if llm_missing:
+                return False, f"❌ Missing required llm_config keys: {', '.join(llm_missing)}"
+                
+
+            framework_required = ["name", "settings"]
+            framework_missing = [
+                key
+                for key in framework_required
+                if key not in self.config.get("framework_adapter", {})
+            ]
+            if framework_missing:
+                return False, f"❌ Missing required framework_adapter keys: {', '.join(framework_missing)}"
+
+            agent_config_required = [
+                "prompt_configuration_file_path",
+                "agent_definition_file_path",
+                "agent_name",
+                "agent_tools",
+            ]
+            agent_config_missing = [
+                key
+                for key in agent_config_required
+                if key not in self.config.get("agent_modifiable_config", {})
+            ]
+            if agent_config_missing:
+                return  False, f"❌ Missing required agent_modifiable_config keys: {', '.join(agent_config_missing)}"
+
+            report_required = ["output_path"]
+            report_missing = [
+                key
+                for key in report_required
+                if key not in self.config.get("report_config", {})
+            ]
+            if report_missing:
+                return False, f"❌ Missing required report_config keys: {', '.join(report_missing)}"
+
+            # --- Alert Mode Checks ---
+            alert_mode = self.config.get("alert_mode")
+            if not alert_mode:
+                return False, "❌ Missing required section: alert_mode"
+
+            # Check on_demand
+            on_demand = alert_mode.get("on_demand")
+            if not on_demand or "enabled" not in on_demand:
+                return False, "❌ Missing 'on_demand' or its 'enabled' key in alert_mode"
+            if not isinstance(on_demand["enabled"], bool):
+                return False, "❌ 'on_demand.enabled' must be true or false"
+            if on_demand["enabled"]:
+                if (
+                    "runs" not in on_demand
+                    or not isinstance(on_demand["runs"], int)
+                    or on_demand["runs"] <= 0
+                ):
+                    return False, "❌ 'on_demand.runs' must be a positive integer when 'on_demand.enabled' is true"
+
+            # Check per_run
+            per_run = alert_mode.get("per_run")
+            if not per_run or "enabled" not in per_run:
+                return False, "❌ Missing 'per_run' or its 'enabled' key in alert_mode"
+            if not isinstance(per_run["enabled"], bool):
+                return False, "❌ 'per_run.enabled' must be true or false"
+
+            # Helper function to resolve relative paths
+            def resolve_path(path_value):
+                """Resolve relative paths relative to the current working directory."""
+                if os.path.isabs(path_value):
+                    return path_value
+                return os.path.join(current_dir, path_value)
+
+            # Check if file paths exist (with relative path support)
+            paths_to_check = []
+            agent_config = self.config.get("agent_modifiable_config", {})
+            if "prompt_configuration_file_path" in agent_config:
+                path_value = agent_config["prompt_configuration_file_path"]
+                resolved_path = resolve_path(path_value)
+                paths_to_check.append(
+                    ("prompt_configuration_file_path", path_value, resolved_path)
+                )
+            if "agent_definition_file_path" in agent_config:
+                path_value = agent_config["agent_definition_file_path"]
+                resolved_path = resolve_path(path_value)
+                paths_to_check.append(
+                    ("agent_definition_file_path", path_value, resolved_path)
+                )
+
+            missing_paths = []
+            for path_name, original_path, resolved_path in paths_to_check:
+                if not os.path.exists(resolved_path):
+                    missing_paths.append(
+                        f"{path_name}: {original_path} (resolved to: {resolved_path})"
+                    )
+
+            if missing_paths:
+                return False, "❌ Required file paths not found:\n" + "\n".join(
+                    [f"  • {path}" for path in missing_paths]
+                )
+
+            # --- Placeholder Value Checks ---
+            # Define placeholder values from adaptiq_init (including both .yml and .yaml)
+            placeholders = [
+                "your_project_name",
+                "your_email@example.com",
+                "your_openai_api_key",
+                "your_agent_name",
+                "list_of_your_tools",
+                "path/to/your/log.txt",
+                "path/to/your/config/tasks.yaml",
+                "path/to/your/config/agents.yaml",
+                "path/to/your/config/tasks.yml",
+                "path/to/your/config/agents.yml",
+                "reports/your_agent_name.md",
+            ]
+
+            # Recursively check all string values in config_data for placeholders
+            def contains_placeholder(d):
+                if isinstance(d, dict):
+                    for v in d.values():
+                        result = contains_placeholder(v)
+                        if result:
+                            return result
+                elif isinstance(d, list):
+                    for v in d:
+                        result = contains_placeholder(v)
+                        if result:
+                            return result
+                elif isinstance(d, str):
+                    for ph in placeholders:
+                        if ph in d:
+                            return ph
                 return False
-        
-        # Check required agent keys
-        for key in required_agent_keys:
-            if key not in self.config["agent"]:
-                logger.error(f"Missing required agent configuration key: {key}")
-                return False
-        
-        # Check required logging keys
-        for key in required_logging_keys:
-            if key not in self.config["logging"]:
-                logger.error(f"Missing required logging configuration key: {key}")
-                return False
-        
-        # Check required output keys
-        for key in required_output_keys:
-            if key not in self.config["output"]:
-                logger.error(f"Missing required output configuration key: {key}")
-                return False
-        
-        # Validate specific values
-        valid_modes = ["development", "production"]
-        if self.config["agent"]["mode"] not in valid_modes:
-            logger.error(f"Invalid agent mode. Must be one of: {valid_modes}")
-            return False
-        
-        valid_trace_formats = ["json", "yaml", "text"]
-        if self.config["output"]["trace_format"] not in valid_trace_formats:
-            logger.error(f"Invalid trace format. Must be one of: {valid_trace_formats}")
-            return False
-        
-        return True
-    
+
+            found_placeholder = contains_placeholder(self.config)
+            if found_placeholder:
+                return False,f"❌ Placeholder value '{found_placeholder}' found in your config. Please update all example/template values with your actual project information."
+
+            return True, "✅ Config validation successful. All required keys, alert_mode, paths, and user-specific values are present and valid."
+
+        except Exception as e:
+            return False, f"❌ Error reading config file: {str(e)}"
+
     def get_agent_trace(self) -> str:
         """
         Get the agent trace based on the current configuration.
