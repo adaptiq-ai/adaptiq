@@ -955,7 +955,7 @@ class Aggregator:
             },
             "execution_analysis": {
                 "summary_metrics": summary_metrics,
-                "tools_used": self.parse_log_file(log_file_path, task_name),
+                "tools_used": [] if self._default_run_mode else self.parse_log_file(log_file_path, task_name),
             },
             "performance_metrics": {
                 "total_time_value": round(exec_time, 3),
