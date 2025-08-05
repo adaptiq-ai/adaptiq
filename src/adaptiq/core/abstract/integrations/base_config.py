@@ -188,6 +188,17 @@ class BaseConfig(ABC):
             Tuple[bool, str]: A tuple containing a boolean indicating validity and a validation message.
         """
         pass
+
+    @abstractmethod
+    def get_agent_trace(self) -> str:
+        """
+        Retrieve the trace or log of actions performed by the agent.
+
+        Returns:
+            str: A string representation of the agent's execution trace, 
+                which may include decisions, actions, or reasoning steps.
+        """
+        pass
     
     @abstractmethod
     def create_project_template(project_name=None, base_path=".") -> Tuple[bool, str]:

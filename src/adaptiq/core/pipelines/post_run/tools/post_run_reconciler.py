@@ -32,6 +32,7 @@ class PostRunReconciler:
         old_prompt: str = None,
         agent_name: str = None,
         feedback: str = None,
+        report_path: str = None
     ):
         """
         Initialize the orchestrator with file paths and configuration.
@@ -49,6 +50,7 @@ class PostRunReconciler:
         self.embedding_model = "text-embedding-3-small"
         self.old_prompt = old_prompt
         self.agent_name = agent_name
+        self.report_path = Path(report_path) if report_path else None
 
         self.feedback = feedback
 
@@ -162,13 +164,14 @@ class PostRunReconciler:
                 model_name=self.model_name,
                 api_key=self.api_key,
                 provider=self.provider,
+                report_path=self.report_path,
                 old_prompt=self.old_prompt,
                 agent_name=self.agent_name,
                 feedback=str(self.feedback)
             )
             logger.info("AdaptiqPromptEngineer initialized")
 
-    def run_pipeline(self) -> Dict[str, Any]:
+    def run_process(self) -> Dict[str, Any]:
         """
         Run the complete reconciliation pipeline.
 
@@ -275,39 +278,3 @@ class PostRunReconciler:
             raise
 
 
-"""def adaptiq_reconciliation_pipeline(
-    config_path: str, output_path: str, feedback: str = None
-) -> Any:
-    """Execute full reconciliation pipeline workflow."""
-    # Ensure output directory exists
-    output_dir = Path(output_path)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Use pathlib for proper path construction
-    execution_data_file = output_dir / "parsed_logs.json"
-    warmed_qtable_file = output_dir / "adaptiq_q_table.json"
-    reward_execs_file = output_dir / "parsed_logs.json"
-
-    # Check if required files exist, create empty ones if they don't
-    if not execution_data_file.exists():
-        # Create an empty JSON file or copy from elsewhere if needed
-        execution_data_file.write_text("[]")  # or appropriate empty structure
-        print("Created empty execution data file: %s", execution_data_file)
-
-    post_run_reconciler = PostRunReconciler(
-        execution_data_file=str(execution_data_file),
-        warmed_qtable_file=str(warmed_qtable_file),
-        reward_execs_file=str(reward_execs_file),
-        config_file=config_path,
-        feedback=feedback,
-    )
-
-    result = post_run_reconciler.run_pipeline()
-
-    # Fix the save_results call - output_path should be a file path, not directory
-    results_file = output_dir / "results.json"  # or whatever filename you want
-    post_run_reconciler.save_results(
-        results=result, output_file=str(results_file)
-    )
-
-    return result"""

@@ -2,11 +2,11 @@ import json
 import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
 
-import yaml
-
-from adaptiq.core.abstract.integrations.base_config import BaseConfig
+from adaptiq.core.abstract.integrations import BaseConfig, BaseLogParser
 from adaptiq.core.pipelines.post_run.tools import PostRunValidator
+from adaptiq.core.pipelines.post_run.tools import PostRunReconciler
 
 
 class PostRunPipeline:
@@ -24,7 +24,8 @@ class PostRunPipeline:
     self, 
     base_config: BaseConfig,
     base_log_parser: BaseLogParser,
-    output_dir: str, 
+    output_dir: str,
+    feedback: Optional[str] = None,
     validate_results: bool = True
     ):
         """
@@ -49,12 +50,16 @@ class PostRunPipeline:
         )
         self.logger = logging.getLogger("ADAPTIQ-PostRun")
 
+        self.base_config = base_config
         self.configuration = base_config.get_config()
         self.output_dir = output_dir
+        self.feedback = feedback
 
         self.api_key = self.configuration.get("llm_config", {}).get("api_key") or os.getenv("OPENAI_API_KEY")
         self.model_name = self.configuration.get("llm_config", {}).get("model_name")
         self.provider = self.configuration.get("llm_config", {}).get("providedr", "openai")
+        self.agent_name = self.configuration.get("agent_modifiable_config", "").get("agent_name", "default_agent")
+        self.report_path = self.configuration.get("report_config", "").get("output_path", "adaptiq_report.md")
         
         # Loading the old prompt of agent
         self.old_prompt = base_config.get_prompt()
@@ -226,10 +231,51 @@ class PostRunPipeline:
 
         return corrected_logs, validation_results
 
-    def update_qtable(self):
-        pass
+    def reconciliate_logs(self) -> Dict[str, Any]:
+        """
+        Reconciliate logs using PostRunReconciler.
 
-    def run_full_pipeline(self) -> Dict[str, Any]:
+        This method is a placeholder for future implementation of log reconciliation.
+        Currently, it does not perform any operations.
+        """
+        # Ensure output directory exists
+        output_dir = Path(self.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Use pathlib for proper path construction
+        execution_data_file = output_dir / "parsed_logs.json"
+        warmed_qtable_file = output_dir / "adaptiq_q_table.json"
+        reward_execs_file = output_dir / "parsed_logs.json"
+
+        # Check if required files exist, create empty ones if they don't
+        if not execution_data_file.exists():
+            # Create an empty JSON file or copy from elsewhere if needed
+            execution_data_file.write_text("[]")  # or appropriate empty structure
+            print("Created empty execution data file: %s", execution_data_file)
+
+        self.reconciler = PostRunReconciler(
+            execution_data_file=str(execution_data_file),
+            warmed_qtable_file=str(warmed_qtable_file),
+            reward_execs_file=str(reward_execs_file),
+            model_name=self.model_name,
+            api_key=self.api_key,
+            provider=self.provider,
+            old_prompt=self.old_prompt,
+            agent_name=self.agent_name,
+            feedback=self.feedback,
+            report_path=self.report_path,
+        )
+
+        result = self.reconciler.run_process()
+        
+        results_file = output_dir / "results.json"  # or whatever filename you want
+        self.reconciler.save_results(
+            results=result, output_file=str(results_file)
+        )
+
+        return result
+
+    def execute_post_run_pipeline(self) -> Dict[str, Any]:
         """
         Run the complete pipeline: agent execution, log parsing, and validation.
 
@@ -239,7 +285,7 @@ class PostRunPipeline:
         self.logger.info("Starting full Adaptiq pipeline execution...")
 
         # Step 1: Run agent
-        trace_output = self.get_agent_trace()
+        trace_output = self.base_config.get_agent_trace()
 
         # Step 2: Parse logs
         parsed_data = self.parse_logs(trace_output)
@@ -256,12 +302,12 @@ class PostRunPipeline:
             with open(self.parsed_logs_path, "r", encoding="utf-8") as f:
                 parsed_logs = json.load(f)
 
-            corrected_logs, validation_results = self.validate_parsed_logs(
+            _ , validation_results = self.validate_parsed_logs(
                 raw_logs, parsed_logs
             )
 
         # Prepare pipeline results
-        pipeline_results = {
+        validation_results = {
             "outputs": {
                 "raw_logs_path": self.raw_logs_path,
                 "parsed_logs_path": self.parsed_logs_path,
@@ -277,72 +323,28 @@ class PostRunPipeline:
         }
 
         if self.validate_results:
-            pipeline_results["outputs"][
+            validation_results["outputs"][
                 "validated_logs_path"
             ] = self.validated_logs_path
-            pipeline_results["outputs"][
+            validation_results["outputs"][
                 "validation_summary_path"
             ] = self.validation_summary_path
 
             if validation_results and "summary" in validation_results:
-                pipeline_results["stats"]["validation_summary"] = validation_results[
+                validation_results["stats"]["validation_summary"] = validation_results[
                     "summary"
                 ]
+        
+        # Step 4: Reconciliate logs
+        reconciliated_data = self.reconciliate_logs()
+
+        pipeline_results = {
+            "validation_results": validation_results,
+            "reconciliation_results": reconciliated_data
+        }
 
         self.logger.info("Full pipeline execution completed successfully")
+
         return pipeline_results
 
 
-
-    def load_outputs(self) -> Dict[str, Any]:
-        """
-        Load all available output files from previous runs.
-
-        Returns:
-            Dict containing the loaded data from output files.
-        """
-        outputs = {}
-
-        # Try to load raw logs
-        if os.path.exists(self.raw_logs_path):
-            try:
-                with open(self.raw_logs_path, "r", encoding="utf-8") as f:
-                    outputs["raw_logs"] = json.load(f)
-            except Exception as e:
-                self.logger.warning(f"Failed to load raw logs: {e}")
-
-        # Try to load parsed logs
-        if os.path.exists(self.parsed_logs_path):
-            try:
-                with open(self.parsed_logs_path, "r", encoding="utf-8") as f:
-                    outputs["parsed_logs"] = json.load(f)
-            except Exception as e:
-                self.logger.warning(f"Failed to load parsed logs: {e}")
-
-        # Try to load validated logs
-        if os.path.exists(self.validated_logs_path):
-            try:
-                with open(self.validated_logs_path, "r", encoding="utf-8") as f:
-                    outputs["validated_logs"] = json.load(f)
-            except Exception as e:
-                self.logger.warning(f"Failed to load validated logs: {e}")
-
-        # Try to load validation summary
-        if os.path.exists(self.validation_summary_path):
-            try:
-                with open(self.validation_summary_path, "r", encoding="utf-8") as f:
-                    outputs["validation_summary"] = json.load(f)
-            except Exception as e:
-                self.logger.warning(f"Failed to load validation summary: {e}")
-
-        return outputs
-
-
-def adaptiq_post_run_pipeline(config_path: str, output_path: str = None) -> Any:
-    """Execute full post-run pipeline workflow."""
-    post_run_orchestrator = PostRunPipeline(
-        config_path=config_path, output_dir=output_path
-    )
-    results = post_run_orchestrator.run_full_pipeline()
-
-    return results
