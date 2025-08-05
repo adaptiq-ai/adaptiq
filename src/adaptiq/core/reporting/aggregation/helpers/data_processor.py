@@ -15,7 +15,7 @@ class DataProcessor:
     Handles all file I/O operations, parsing, data extraction, and external communication
     for the ADAPTIQ aggregation system.
     """
-
+    # TODO: change it with adaptiq cloud when it gets implemeneted 
     def __init__(self):
         """Initialize the data processor."""
         self.logger = logging.getLogger("ADAPTIQ-Aggregator-DataProcessor")

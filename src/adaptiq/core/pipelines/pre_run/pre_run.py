@@ -5,16 +5,10 @@ from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 
-from adaptiq.core.abstract.integrations.base_config import BaseConfig
-from adaptiq.core.abstract.integrations.base_prompt_parser import BasePromptParser
-from adaptiq.core.q_table.q_table_manager import QTableManager
-from adaptiq.core.pipelines.pre_run.tools.hypothetical_state_generator import HypotheticalStateGenerator 
-from adaptiq.core.pipelines.pre_run.tools.prompt_consulting import PromptConsulting
-from adaptiq.core.pipelines.pre_run.tools.scenario_simulator import ScenarioSimulator
-from adaptiq.core.pipelines.pre_run.tools.prompt_estimator import PromptEstimator
-from adaptiq.core.reporting.aggregation.aggregator import Aggregator
-from adaptiq.core.reporting.monitoring.adaptiq_logger import AdaptiqLogger
-
+from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser
+from adaptiq.core.q_table import QTableManager
+from adaptiq.core.pipelines.pre_run.tools import HypotheticalStateGenerator, PromptConsulting, ScenarioSimulator, PromptEstimator
+from adaptiq.core.reporting import Aggregator, AdaptiqLogger
 
 class PreRunPipeline:
     """
@@ -88,12 +82,11 @@ class PreRunPipeline:
 
         # Initialize component instances
         self.state_generator = None
-        self.offline_learner = None
         self.prompt_consultant = None
         self.scenario_simulator = None
         self.prompt_estimator = None
         self.offline_learner = QTableManager(file_path=self.q_table_path)
-        self.aggregator = Aggregator(config_data=self.configuration)
+        self.aggregator = Aggregator(config_data=self.configuration, original_prompt=self.base_config.get_prompt())
         self.tracer = AdaptiqLogger.setup()
 
         # Results storage
@@ -466,7 +459,6 @@ class PreRunPipeline:
 
             self.aggregator.set_last_run_data(
                 reward=avg_reward,
-                original_prompt=self.old_prompt,
                 suggested_prompt=new_prompt
             )
 

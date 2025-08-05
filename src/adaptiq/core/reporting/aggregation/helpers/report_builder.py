@@ -10,7 +10,7 @@ class ReportBuilder:
     Handles all report generation, JSON structure building, and formatting
     for project summaries, run details, and performance analysis.
     """
-
+    # TODO: Unify the config to generic data model (from base config)
     def __init__(self, config: Dict):
         """
         Initialize the report builder.
@@ -418,13 +418,14 @@ class ReportBuilder:
         """
         return self.runs
 
+    # TODO: Fix the error tracking (Future Fixes)
     def create_error_info(
         self,
         exception,
         error_type: str = "pipeline_execution_error",
         severity: str = "Critical",
         include_stack_trace: bool = True,
-    ) -> Dict:
+    ) -> List:
         """
         Create error information dictionary from an exception.
 
@@ -438,15 +439,15 @@ class ReportBuilder:
             dict: Error information dictionary
         """
         if exception is None:
-            return {}
+            return []
         else:
-            return {
+            return [{
                 "error_type": error_type,
                 "severity": severity,
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
                 "description": str(exception),
                 "stack_trace": traceback.format_exc() if include_stack_trace else None,
-            }
+            }]
 
     def clear_runs(self):
         """Clear all stored runs."""

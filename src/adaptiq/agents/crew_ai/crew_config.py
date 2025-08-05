@@ -255,14 +255,58 @@ class CrewConfig(BaseConfig):
 
     def get_agent_trace(self) -> str:
         """
-        Get the agent trace based on the current configuration.
-        
+        Access agent trace based on execution mode configuration.
+
         Returns:
-            str: The agent trace output.
+            str: The execution trace as text.
         """
-        # Implementation would depend on your specific trace collection logic
-        trace_output = "Agent trace data would be collected here based on configuration"
-        logger.debug("Retrieved agent trace")
+        framework_settings = self.config.get("framework_adapter", {}).get(
+            "settings", {}
+        )
+        execution_mode = framework_settings.get(
+            "mode_execution", "dev"
+        )  # Default to 'dev'
+
+        log_source_config = framework_settings.get("log_source", {})
+        log_source_type = log_source_config.get(
+            "type", "stdout_capture"
+        )  # Default to stdout
+        log_file_path = log_source_config.get("path")
+
+        trace_output = ""
+
+        # Log the execution mode
+        if execution_mode == "prod":
+            logger.info("Running in PROD mode - accessing log file directly")
+        else:
+            logger.info("Running in DEV mode - accessing log file directly")
+
+        # Read the log file regardless of mode
+        if log_source_type == "file_path":
+            if not log_file_path:
+                logger.error(
+                    "Log source type is 'file_path' but no path is specified in config."
+                )
+                return ""
+            else:
+                try:
+                    with open(log_file_path, "r", encoding="utf-8") as f:
+                        trace_output = f.read()
+                    logger.info(
+                        f"Successfully read trace from log file: {log_file_path}"
+                    )
+                except FileNotFoundError:
+                    logger.error(f"Log file not found: {log_file_path}")
+                    return ""
+                except Exception as e:
+                    logger.error(f"Error reading log file {log_file_path}: {str(e)}")
+                    return ""
+        else:
+            logger.warning(
+                f"Log source type '{log_source_type}' is not 'file_path'. Cannot access logs without execution."
+            )
+            return ""
+
         return trace_output
     
     def get_agent_config(self) -> Dict[str, Any]:
