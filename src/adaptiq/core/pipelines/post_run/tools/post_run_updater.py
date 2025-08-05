@@ -10,10 +10,10 @@ from adaptiq.core.q_table.q_table_manager import QTableManager
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger("ADAPTIQ-Reconciliation")
+logger = logging.getLogger("ADAPTIQ-PostRunUpdater")
 
 
-class Reconciliation:
+class PostRunUpdater:
     """
     Class to update Q-tables based on state classifications and reward executions.
     Uses semantic matching to identify appropriate actions to update.
@@ -68,7 +68,7 @@ class Reconciliation:
                 state_key = self._parse_state_key(state_str)
                 if state_key is None:  # Should not happen with proper parsing
                     logger.warning(
-                        f"Parsed state_key is None for input {state_str}, skipping."
+                        "Parsed state_key is None for input %s, skipping.", state_str
                     )
                     continue
 
@@ -79,7 +79,7 @@ class Reconciliation:
 
             except Exception as e:
                 logger.warning(
-                    f"Error processing Q-table entry for state string {state_str}: {str(e)}"
+                    "Error processing Q-table entry for state string %s: %s", state_str, str(e)
                 )
 
         seen_states_list = q_table_data.get("seen_states", [])

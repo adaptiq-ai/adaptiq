@@ -2,7 +2,6 @@ import logging
 import os
 from datetime import datetime
 from typing import Dict, Tuple
-import yaml
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
@@ -23,7 +22,15 @@ class PromptEngineer:
     Supports configuration-driven setup and automated report generation.
     """
 
-    def __init__(self, main_config_path: str, feedback: str = None):
+    def __init__(self, 
+        model_name: str,
+        api_key: str,
+        provider: str,
+        report_path: str,
+        old_prompt: str,
+        agent_name: str = None,
+        feedback: str = None
+        ):
         """
         Initialize the PromptEngineerLLM.
 
@@ -34,30 +41,15 @@ class PromptEngineer:
         self.task_name = None
         self.new_prompt = None
         self.feedback = feedback
-
-        if not os.path.exists(main_config_path):
-            logger.error(f"Main configuration file not found: {main_config_path}")
-            raise FileNotFoundError(
-                f"Main configuration file not found: {main_config_path}"
-            )
-
-        with open(main_config_path, "r", encoding="utf-8") as f:
-            self.config = yaml.safe_load(f)
-
-        llm_conf = self.config.get("llm_config", {})
-        self.model_name = llm_conf.get(
-            "model_name", "gpt-4.1-mini"
-        )  # Default if not specified
-        self.api_key = llm_conf.get("api_key")
-        self.provider = llm_conf.get("provider")
+        self.model_name = model_name
+        self.api_key = api_key
+        self.provider = provider
+        self.old_prompt = old_prompt
+        self.agent_name = agent_name if agent_name else "agent"
+        self.report_path = report_path
 
         if not self.api_key:
             logger.warning("API key for LLM is not set in the configuration.")
-            # Allow initialization for testing without LLM, but warn.
-            # Or raise ValueError("API key for LLM must be provided.")
-
-        self.agent_modifiable_config = self.config.get("agent_modifiable_config", {})
-        self.report_config = self.config.get("report_config", {})
 
         # Initialize LLM, handle potential missing API key for non-LLM parts
         try:
@@ -70,57 +62,14 @@ class PromptEngineer:
                     f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
                 )
 
-        except Exception as e:
+        except ValueError as e:
             logger.error(
-                f"Failed to initialize ChatOpenAI: {e}. Ensure API key is valid."
+                "Failed to initialize ChatOpenAI: %s. Ensure API key is valid.", e
             )
             self.llm = None  # Allow class to function for non-LLM tasks if needed
 
-        logger.info(f"PromptEngineerLLM initialized with model: {self.model_name}")
+        logger.info("PromptEngineerLLM initialized with model: %s", self.model_name)
 
-    def _load_old_prompt(self) -> str:
-        """
-        Loads the old agent prompt by identifying the task key in the YAML file.
-        Sets self.task_name with the detected task key.
-        """
-        prompt_file_path_str = self.agent_modifiable_config.get(
-            "prompt_configuration_file_path"
-        )
-        if not prompt_file_path_str:
-            logger.error("Path to prompt_configuration_file_path not found in config.")
-            raise ValueError("prompt_configuration_file_path is not configured.")
-
-        if not os.path.isabs(prompt_file_path_str):
-            # Optional: Resolve relative paths against a known base directory if needed
-            pass
-
-        if not os.path.exists(prompt_file_path_str):
-            logger.error(
-                f"Agent prompt configuration file not found: {prompt_file_path_str}"
-            )
-            raise FileNotFoundError(
-                f"Agent prompt configuration file not found: {prompt_file_path_str}"
-            )
-
-        with open(prompt_file_path_str, "r", encoding="utf-8") as f:
-            prompts_config = yaml.safe_load(f)
-
-        # Find the task with a "description" field
-        for key, config in prompts_config.items():
-            if isinstance(config, dict) and "description" in config:
-                self.task_name = key
-                old_prompt = config["description"]
-                logger.info(
-                    f"Successfully loaded old prompt for task: {self.task_name}"
-                )
-                return old_prompt.strip()
-
-        logger.error(
-            "No task with a 'description' field found in prompt configuration file."
-        )
-        raise ValueError(
-            "No task with a 'description' field found in prompt configuration file."
-        )
 
     def _extract_q_table_insights(self, q_table_output: Dict) -> str:
         """
@@ -241,8 +190,14 @@ class PromptEngineer:
         try:
             response = self.llm.invoke(messages)
             full_response_text = response.content
-        except Exception as e:
-            logger.error(f"Error invoking LLM: {e}")
+        except ValueError as e:
+            logger.error("ValueError invoking LLM: %s", e)
+            return (
+                f"Error during LLM invocation: {e}",
+                f"Error during LLM invocation for review: {e}",
+            )
+        except RuntimeError as e:
+            logger.error("RuntimeError invoking LLM: %s", e)
             return (
                 f"Error during LLM invocation: {e}",
                 f"Error during LLM invocation for review: {e}",
@@ -298,9 +253,7 @@ class PromptEngineer:
         """
         Saves the generated report to a file.
         """
-        output_path_template = self.report_config.get(
-            "output_path", "reports/agent_report.md"
-        )
+        output_path_template = self.report_path if self.report_path else "reports/agent_report.md"
 
         # Substitute agent name if placeholder is present
         if "your_agent_name" in output_path_template and agent_name_for_report:
@@ -318,11 +271,11 @@ class PromptEngineer:
         output_dir = os.path.dirname(output_path)
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir)
-            logger.info(f"Created report directory: {output_dir}")
+            logger.info("Created report directory: %s", output_dir)
 
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(report_content)
-        logger.info(f"Report saved to: {output_path}")
+        logger.info("Report saved to: %s", output_path)
 
     def generate_and_save_report(self, q_table_output: Dict) -> str:
         """
@@ -333,14 +286,14 @@ class PromptEngineer:
         Returns:
             The generated report content as a string.
         """
-        agent_name = self.agent_modifiable_config.get("agent_name", "unknown_agent")
+        agent_name = self.agent_name
         if agent_name == "your_agent_name":  # Use task_key if agent_name is placeholder
             agent_name = self.task_name
 
         try:
-            old_prompt = self._load_old_prompt()
-        except Exception as e:
-            logger.error(f"Failed to load old prompt for task {self.task_name}: {e}")
+            old_prompt = self.old_prompt
+        except AssertionError as e:
+            logger.error("Failed to load old prompt for task %s: %s", self.task_name, e)
             report_content = f"# Prompt Engineering Report for Task: {self.task_name} (Agent: {agent_name})\n\n"
             report_content += f"Date: {datetime.now().isoformat()}\n\n"
             report_content += f"## Error\nFailed to load the original prompt: {e}\n"

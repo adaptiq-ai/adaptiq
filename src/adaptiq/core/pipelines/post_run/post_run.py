@@ -6,7 +6,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 from adaptiq.core.abstract.integrations.base_config import BaseConfig
+from adaptiq.core.abstract.integrations.base_log_parser import BaseLogParser
 from adaptiq.core.pipelines.post_run.tools.post_run_validator import PostRunValidator
+from adaptiq.core.pipelines.post_run.tools.post_run_reconciler import PostRunReconciler
 
 
 class PostRunPipeline:
@@ -21,7 +23,11 @@ class PostRunPipeline:
     """
 
     def __init__(
-        self, config_path: str, output_dir: str, validate_results: bool = True
+    self, 
+    base_config: BaseConfig,
+    base_log_parser: BaseLogParser,
+    output_dir: str, 
+    validate_results: bool = True
     ):
         """
         Initialize the AdaptiqPostRunOrchestrator.
@@ -45,13 +51,15 @@ class PostRunPipeline:
         )
         self.logger = logging.getLogger("ADAPTIQ-PostRun")
 
-        self.config_path = self._load_config(config_path=config_path)
+        self.configuration = base_config.get_config()
         self.output_dir = output_dir
 
-        self.llm_config = self.config_path.get("llm_config", {})
-        self.api_key = self.llm_config.get("api_key") or os.getenv("OPENAI_API_KEY")
-        self.model_name = self.llm_config.get("model_name")
-        self.provider = self.llm_config.get("provider")
+        self.api_key = self.configuration.get("llm_config", {}).get("api_key") or os.getenv("OPENAI_API_KEY")
+        self.model_name = self.configuration.get("llm_config", {}).get("model_name")
+        self.provider = self.configuration.get("llm_config", {}).get("providedr", "openai")
+        
+        # Loading the old prompt of agent
+        self.old_prompt = base_config.get_prompt()
 
         self.validate_results = validate_results
 
@@ -60,8 +68,9 @@ class PostRunPipeline:
             os.makedirs(output_dir)
 
         # Other components will be initialized as needed
-        self.log_parser = None
+        self.log_parser = base_log_parser
         self.validator = None
+        self.reconciler = None
 
         # Paths for output files
         self.raw_logs_path = os.path.join(output_dir, "raw_logs.json")
@@ -70,25 +79,6 @@ class PostRunPipeline:
         self.validation_summary_path = os.path.join(
             output_dir, "validation_summary.json"
         )
-
-    def _load_config(self, config_path: str) -> Dict:
-        """
-        Load and parse the ADAPTIQ configuration YAML file
-
-        Args:
-            config_path: Path to the configuration file
-
-        Returns:
-            dict: The parsed configuration
-        """
-        try:
-            with open(config_path, "r") as f:
-                config = yaml.safe_load(f)
-            self.logger.info(f"Successfully loaded configuration from {config_path}")
-            return config
-        except Exception as e:
-            self.logger.error(f"Failed to load configuration: {str(e)}")
-            raise
 
 
     def parse_logs(
@@ -139,9 +129,6 @@ class PostRunPipeline:
                 f.write(raw_logs)
 
             # Initialize and run parser
-            self.log_parser = BaseConfig(
-                temp_raw_logs_path, self.parsed_logs_path
-            )
             parsed_data = self.log_parser.parse_logs()
 
             self.logger.info(
@@ -240,6 +227,9 @@ class PostRunPipeline:
             self.logger.error(f"Failed to save validation results: {e}")
 
         return corrected_logs, validation_results
+
+    def update_qtable(self):
+        pass
 
     def run_full_pipeline(self) -> Dict[str, Any]:
         """
