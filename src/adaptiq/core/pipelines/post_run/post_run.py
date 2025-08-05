@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 from adaptiq.core.abstract.integrations.base_config import BaseConfig
-from adaptiq.core.pipelines.post_run.tools.post_run_validator import PostRunValidator
+from adaptiq.core.pipelines.post_run.tools import PostRunValidator
 
 
 class PostRunPipeline:

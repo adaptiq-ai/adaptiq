@@ -1,9 +1,7 @@
 import logging
 from typing import Any, Dict, List
 
-from adaptiq.core.reporting.aggregation.data_processor import DataProcessor
-from adaptiq.core.reporting.aggregation.metrics_calculator import MetricsCalculator
-from adaptiq.core.reporting.aggregation.report_builder import ReportBuilder
+from adaptiq.core.reporting.aggregation.helpers import DataProcessor, MetricsCalculator, ReportBuilder
 
 
 class Aggregator:
@@ -20,8 +18,9 @@ class Aggregator:
 
     Designed for use in LLM evaluation, benchmarking, and reporting pipelines.
     """
-
-    def __init__(self, config_data: Dict[str, Any]):
+    # TODO: Unify the config to generic data model (from base config)
+    # TODO: Add Start Aggregation that process incoming results and manage all logic inside the aggregator
+    def __init__(self, config_data: Dict[str, Any], original_prompt: str):
         """Initialize the aggregator with pricing information for different models."""
         # Set up logging
         logging.basicConfig(
@@ -29,17 +28,18 @@ class Aggregator:
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
         self.logger = logging.getLogger("ADAPTIQ-Aggregator")
-
+        self.original_prompt = original_prompt
         # Initialize data processor and load config
         self.data_processor = DataProcessor()
-        self.config = config_data
-        self.email = self.config.get("email", "")
+        self.config_data = config_data
+        self.email = self.config_data.get("email", "")
 
         # Initialize run tracking
         self._run_count = 0
         self._default_run_mode = True
         self.task_name = None
 
+        # TODO: Move it to independant file 
         # Define pricing information
         self.pricings = {
             "openai": {
@@ -49,8 +49,8 @@ class Aggregator:
         }
 
         # Initialize metrics calculator and report builder
-        self.metrics_calculator = MetricsCalculator(self.config, self.pricings)
-        self.report_builder = ReportBuilder(self.config)
+        self.metrics_calculator = MetricsCalculator(self.config_data, self.pricings)
+        self.report_builder = ReportBuilder(self.config_data)
 
     def increment_run_count(self) -> int:
         """
@@ -205,7 +205,7 @@ class Aggregator:
         return self.data_processor.parse_log_file(log_file_path, task_name)
 
     def estimate_prompt_tokens(
-        self, original_prompt: str, suggested_prompt: str, model_name: str = "gpt-4"
+        self,  suggested_prompt: str, model_name: str = "gpt-4"
     ) -> tuple:
         """
         Estimate token counts for original and suggested prompts.
@@ -219,7 +219,7 @@ class Aggregator:
             tuple: (original_tokens, suggested_tokens)
         """
         return self.metrics_calculator.estimate_prompt_tokens(
-            original_prompt, suggested_prompt, model_name
+            self.original_prompt, suggested_prompt, model_name
         )
 
     def build_project_result(self) -> Dict:
@@ -271,17 +271,12 @@ class Aggregator:
         Build a summary JSON for a single run.
         """
         # Get task name and original prompt
-        prompt_file_path = self.config.get("agent_modifiable_config", {}).get(
+        prompt_file_path = self.config_data.get("agent_modifiable_config", {}).get(
             "prompt_configuration_file_path", "N/A"
         )
-        
-        try:
-            original_prompt_config = self.data_processor.load_config(prompt_file_path)
-            task_name = next(iter(original_prompt_config))
-            original_prompt = original_prompt_config[task_name].get("description", "")
-        except (FileNotFoundError, KeyError, TypeError):
-            task_name = self.task_name or "unknown_task"
-            original_prompt = ""
+
+        task_name = "Under-Fixing (Dev msg)"
+
 
         # Calculate token totals from metrics calculator
         pre = self.metrics_calculator.run_tokens["pre_tokens"]
@@ -294,7 +289,7 @@ class Aggregator:
 
         # Set last run data for performance calculation
         self.metrics_calculator.set_last_run_data(
-            reward, run_time_seconds or 0, original_prompt, suggested_prompt
+            reward, run_time_seconds or 0, self.original_prompt, suggested_prompt
         )
 
         # Calculate performance score and current run cost
@@ -308,7 +303,7 @@ class Aggregator:
             reward=reward,
             api_calls=api_calls,
             suggested_prompt=suggested_prompt,
-            original_prompt=original_prompt,
+            original_prompt=self.original_prompt,
             status=status,
             issues=issues,
             performance_score=performance_score,
@@ -339,17 +334,12 @@ class Aggregator:
         Build and add a run summary to the runs list.
         """
         # Get task name and original prompt
-        prompt_file_path = self.config.get("agent_modifiable_config", {}).get(
+        prompt_file_path = self.config_data.get("agent_modifiable_config", {}).get(
             "prompt_configuration_file_path", "N/A"
         )
         
-        try:
-            original_prompt_config = self.data_processor.load_config(prompt_file_path)
-            task_name = next(iter(original_prompt_config))
-            original_prompt = original_prompt_config[task_name].get("description", "")
-        except:
-            task_name = self.task_name or "unknown_task"
-            original_prompt = ""
+
+        task_name = "Under-Fixing (Dev msg)"
 
         # Calculate token totals from metrics calculator
         pre = self.metrics_calculator.run_tokens["pre_tokens"]
@@ -362,7 +352,7 @@ class Aggregator:
 
         # Set last run data for performance calculation
         self.metrics_calculator.set_last_run_data(
-            reward, run_time_seconds or 0, original_prompt, suggested_prompt
+            reward, run_time_seconds or 0, self.original_prompt, suggested_prompt
         )
 
         # Calculate performance score and current run cost
@@ -376,7 +366,7 @@ class Aggregator:
             reward=reward,
             api_calls=api_calls,
             suggested_prompt=suggested_prompt,
-            original_prompt=original_prompt,
+            original_prompt=self.original_prompt,
             status=status,
             issues=issues,
             performance_score=performance_score,
@@ -425,7 +415,6 @@ class Aggregator:
         reward: float,
         timestamp: str = None,
         task_name: str = None,
-        original_prompt: str = None,
         suggested_prompt: str = None,
         memory_usage: float = None,
         api_calls: int = None,
@@ -462,7 +451,7 @@ class Aggregator:
         log_file_path = None
         if not self._default_run_mode:
             log_file_path = (
-                self.config.get("framework_adapter", {})
+                self.config_data.get("framework_adapter", {})
                 .get("settings", {})
                 .get("log_source", {})
                 .get("path")
@@ -479,7 +468,7 @@ class Aggregator:
             reward=reward,
             timestamp=timestamp,
             task_name=task_name,
-            original_prompt=original_prompt,
+            original_prompt=self.original_prompt,
             suggested_prompt=suggested_prompt,
             memory_usage=memory_usage or 0,
             api_calls=api_calls or 0,
@@ -561,7 +550,7 @@ class Aggregator:
 
     def get_config(self) -> Dict:
         """Get the current configuration."""
-        return self.config
+        return self.config_data
 
     def get_email(self) -> str:
         """Get the email from configuration."""
@@ -572,7 +561,7 @@ class Aggregator:
         self.task_name = task_name
 
     def set_last_run_data(
-        self, reward: float, run_time_seconds: float = 0.0, original_prompt: str = "", suggested_prompt: str = ""
+        self, reward: float, run_time_seconds: float = 0.0, suggested_prompt: str = ""
     ):
         """
         Set the last run data for performance calculation.
@@ -584,5 +573,5 @@ class Aggregator:
             suggested_prompt (str): Suggested/optimized prompt text
         """
         self.metrics_calculator.set_last_run_data(
-            reward, run_time_seconds, original_prompt, suggested_prompt
+            reward, run_time_seconds, self.original_prompt, suggested_prompt
         )
