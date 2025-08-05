@@ -49,159 +49,33 @@ def find_and_clear_log_files(
     pass
 
 
-def execute_pre_run_only(args):
-    """Execute only the pre_run pipeline (runs once) and report time and memory usage."""
 
-    config_path:str = args.config_path
-    template:str = args.template
+def execute_pre_run_only(args):
+    """Execute only the pre_run pipeline."""
+
+    config_path = args.config_path
+    template = args.template
     base_config = None
-    base_prompt_parser= None
+    base_prompt_parser = None
+    
     if template == "crew-ai":
         base_config = CrewConfig(config_path=config_path, preload=True)
         base_prompt_parser = CrewPromptParser(config_path=config_path)
 
-    # Initialize the aggregator
-    aggregator = Aggregator(config_path=config_path)
-    tracer = AdaptiqLogger.setup()
-
     try:
         logging.info("STEP : Executing pre_run pipeline...")
-
-        # Start tracking time and memory
-        start_time = time.time()
-        tracemalloc.start()
         
         # Execute pre_run pipeline
         pipeline = PreRunPipeline(base_config = base_config , base_prompt_parser =base_prompt_parser, output_path="./results")
         simulation_results = pipeline.execute_pre_run_pipeline()
 
-        # Stop tracking
-        end_time = time.time()
-        _, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-
-
-        input_tokens = 0
-        output_tokens = 0
-        total_calls = 0
-
-        execution_time = end_time - start_time
-        peak_memory = peak / 1024 / 1024  # Convert to MB
-
         logging.info("[SUCCESS] Pre-run pipeline completed successfully")
-        logging.info(
-            f"tokens input: {input_tokens}, output: {output_tokens}, total calls: {total_calls}"
-        )
-        logging.info(
-            f"Execution time: {execution_time:.2f} seconds, Peak memory usage: {peak_memory:.2f} MB"
-        )
-
-        simulated_scenarios = simulation_results.get("simulated_scenarios", [])
-
-        # Update aggregator with run data
-        aggregator.increment_run_count()
-
-        # Update token statistics (assuming pre_run only, so post and recon are 0)
-        aggregator.update_avg_run_tokens(
-            pre_input=input_tokens,
-            pre_output=output_tokens,
-            post_input=0,
-            post_output=0,
-            recon_input=0,
-            recon_output=0,
-        )
-
-        # Update run time
-        aggregator.update_avg_run_time(execution_time)
-
-        # Update error count (0 for successful run)
-        aggregator.update_error_count(0)
-
-        # Calculate average reward from simulated scenarios
-        avg_reward = aggregator.calculate_avg_reward(
-            simulated_scenarios=simulated_scenarios, reward_type="simulation"
-        )
-
-        # Store last run data for performance score calculation
-        aggregator._last_reward = avg_reward
-        aggregator._last_run_time = execution_time
-        aggregator._last_original_prompt = (
-            ""  # You might want to extract this from config
-        )
-        aggregator._last_suggested_prompt = simulated_scenarios
-
-        # Build and add run summary
-        aggregator.add_run_summary(
-            run_name="default_run",
-            reward=avg_reward,
-            api_calls=total_calls,
-            suggested_prompt=simulation_results["new_prompt"],
-            status="completed",
-            issues=[],
-            error=None,
-            memory_usage=peak_memory,
-            run_time_seconds=execution_time,
-            execution_logs=tracer.get_logs(),
-        )
-
-        # Build project result JSON
-        project_result = aggregator.build_project_result()
-
-        # Save default_run report
-        aggregator.save_json_report(data=project_result)
-
-        if aggregator.email != "":
-            # Send results to endpoint
-            success = aggregator.send_run_results(project_result)
-
-            if success:
-                logging.info("Successfully sent run results to reporting endpoint")
-            else:
-                logging.warning("Failed to send run results to reporting endpoint")
-        else:
-            logging.info("Default run results are saved locally")
 
         return True
 
     except Exception as e:
         logging.error(f"Error during pre-run pipeline execution: {str(e)}")
         logging.error("Pre-run pipeline execution stopped due to error.")
-
-        # Update aggregator with error information
-        aggregator.increment_run_count()
-        aggregator.update_error_count(1)
-
-        # Get execution time even for failed runs
-        try:
-            execution_time = end_time - start_time if "end_time" in locals() else 0
-            peak_memory = peak / 1024 / 1024 if "peak" in locals() else 0
-        except Exception:
-            execution_time = 0
-            peak_memory = 0
-
-        aggregator.update_avg_run_time(execution_time)
-
-        # Add failed run summary
-        aggregator.add_run_summary(
-            run_name="default_run",
-            reward=0.0,
-            api_calls=0,
-            suggested_prompt="",
-            status="failed",
-            issues=["Pipeline execution failed"],
-            error=str(e),
-            memory_usage=peak_memory,
-            run_time_seconds=execution_time,
-            execution_logs=tracer.get_logs(),
-        )
-
-        # Build and send project result even for failed runs
-        project_result = aggregator.build_project_result()
-        aggregator.save_json_report(data=project_result)
-
-        if aggregator.email != "":
-            aggregator.send_run_results(project_result)
-
         return False
 
 
