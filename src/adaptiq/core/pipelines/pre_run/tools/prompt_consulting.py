@@ -88,7 +88,7 @@ class PromptConsulting:
         except Exception as e:
             raise ValueError(
                 f"Failed to parse LLM response as JSON: {e}\n\nResponse:\n{response.content}"
-            )
+            ) from e
 
         return result
 
