@@ -5,11 +5,6 @@ from typing import Dict, List
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from adaptiq.core.reporting.adaptiq_metrics import (
-    capture_llm_response,
-    instrumental_track_tokens,
-)
-
 class HypotheticalStateGenerator:
     """
     Generator that transforms a parsed plan into hypothetical state-action pairs
@@ -87,7 +82,6 @@ class HypotheticalStateGenerator:
         if prompt_template:
             self.prompt_template = ChatPromptTemplate.from_template(prompt_template)
 
-    @instrumental_track_tokens(mode="pre_run", provider="openai")
     def generate_hypothetical_state_action_pairs(self) -> List[Dict]:
         """
         Generate all hypothetical state-action pairs in a single LLM call.
@@ -100,7 +94,6 @@ class HypotheticalStateGenerator:
 
         prompt = self.prompt_template.format_messages(**context)
         response = self.llm.invoke(prompt)
-        capture_llm_response(response)
 
         # Get the content from the response
         content = response.content

@@ -7,10 +7,6 @@ from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from adaptiq.core.reporting.adaptiq_metrics import (
-    capture_llm_response,
-    instrumental_track_tokens,
-)
 from adaptiq.core.abstract.integrations.base_prompt_parser import BasePromptParser
 
 
@@ -225,7 +221,6 @@ class CrewPromptParser(BasePromptParser):
             "task_description_text": task_description,
         }
 
-    @instrumental_track_tokens(mode="pre_run", provider="openai")
     def _invoke_parsing_model(self, prompt_params: Dict[str, Any]) -> str:
         """
         Invoke the parsing model with the constructed prompt.
@@ -244,7 +239,6 @@ class CrewPromptParser(BasePromptParser):
 
         # Invoke the LLM
         llm_response = self.prompt_parser_llm.invoke(formatted_prompt)
-        capture_llm_response(llm_response)
 
         # Extract and return the content from the response
         return llm_response.content
@@ -293,7 +287,6 @@ class CrewPromptParser(BasePromptParser):
         """
         return "AdaptiqPromptParser"
 
-    @instrumental_track_tokens(mode="pre_run", provider="openai")
     def parse_prompt(self) -> List[Dict[str, Any]]:
         """
         Parse the agent's prompt to infer an idealized sequence of steps.

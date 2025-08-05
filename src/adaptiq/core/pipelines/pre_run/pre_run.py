@@ -54,7 +54,7 @@ class PreRunPipeline:
         self.configuration = self.base_config.get_config()
 
         # Ensure output directory exists
-        self.q_table_path = os.path.join(self._ensure_output_directory(), "adaptiq_q_table.json")
+        self.q_table_path = os.path.join(output_path, "adaptiq_q_table.json")
 
         # Loading the old prompt of agent
         self.old_prompt = self.base_config.get_prompt()
@@ -395,7 +395,7 @@ class PreRunPipeline:
                 old_prompt=self.old_prompt,
                 parsed_steps=self.parsed_steps,
                 hypothetical_states=self.hypothetical_states,
-                offline_learner=self.offline_learner.Q_table if self.offline_learner else {},
+                offline_learner=self.offline_learner,
                 prompt_analysis=self.prompt_analysis,
                 model_name=self.model_name,
                 api_key=self.api_key,

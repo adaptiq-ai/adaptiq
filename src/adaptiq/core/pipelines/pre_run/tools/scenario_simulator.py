@@ -6,11 +6,6 @@ from typing import Dict, List
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from adaptiq.core.reporting.adaptiq_metrics import (
-    capture_llm_response,
-    instrumental_track_tokens,
-)
-
 
 class ScenarioSimulator:
     """
@@ -156,7 +151,6 @@ class ScenarioSimulator:
 
         return description
 
-    @instrumental_track_tokens(mode="pre_run", provider="openai")
     def _invoke_llm_for_scenario_generation(
         self, state_str: str, intended_action: str, step_details: Dict
     ) -> List[Dict]:
@@ -213,7 +207,6 @@ class ScenarioSimulator:
 
             # Call the LLM
             llm_response = self.scenario_generation_llm.invoke(scenario_prompt)
-            capture_llm_response(llm_response)
 
             # Parse the JSON response
             response_content = llm_response.content

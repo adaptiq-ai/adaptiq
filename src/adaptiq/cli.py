@@ -66,7 +66,7 @@ def execute_pre_run_only(args):
         logging.info("STEP : Executing pre_run pipeline...")
         
         # Execute pre_run pipeline
-        pipeline = PreRunPipeline(base_config=base_config, base_prompt_parser=base_prompt_parser, output_path=None)
+        pipeline = PreRunPipeline(base_config = base_config , base_prompt_parser =base_prompt_parser, output_path="./results")
         simulation_results = pipeline.execute_pre_run_pipeline()
 
         logging.info("[SUCCESS] Pre-run pipeline completed successfully")
@@ -620,7 +620,7 @@ def main():
     )
     # Add arguments specific to the 'run' command
     parser_run.add_argument(
-        "--config_path",
+        "--config",
         type=str,
         metavar="PATH",
         required=True,

@@ -5,10 +5,6 @@ from typing import Dict
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from adaptiq.core.reporting.adaptiq_metrics import (
-    capture_llm_response,
-    instrumental_track_tokens,
-)
 
 
 class PromptConsulting:
@@ -73,7 +69,6 @@ class PromptConsulting:
         if prompt_template:
             self.analysis_template = ChatPromptTemplate.from_template(prompt_template)
 
-    @instrumental_track_tokens(mode="pre_run", provider="openai")
     def analyze_prompt(self) -> Dict:
         """
         Analyze the prompt and generate structured feedback in a single LLM call.
@@ -86,7 +81,6 @@ class PromptConsulting:
 
         prompt = self.analysis_template.format_messages(**context)
         response = self.llm.invoke(prompt)
-        capture_llm_response(response)
 
         # Try parsing JSON from response
         try:
