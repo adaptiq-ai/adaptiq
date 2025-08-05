@@ -72,7 +72,7 @@ def execute_pre_run_only(args):
         tracemalloc.start()
         
         # Execute pre_run pipeline
-        pipeline = PreRunPipeline(base_config = base_config , base_prompt_parser =base_prompt_parser, output_path=None)
+        pipeline = PreRunPipeline(base_config = base_config , base_prompt_parser =base_prompt_parser, output_path="./results")
         simulation_results = pipeline.execute_pre_run_pipeline()
 
         # Stop tracking
@@ -144,22 +144,22 @@ def execute_pre_run_only(args):
             execution_logs=tracer.get_logs(),
         )
 
-        # # Build project result JSON
-        # project_result = aggregator.build_project_result()
+        # Build project result JSON
+        project_result = aggregator.build_project_result()
 
-        # # Save default_run report
-        # aggregator.save_json_report(data=project_result)
+        # Save default_run report
+        aggregator.save_json_report(data=project_result)
 
-        # if aggregator.email != "":
-        #     # Send results to endpoint
-        #     success = aggregator.send_run_results(project_result)
+        if aggregator.email != "":
+            # Send results to endpoint
+            success = aggregator.send_run_results(project_result)
 
-        #     if success:
-        #         logging.info("Successfully sent run results to reporting endpoint")
-        #     else:
-        #         logging.warning("Failed to send run results to reporting endpoint")
-        # else:
-        #     logging.info("Default run results are saved locally")
+            if success:
+                logging.info("Successfully sent run results to reporting endpoint")
+            else:
+                logging.warning("Failed to send run results to reporting endpoint")
+        else:
+            logging.info("Default run results are saved locally")
 
         return True
 
@@ -746,7 +746,7 @@ def main():
     )
     # Add arguments specific to the 'run' command
     parser_run.add_argument(
-        "--config_path",
+        "--config",
         type=str,
         metavar="PATH",
         required=True,

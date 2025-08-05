@@ -4,10 +4,8 @@ from typing import Dict, List, Any, Optional
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from adaptiq.core.reporting.adaptiq_metrics import (
-    capture_llm_response,
-    instrumental_track_tokens,
-)
+from adaptiq.core.q_table.q_table_manager import QTableManager
+
 
 class PromptEstimator:
     """
@@ -27,7 +25,7 @@ class PromptEstimator:
         provider: str,
         parsed_steps: Optional[List[Dict]] = None,
         hypothetical_states: Optional[List[Dict]] = None,
-        offline_learner: Optional[Any] = None,
+        offline_learner: Optional[QTableManager] = None,
         prompt_analysis: Optional[Dict] = None,
         agent_tools: Optional[List[Dict]] = None,
         output_path: Optional[str] = None
@@ -244,7 +242,6 @@ class PromptEstimator:
         
         return prompt_analysis_summary
     
-    @instrumental_track_tokens(mode="pre_run", provider="openai")
     def _generate_prompt_with_llm(
         self,
         num_parsed_steps: int,
@@ -350,8 +347,6 @@ class PromptEstimator:
 
         # Generate the report
         response = chat_model.invoke(formatted_prompt)
-        capture_llm_response(response)
-
         return response.content
     
     def _save_report(self, report: str) -> None:

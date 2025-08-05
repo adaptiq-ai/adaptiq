@@ -1,20 +1,18 @@
-from pydantic import BaseModel, Field, RootModel
-from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 
-
-class QTableStateActions(RootModel[Dict[str, float] ]):
-    pass
-
 class QTablePayload(BaseModel):
-    Q_table: Dict[str, QTableStateActions] = Field(
-        ..., description="Nested Q-table with stringified states"
+    Q_table: Dict[str, Dict[str, float]] = Field(
+        ..., description="Flat Q-table with stringified states"
     )
     seen_states: List[str] = Field(
         default_factory=list, description="List of stringified seen states"
     )
-    timestamp: Optional[datetime] = Field(
-        default_factory=datetime.now(timezone.utc), description="When the Q-table was saved"
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When the Q-table was saved"
     )
     version: str = Field(
         ..., description="Q-table version identifier"
