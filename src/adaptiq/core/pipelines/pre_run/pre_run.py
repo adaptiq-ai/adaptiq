@@ -86,7 +86,6 @@ class PreRunPipeline:
 
         # Initialize component instances
         self.state_generator = None
-        self.offline_learner = None
         self.prompt_consultant = None
         self.scenario_simulator = None
         self.prompt_estimator = None
