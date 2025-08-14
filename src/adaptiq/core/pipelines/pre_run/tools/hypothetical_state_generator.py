@@ -1,5 +1,6 @@
 import json
 import re
+import ast
 from typing import Dict, List
 
 from langchain.prompts import ChatPromptTemplate
@@ -48,7 +49,7 @@ class HypotheticalStateGenerator:
         ('Current_SubTask_Category', 'Last_Action_Taken', 'Last_Outcome_Category', 'Key_Context')
 
         Where:
-        - Current_SubTask_Category: Categorize from: [InitialQuery, InformationRetrieval_Company, InformationRetrieval_Lead, ContentDrafting, ContentReview, ActionExecution_SendEmail, ResultFinalization, PlanningNextStep, UnknownSubTask]
+        - Current_SubTask_Category: Identify the general category/type of subtask based on what you observe in the current step
         - Last_Action_Taken: The Intended_Action from previous step (use "None" for first step)
         - Last_Outcome_Category: Categorize from: [Success_DataFound, Success_ActionCompleted, Success_NoDataFound, Failure_PreconditionNotMet, Outcome_Unknown, None]
         - Key_Context: 1-3 keywords (max 3 words) summarizing information up to this point
@@ -107,23 +108,44 @@ class HypotheticalStateGenerator:
                 # Use the first matched code block
                 content = matches[0].strip()
 
-        # Fix JSON before parsing
+        # Try parsing as JSON first, then Python literal
         try:
             # Apply comprehensive JSON fixing
             fixed_content = self._comprehensive_json_fix(content)
             result = json.loads(fixed_content)
         except Exception as e:
-            # If parsing still fails, try a more aggressive approach
+            # If JSON parsing fails, try Python literal parsing
             try:
-                result = self._parse_json_manually(content)
-            except Exception as inner_e:
-                # If all parsing attempts fail, provide detailed error info
-                error_msg = f"Failed to parse LLM response as JSON: {e}\n\n"
-                error_msg += f"Processed content:\n{content}\n\n"
-                error_msg += f"Original response:\n{response.content}"
-                raise ValueError(error_msg) from inner_e
+                result = self._parse_python_literal(content)
+            except Exception as literal_e:
+                # If that fails too, try manual parsing
+                try:
+                    result = self._parse_json_manually(content)
+                except Exception as inner_e:
+                    # If all parsing attempts fail, provide detailed error info
+                    error_msg = f"Failed to parse LLM response. Tried JSON: {e}, Python literal: {literal_e}, Manual: {inner_e}\n\n"
+                    error_msg += f"Processed content:\n{content}\n\n"
+                    error_msg += f"Original response:\n{response.content}"
+                    raise ValueError(error_msg) from inner_e
 
         return result
+    
+    def _parse_python_literal(self, content: str) -> List[Dict]:
+        """
+        Parse Python literal format (single quotes, tuples) returned by some models.
+        """
+        try:
+            # Safely evaluate the Python literal
+            result = ast.literal_eval(content.strip())
+            
+            # Convert tuples to strings for consistency
+            for item in result:
+                if isinstance(item.get('hypothetical_state_representation'), tuple):
+                    item['hypothetical_state_representation'] = str(item['hypothetical_state_representation'])
+            
+            return result
+        except Exception as e:
+            raise ValueError(f"Failed to parse Python literal: {e}")
 
     def _comprehensive_json_fix(self, json_str: str) -> str:
         """
