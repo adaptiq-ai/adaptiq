@@ -138,16 +138,16 @@ class CrewPromptParser(BasePromptParser):
         Output ONLY a valid JSON array of these step objects. Example:
         [
         {{
-            "Intended_SubTask": "Retrieve company information",
-            "Intended_Action": "Use_Tool_ReadFileContent",
-            "Preconditions_Mentioned_In_Prompt": "None explicitly mentioned for this first step.",
-            "Expected_Ideal_Outcome_Mentioned_In_Prompt": "Company background information is available."
+            "Intended_SubTask": "example subtask",
+            "Intended_Action": "example action or tool",
+            "Preconditions_Mentioned_In_Prompt": "example precondition",
+            "Expected_Ideal_Outcome_Mentioned_In_Prompt": "example expected outcome"
         }},
         {{
-            "Intended_SubTask": "Retrieve lead's personal information",
-            "Intended_Action": "Use_Tool_LeadNameTool",
-            "Preconditions_Mentioned_In_Prompt": "After company info is retrieved.",
-            "Expected_Ideal_Outcome_Mentioned_In_Prompt": "Lead's name and email are available."
+            "Intended_SubTask": "example subtask 2",
+            "Intended_Action": "example action 2 or tool",
+            "Preconditions_Mentioned_In_Prompt": "example precondition 2",
+            "Expected_Ideal_Outcome_Mentioned_In_Prompt": "example expected outcome 2"
         }}
         ]
 

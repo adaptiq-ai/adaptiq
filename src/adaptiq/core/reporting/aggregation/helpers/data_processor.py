@@ -6,8 +6,7 @@ import re
 from copy import deepcopy
 from typing import Any, Dict, List
 
-import requests
-import yaml
+from adaptiq.cloud.adaptiq_client import AdaptiqClient
 
 
 class DataProcessor:
@@ -19,7 +18,7 @@ class DataProcessor:
     def __init__(self):
         """Initialize the data processor."""
         self.logger = logging.getLogger("ADAPTIQ-Aggregator-DataProcessor")
-        self.url_report = "https://api.getadaptiq.io/projects"
+        self.client = AdaptiqClient()
 
 
     def parse_log_file(self, log_file_path: str, task_name: str) -> List[Dict[str, Any]]:
@@ -109,30 +108,15 @@ class DataProcessor:
 
     def send_run_results(self, data: Dict) -> bool:
         """
-        Send the run results as a JSON payload to the configured project report endpoint.
-
-        This method posts the provided data to the URL specified in self.url_report.
-        It is used to deliver per-run or project summary results for further processing,
-        storage, or notification (such as emailing the report to the user).
+        Send the run results using the Adaptiq client.
 
         Args:
             data (dict): The JSON payload containing run or project results.
 
         Returns:
-            bool: True if the request was successful (HTTP 201), False otherwise.
+            bool: True if the request was successful, False otherwise.
         """
-        try:
-            response = requests.post(self.url_report, json=data, timeout=30)
-            if response.status_code == 201:
-                return True
-            else:
-                print(
-                    f"Request failed with status {response.status_code}: {response.text}"
-                )
-                return False
-        except requests.RequestException as e:
-            print(f"An error occurred: {e}")
-            return False
+        return self.client.send_run_results(data)
 
     def save_json_report(
         self, data: Dict[str, Any], filename: str = "default_run.json"
