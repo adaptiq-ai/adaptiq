@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser
 from adaptiq.core.q_table import QTableManager
 from adaptiq.core.pipelines.pre_run.tools import HypotheticalStateGenerator, PromptConsulting, ScenarioSimulator, PromptEstimator
-from adaptiq.core.reporting import Aggregator, AdaptiqLogger
+
 
 class PreRunPipeline:
     """
@@ -86,8 +86,6 @@ class PreRunPipeline:
         self.scenario_simulator = None
         self.prompt_estimator = None
         self.offline_learner = QTableManager(file_path=self.q_table_path)
-        self.aggregator = Aggregator(config_data=self.configuration, original_prompt=self.base_config.get_prompt())
-        self.tracer = AdaptiqLogger.setup()
 
         # Results storage
         self.parsed_steps = []
@@ -450,75 +448,11 @@ class PreRunPipeline:
                 except (OSError, TypeError, json.JSONDecodeError) as e:
                     self.logger.error("Failed to save results: %s", str(e))
 
-            self.logger.info("ADAPTIQ Pre-Run process completed passing to report generation.")
-            self.aggregator.update_error_count(0)
-
-            avg_reward = self.aggregator.calculate_avg_reward(
-                simulated_scenarios=simulated_scenarios, reward_type="simulation"
-            )
-
-            self.aggregator.set_last_run_data(
-                reward=avg_reward,
-                suggested_prompt=new_prompt
-            )
-
-            # Build and add run summary
-            self.aggregator.add_run_summary(
-                run_name="default_run",
-                reward=avg_reward,
-                api_calls=0,
-                suggested_prompt=new_prompt,
-                status="completed",
-                issues=[],
-                error=None,
-                memory_usage=0,
-                run_time_seconds=0,
-                execution_logs=self.tracer.get_logs(),
-            )
-
-            # Build project result JSON
-            project_result = self.aggregator.build_project_result()
-
-            # Save default_run report
-            self.aggregator.save_json_report(data=project_result)
-
-            if self.aggregator.get_email() != "":
-                # Send results to endpoint
-                success = self.aggregator.send_run_results(project_result)
-
-                if success:
-                    logging.info("Successfully sent run results to reporting endpoint")
-                else:
-                    logging.warning("Failed to send run results to reporting endpoint")
-            else:
-                logging.info("Default run results are saved locally")
-
             self.logger.info("ADAPTIQ Pre-Run Pipeline complete.")
             return results
         
         except Exception as e:
             self.logger.error("ADAPTIQ Pre-Run Pipeline failed: %s", str(e))
-            self.aggregator.update_error_count(1)
-            self.aggregator.add_run_summary(
-                run_name="default_run",
-                reward=0,
-                api_calls=0,
-                suggested_prompt="",
-                status="failed",
-                issues=["Pipeline execution failed"],
-                error=str(e),
-                memory_usage=0,
-                run_time_seconds=0,
-                execution_logs=self.tracer.get_logs(),
-            )
-
-            # Build and send project result even for failed runs
-            project_result = self.aggregator.build_project_result()
-            self.aggregator.save_json_report(data=project_result)
-
-            if self.aggregator.get_email() != "":
-                self.aggregator.send_run_results(project_result)
-
             return {"error": str(e),}
             
 

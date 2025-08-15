@@ -75,61 +75,26 @@ def execute_pre_run_only(args):
         return False
 
 
-def execute_post_run_and_reconciliation(
-    config_path:str, output_path:str, feedback:str, template: str, logs_path:str, run_number=None, agent_metrics=None, should_send_report=True
+def execute_post_run_only(
+    config_path: str, output_path: str, feedback: str, template: str, logs_path: str, run_number=None, agent_metrics=None, should_send_report=True
 ):
-    """Execute post_run and reconciliation pipelines only."""
-    run_prefix = f"[RUN {run_number}] " if run_number is not None else ""
+    """Execute post_run only."""
+    run_prefix = "[RUN %s] " % run_number if run_number is not None else ""
 
     base_config = None
     base_log_parser = None
     if template == "crew-ai":
         base_config = CrewConfig(config_path=config_path, preload=True)
-        base_log_parser = CrewLogParser(logs_path= logs_path, output_path=output_path)
+        base_log_parser = CrewLogParser(logs_path=logs_path, output_path=output_path)
+    
     # Initialize the aggregator
-    logging.info(f"agent_metrics: {agent_metrics}")
+    logging.info("agent_metrics: %s", agent_metrics)
     aggregator = Aggregator(config_data=base_config.get_config(), original_prompt=base_config.get_prompt())
     aggregator._default_run_mode = False
-    tracer = AdaptiqLogger.setup()
-
-    # Process ALL crew metrics entries, not just the last one
-    total_execution_time = 0
-    total_peak_memory = 0
-    total_prompt_tokens = 0
-    total_completion_tokens = 0
-    total_successful_requests = 0
-
-    if agent_metrics:
-        logging.info(
-            f"{run_prefix}Processing {len(agent_metrics)} crew metrics entries..."
-        )
-
-        for i, metrics in enumerate(agent_metrics):
-            execution_time_seconds = metrics.get("execution_time_seconds", 0)
-            peak_memory_mb = metrics.get("peak_memory_mb", 0)
-            prompt_tokens = metrics.get("prompt_tokens", 0)
-            completion_tokens = metrics.get("completion_tokens", 0)
-            successful_requests = metrics.get("successful_requests", 0)
-
-            # Accumulate totals
-            total_execution_time += execution_time_seconds
-            total_peak_memory = max(
-                total_peak_memory, peak_memory_mb
-            )  # Use max for peak memory
-            total_prompt_tokens += prompt_tokens
-            total_completion_tokens += completion_tokens
-            total_successful_requests += successful_requests
-
-            logging.info(
-                f"{run_prefix}Metrics {i + 1}/{len(agent_metrics)}: "
-                f"time={execution_time_seconds:.2f}s, "
-                f"tokens={prompt_tokens + completion_tokens}, "
-                f"requests={successful_requests}"
-            )
 
     try:
         # Step 1: Execute post_run pipeline
-        logging.info(f"{run_prefix}STEP 1: Executing post_run pipeline...")
+        logging.info("%sSTEP 1: Executing post_run pipeline...", run_prefix)
 
         post_run = PostRunPipeline(
             base_config=base_config,
@@ -139,209 +104,40 @@ def execute_post_run_and_reconciliation(
         )
         post_run_results = post_run.execute_post_run_pipeline()
 
-        logging.info(f"{run_prefix}[SUCCESS] Post-run pipeline completed successfully")
-
-
-
-        logging.info(
-            f"{run_prefix}Agent token stats: input={total_prompt_tokens}, output={total_completion_tokens}, calls={total_successful_requests}"
-        )
-        logging.info(
-            f"{run_prefix}Total execution time: {total_execution_time:.2f} seconds, Peak memory usage: {total_peak_memory:.2f} MB"
-        )
+        logging.info("%s[SUCCESS] Post-run pipeline completed successfully", run_prefix)
 
         validation_summary_path = post_run_results.get(
             "validation_results", {}
-        ).get("outputs").get("validation_summary_path")
-        reconciliation_results= post_run_results.get(
+        ).get("outputs", {}).get("validation_summary_path")
+        reconciliation_results = post_run_results.get(
             "reconciliation_results", {}
         )
-        # Process each crew metrics entry and add to aggregator
-        if agent_metrics:
-            for i, metrics in enumerate(agent_metrics):
-                execution_time_seconds = metrics.get("execution_time_seconds", 0)
-                peak_memory_mb = metrics.get("peak_memory_mb", 0)
-                prompt_tokens = metrics.get("prompt_tokens", 0)
-                completion_tokens = metrics.get("completion_tokens", 0)
-                successful_requests = metrics.get("successful_requests", 0)
-                execution_count = metrics.get("execution_count", i + 1)
-                
 
-                # Update aggregator with each run's data
-                aggregator.increment_run_count()
-
-                # Update token statistics for this specific run
-                aggregator.update_avg_run_tokens(
-                    pre_input=0,
-                    pre_output=0,
-                    post_input=prompt_tokens,
-                    post_output=completion_tokens,
-                    recon_input=0,
-                    recon_output=0,
-                    default_run_mode=False,
-                )
-
-                # Update run time for this specific run
-                aggregator.update_avg_run_time(execution_time_seconds)
-
-                # Update error count (0 for successful run)
-                aggregator.update_error_count(0)
-
-                # Calculate average reward from simulated scenarios
-                avg_reward = aggregator.calculate_avg_reward(
-                    validation_summary_path=validation_summary_path, reward_type="execution"
-                ) 
-                new_prompt = reconciliation_results.get("summary", {}).get("new_prompt", "")
-                
-                # Add each run summary to the aggregator
-                aggregator.add_run_summary(
-                    run_name=f"{run_prefix}Execution-{execution_count}",
-                    reward=avg_reward,
-                    api_calls=successful_requests,
-                    suggested_prompt=new_prompt,
-                    status="completed",
-                    issues=[],
-                    error=None,
-                    memory_usage=peak_memory_mb,
-                    run_time_seconds=execution_time_seconds,
-                    execution_logs=tracer.get_logs(),
-                )
-
-                logging.info(
-                    f"{run_prefix}Added run summary for execution {execution_count}"
-                )
-        else:
-            # Handle case where no crew metrics provided - add single summary
-            logging.info(
-                f"{run_prefix}No crew metrics provided, adding single run summary..."
-            )
-
-            aggregator.increment_run_count()
-            aggregator.update_avg_run_tokens(
-                pre_input=0,
-                pre_output=0,
-                post_input=0,
-                post_output=0,
-                recon_input=0,
-                recon_output=0,
-                default_run_mode=False,
-            )
-            aggregator.update_avg_run_time(0)
-            aggregator.update_error_count(0)
-
-            avg_reward = aggregator.calculate_avg_reward(
-                validation_summary_path=validation_summary_path, reward_type="execution"
-            )
-
-            new_prompt = reconciliation_results.get("summary", {}).get("new_prompt", "")
-
-            aggregator.add_run_summary(
-                run_name=f"{run_prefix}Single-Run",
-                reward=avg_reward,
-                api_calls=0,
-                suggested_prompt=new_prompt,
-                status="completed",
-                issues=[],
-                error=None,
-                memory_usage=0,
-                run_time_seconds=0,
-                execution_logs=tracer.get_logs(),
-            )
-
-        # Only send results if should_send_report is True
-        if should_send_report:
-            logging.info(
-                f"{run_prefix}Building and sending comprehensive project results..."
-            )
-
-            # Build project result JSON (now contains ALL runs)
-            project_result = aggregator.build_project_result()
-
-            # Merge old with new result then saving the new report
-            merged_result = aggregator.merge_json_reports(new_json_data=project_result)
-            aggregator.save_json_report(merged_result)
-
-            # Send results to endpoint
-            if aggregator.email != "":
-                success = aggregator.send_run_results(merged_result)
-
-                if success:
-                    logging.info(
-                        f"{run_prefix}Successfully sent comprehensive run results to reporting endpoint"
-                    )
-                else:
-                    logging.warning(
-                        f"{run_prefix}Failed to send run results to reporting endpoint"
-                    )
-            else:
-                logging.info(f"{run_prefix} are successfully saved locally")
-        else:
-            logging.info(
-                f"{run_prefix}Run summaries added to aggregator - report will be sent when all runs complete"
-            )
+        # Use aggregator to handle all metrics processing and reporting
+        success = aggregator.aggregate_results(
+            agent_metrics=agent_metrics,
+            validation_summary_path=validation_summary_path,
+            reconciliation_results=reconciliation_results,
+            should_send_report=should_send_report,
+            run_number=run_number
+        )
 
         find_and_clear_log_files()
-
-        return True
+        return success
 
     except Exception as e:
-        logging.error(f"{run_prefix}Error during pipeline execution: {str(e)}")
-        logging.error(f"{run_prefix}Pipeline execution stopped due to error.")
+        logging.error("%sError during pipeline execution: %s", run_prefix, str(e))
+        logging.error("%sPipeline execution stopped due to error.", run_prefix)
 
-        # Handle errors for all runs if crew_metrics provided
-        if agent_metrics:
-            for i, metrics in enumerate(agent_metrics):
-                execution_count = metrics.get("execution_count", i + 1)
-
-                # Update aggregator with error information for each run
-                aggregator.increment_run_count()
-                aggregator.update_error_count(1)
-                aggregator.update_avg_run_time(0)
-
-                # Add failed run summary for each execution
-                aggregator.add_run_summary(
-                    run_name=f"{run_prefix}Execution-{execution_count}",
-                    reward=0.0,
-                    api_calls=0,
-                    suggested_prompt="",
-                    status="failed",
-                    issues=["Pipeline execution failed"],
-                    error=str(e),
-                    memory_usage=0,
-                    run_time_seconds=0,
-                    execution_logs=tracer.get_logs(),
-                )
-        else:
-            # Handle single failed run
-            aggregator.increment_run_count()
-            aggregator.update_error_count(1)
-            aggregator.update_avg_run_time(0)
-
-            aggregator.add_run_summary(
-                run_name=f"{run_prefix}Single-Run",
-                reward=0.0,
-                api_calls=0,
-                suggested_prompt="",
-                status="failed",
-                issues=["Pipeline execution failed"],
-                error=str(e),
-                memory_usage=0,
-                run_time_seconds=0,
-                execution_logs=tracer.get_logs(),
-            )
-
-        # Only send results if should_send_report is True (even for failed runs)
-        if should_send_report:
-            logging.info(
-                f"{run_prefix}Building and sending project results for failed run..."
-            )
-            project_result = aggregator.build_project_result()
-            aggregator.send_run_results(project_result)
-        else:
-            logging.info(
-                f"{run_prefix}Failed run summary added to aggregator - report will be sent when all runs complete"
-            )
-
+        # Use aggregator to handle error reporting
+        success = aggregator.aggregate_results(
+            agent_metrics=agent_metrics,
+            validation_summary_path=None,
+            reconciliation_results=None,
+            should_send_report=should_send_report,
+            run_number=run_number
+        )
+        
         return False
 
 def handle_init_command(args):
@@ -472,7 +268,7 @@ def handle_run_command(args):
     logging.info("[START] STARTING ADAPTIQ RUN")
     logging.info("=" * 60)
 
-    success = execute_post_run_and_reconciliation(
+    success = execute_post_run_only(
         config_path= args.config_path,
         output_path=args.output_path,
         feedback=args.feedback,

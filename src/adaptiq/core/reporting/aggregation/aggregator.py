@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, List
 
 from adaptiq.core.reporting.aggregation.helpers import DataProcessor, MetricsCalculator, ReportBuilder
+from adaptiq.core.reporting.monitoring.adaptiq_logger import AdaptiqLogger
 
 
 class Aggregator:
@@ -29,8 +30,7 @@ class Aggregator:
         )
         self.logger = logging.getLogger("ADAPTIQ-Aggregator")
         self.original_prompt = original_prompt
-        # Initialize data processor and load config
-        self.data_processor = DataProcessor()
+        
         self.config_data = config_data
         self.email = self.config_data.get("email", "")
 
@@ -45,12 +45,15 @@ class Aggregator:
             "openai": {
                 "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
                 "gpt-4.1-mini": {"input": 0.0004, "output": 0.0016},
+                "gpt-4.1": {"input": 0.002, "output": 0.008},
             }
         }
 
         # Initialize metrics calculator and report builder
+        self.data_processor = DataProcessor()
         self.metrics_calculator = MetricsCalculator(self.config_data, self.pricings)
         self.report_builder = ReportBuilder(self.config_data)
+        self.tracer = AdaptiqLogger.setup()
 
     def increment_run_count(self) -> int:
         """
@@ -575,3 +578,222 @@ class Aggregator:
         self.metrics_calculator.set_last_run_data(
             reward, run_time_seconds, self.original_prompt, suggested_prompt
         )
+
+    def aggregate_results(
+    self, 
+    agent_metrics: List[Dict] = None, 
+    validation_summary_path: str = None,
+    reconciliation_results: Dict = None,
+    should_send_report: bool = False,
+    run_number: int = None
+    ) -> bool:
+        """
+        Aggregate results from agent metrics and build comprehensive reports.
+        
+        Args:
+            agent_metrics (List[Dict], optional): List of agent execution metrics
+            validation_summary_path (str, optional): Path to validation summary file
+            reconciliation_results (Dict, optional): Results from reconciliation pipeline
+            should_send_report (bool): Whether to send the report to endpoint
+            run_number (int, optional): Run number for logging prefix
+            
+        Returns:
+            bool: True if successful, False if error occurred
+        """
+        run_prefix = f"[RUN {run_number}] " if run_number is not None else ""
+        
+        try:
+            # Process agent metrics and calculate totals
+            total_execution_time = 0
+            total_peak_memory = 0
+            total_prompt_tokens = 0
+            total_completion_tokens = 0
+            total_successful_requests = 0
+
+            if agent_metrics:
+                logging.info("%sProcessing %s crew metrics entries...", run_prefix, len(agent_metrics))
+
+                for i, metrics in enumerate(agent_metrics):
+                    execution_time_seconds = metrics.get("execution_time_seconds", 0)
+                    peak_memory_mb = metrics.get("peak_memory_mb", 0)
+                    prompt_tokens = metrics.get("prompt_tokens", 0)
+                    completion_tokens = metrics.get("completion_tokens", 0)
+                    successful_requests = metrics.get("successful_requests", 0)
+
+                    # Accumulate totals
+                    total_execution_time += execution_time_seconds
+                    total_peak_memory = max(total_peak_memory, peak_memory_mb)
+                    total_prompt_tokens += prompt_tokens
+                    total_completion_tokens += completion_tokens
+                    total_successful_requests += successful_requests
+
+                    logging.info(
+                        "%sMetrics %s/%s: time=%.2fs, tokens=%s, requests=%s",
+                        run_prefix, i + 1, len(agent_metrics), execution_time_seconds,
+                        prompt_tokens + completion_tokens, successful_requests
+                    )
+
+            logging.info(
+                "%sAgent token stats: input=%s, output=%s, calls=%s",
+                run_prefix, total_prompt_tokens, total_completion_tokens, total_successful_requests
+            )
+            logging.info(
+                "%sTotal execution time: %.2f seconds, Peak memory usage: %.2f MB",
+                run_prefix, total_execution_time, total_peak_memory
+            )
+
+            # Calculate average reward
+            avg_reward = self.calculate_avg_reward(
+                validation_summary_path=validation_summary_path, 
+                reward_type="execution"
+            )
+            
+            new_prompt = reconciliation_results.get("summary", {}).get("new_prompt", "") if reconciliation_results else ""
+
+            # Process each crew metrics entry and add to aggregator
+            if agent_metrics:
+                for i, metrics in enumerate(agent_metrics):
+                    execution_time_seconds = metrics.get("execution_time_seconds", 0)
+                    peak_memory_mb = metrics.get("peak_memory_mb", 0)
+                    prompt_tokens = metrics.get("prompt_tokens", 0)
+                    completion_tokens = metrics.get("completion_tokens", 0)
+                    successful_requests = metrics.get("successful_requests", 0)
+                    execution_count = metrics.get("execution_count", i + 1)
+
+                    # Update aggregator with each run's data
+                    self.increment_run_count()
+
+                    # Update token statistics for this specific run
+                    self.update_avg_run_tokens(
+                        pre_input=0,
+                        pre_output=0,
+                        post_input=prompt_tokens,
+                        post_output=completion_tokens,
+                        recon_input=0,
+                        recon_output=0,
+                        default_run_mode=False,
+                    )
+
+                    # Update run time and error count
+                    self.update_avg_run_time(execution_time_seconds)
+                    self.update_error_count(0)
+
+                    # Add run summary to the aggregator
+                    self.add_run_summary(
+                        run_name=f"{run_prefix}Execution-{execution_count}",
+                        reward=avg_reward,
+                        api_calls=successful_requests,
+                        suggested_prompt=new_prompt,
+                        status="completed",
+                        issues=[],
+                        error=None,
+                        memory_usage=peak_memory_mb,
+                        run_time_seconds=execution_time_seconds,
+                        execution_logs=self.tracer.get_logs(),
+                    )
+
+                    logging.info("%sAdded run summary for execution %s", run_prefix, execution_count)
+            else:
+                # Handle case where no crew metrics provided - add single summary
+                logging.info("%sNo crew metrics provided, adding single run summary...", run_prefix)
+
+                self.increment_run_count()
+                self.update_avg_run_tokens(
+                    pre_input=0, pre_output=0, post_input=0, post_output=0,
+                    recon_input=0, recon_output=0, default_run_mode=False,
+                )
+                self.update_avg_run_time(0)
+                self.update_error_count(0)
+
+                self.add_run_summary(
+                    run_name=f"{run_prefix}Single-Run",
+                    reward=avg_reward,
+                    api_calls=0,
+                    suggested_prompt=new_prompt,
+                    status="completed",
+                    issues=[],
+                    error=None,
+                    memory_usage=0,
+                    run_time_seconds=0,
+                    execution_logs=self.tracer.get_logs(),
+                )
+
+            # Send results if requested
+            if should_send_report:
+                logging.info("%sBuilding and sending comprehensive project results...", run_prefix)
+
+                # Build project result JSON (now contains ALL runs)
+                project_result = self.build_project_result()
+
+                # Merge old with new result then save the new report
+                merged_result = self.merge_json_reports(new_json_data=project_result)
+                self.save_json_report(merged_result)
+
+                # Send results to endpoint if email is configured
+                if self.email != "":
+                    success = self.send_run_results(merged_result)
+                    if success:
+                        logging.info("%sSuccessfully sent comprehensive run results to reporting endpoint", run_prefix)
+                    else:
+                        logging.warning("%sFailed to send run results to reporting endpoint", run_prefix)
+                else:
+                    logging.info("%sResults are successfully saved locally", run_prefix)
+            else:
+                logging.info("%sRun summaries added to aggregator - report will be sent when all runs complete", run_prefix)
+
+            return True
+
+        except Exception as e:
+            logging.error("%sError during aggregation: %s", run_prefix, str(e))
+            
+            # Handle errors for all runs if agent_metrics provided
+            if agent_metrics:
+                for i, metrics in enumerate(agent_metrics):
+                    execution_count = metrics.get("execution_count", i + 1)
+
+                    # Update aggregator with error information for each run
+                    self.increment_run_count()
+                    self.update_error_count(1)
+                    self.update_avg_run_time(0)
+
+                    # Add failed run summary for each execution
+                    self.add_run_summary(
+                        run_name=f"{run_prefix}Execution-{execution_count}",
+                        reward=0.0,
+                        api_calls=0,
+                        suggested_prompt="",
+                        status="failed",
+                        issues=["Aggregation failed"],
+                        error=str(e),
+                        memory_usage=0,
+                        run_time_seconds=0,
+                        execution_logs=self.tracer.get_logs(),
+                    )
+            else:
+                # Handle single failed run
+                self.increment_run_count()
+                self.update_error_count(1)
+                self.update_avg_run_time(0)
+
+                self.add_run_summary(
+                    run_name=f"{run_prefix}Single-Run",
+                    reward=0.0,
+                    api_calls=0,
+                    suggested_prompt="",
+                    status="failed",
+                    issues=["Aggregation failed"],
+                    error=str(e),
+                    memory_usage=0,
+                    run_time_seconds=0,
+                    execution_logs=self.tracer.get_logs(),
+                )
+
+            # Send results even for failed runs if requested
+            if should_send_report:
+                logging.info("%sBuilding and sending project results for failed run...", run_prefix)
+                project_result = self.build_project_result()
+                self.send_run_results(project_result)
+            else:
+                logging.info("%sFailed run summary added to aggregator - report will be sent when all runs complete", run_prefix)
+
+            return False
