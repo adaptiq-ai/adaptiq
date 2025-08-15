@@ -1,5 +1,5 @@
-from .run import RunPipeline
+from .run import AdaptiqRun
 
 __all__ = [
-    "RunPipeline", 
+    "AdaptiqRun", 
 ]

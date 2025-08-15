@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import yaml
 
 # Set up logger
@@ -17,7 +17,107 @@ class BaseConfig(ABC):
     This class can be extended to create specialized configuration managers
     for specific applications or services.
     """
+    _shared_config:Dict[str, Any] = None
+    _current_prompt:str = None
+    _template_type: str = "crew-ai"
+
+    @staticmethod
+    def get_config() -> Dict[str, Any]:
+        """
+        Retrieve the shared configuration instance.
+        Raises an error if no config was preloaded.
+        """
+        if BaseConfig._shared_config is None:
+            raise RuntimeError("No configuration has been loaded yet.")
+        return BaseConfig._shared_config
+
+    @staticmethod
+    def set_active_prompt(new_prompt: str):
+        BaseConfig._current_prompt = new_prompt
+
+    @staticmethod
+    def update_instructions(prompt: str = None, params: Dict[str, Any] = None) -> str:
+        """
+        Replace placeholders of the form {{key}} in the prompt with values from params.
+
+        Args:
+            prompt (str): The prompt string containing placeholders. If None, uses _current_prompt.
+            params (Dict[str, Any]): Dictionary of key-value pairs for replacement.
+
+        Returns:
+            str: Updated prompt with all placeholders replaced.
+        """
+        if BaseConfig._current_prompt is None and prompt is None:
+            raise RuntimeError("No prompt has been loaded or provided.")
+
+        if params is None:
+            params = {}
+
+        # Use the provided prompt or fall back to stored one
+        template = prompt if prompt is not None else BaseConfig._current_prompt
+
+        for key, value in params.items():
+            template = template.replace(f"{{{{{key}}}}}", str(value))
+
+        return template
     
+    @staticmethod
+    def update_instructions_within_file(file_path: str, key: str):
+        """
+        Update the first matching key in a YAML file with BaseConfig._current_prompt,
+        searching recursively through nested structures.
+
+        Args:
+            file_path (str): Path to the YAML file.
+            key (str): The key to search for and update.
+
+        Raises:
+            RuntimeError: If _current_prompt is not set.
+            FileNotFoundError: If the YAML file doesn't exist.
+            KeyError: If the key is not found in the file.
+        """
+        if BaseConfig._current_prompt is None:
+            raise RuntimeError("No prompt has been loaded to update the file.")
+
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"YAML file not found: {file_path}")
+
+        # Load YAML
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        found = False
+
+        def recursive_update(obj):
+            nonlocal found
+            if found:
+                return  # Stop searching after first match
+            if isinstance(obj, dict):
+                for k, v in obj.items():
+                    if k == key:
+                        obj[k] = BaseConfig._current_prompt
+                        found = True
+                        return
+                    recursive_update(v)
+                    if found:
+                        return
+            elif isinstance(obj, list):
+                for item in obj:
+                    recursive_update(item)
+                    if found:
+                        return
+
+        recursive_update(data)
+
+        if not found:
+            raise KeyError(f"Key '{key}' not found in YAML file: {file_path}")
+
+        # Save YAML back
+        with open(file_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+
+
+
     def __init__(self, config_path: str = None, preload: bool = False):
         """
         Initialize the configuration manager with the path to the configuration file.
@@ -34,6 +134,7 @@ class BaseConfig(ABC):
             if not config_path:
                 raise ValueError("Configuration path must be provided for preloading.")
             self.config = self._load_config(config_path)
+            BaseConfig._shared_config = self.config
 
             return
 

@@ -1,5 +1,6 @@
 import logging
 
+import os
 from typing import Any, Dict, Optional, List
 from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser, BaseLogParser
 from adaptiq.core.pipelines import PreRunPipeline
@@ -7,7 +8,7 @@ from adaptiq.core.pipelines import PostRunPipeline
 from adaptiq.core.reporting.aggregation import Aggregator
 
 
-class RunPipeline:
+class AdaptiqRun:
     """
     Unified pipeline class that orchestrates both ADAPTIQ's pre-run and post-run modules:
     
@@ -28,12 +29,16 @@ class RunPipeline:
 
     def __init__(
         self,
+        
         base_config: BaseConfig,
         base_prompt_parser: BasePromptParser,
         base_log_parser: BaseLogParser,
         output_path: str,
+        template: str = "crew-ai",
         feedback: Optional[str] = None,
-        validate_results: bool = True
+        validate_results: bool = True,
+        save_results: bool = True,
+
     ):
         """
         Initialize the unified RunPipeline with all required components.
@@ -60,6 +65,10 @@ class RunPipeline:
         self.output_path = output_path
         self.feedback = feedback
         self.validate_results = validate_results
+        self.save_results = save_results
+        self.template =template
+
+        self.results_path = self.output_path  + "/adaptiq_results.json"
 
         # Initialize pipeline components
         self.pre_run_pipeline = None
@@ -72,7 +81,7 @@ class RunPipeline:
 
         self.logger.info("RunPipeline initialized successfully")
 
-    def init_run(self, save_results: bool = True) -> Dict[str, Any]:
+    def start_pre_run(self) -> Dict[str, Any]:
         """
         Execute the complete pre-run pipeline to prepare the agent for execution.
         
@@ -110,7 +119,7 @@ class RunPipeline:
 
             # Execute the complete pre-run pipeline
             self.pre_run_results = self.pre_run_pipeline.execute_pre_run_pipeline(
-                save_results=save_results
+                save_results=self.save_results
             )
 
             self.logger.info("init_run completed successfully")
@@ -129,7 +138,7 @@ class RunPipeline:
             self.logger.error("init_run failed: %s", str(e))
             raise
 
-    def start_run(self) -> Dict[str, Any]:
+    def start_post_run(self) -> Dict[str, Any]:
         """
         Execute the complete post-run pipeline to analyze agent execution results.
         
@@ -208,7 +217,58 @@ class RunPipeline:
 
         self.logger.info("Aggregation completed successfully")
         return aggregated_results_status
+    
+    
+    def _verify_pre_run(self) -> bool:
+        try:
 
+            if os.path.isfile(self.results_path):
+                return True
+            else:
+                self.logger.warning(f"File does not exist: {self.results_path}")
+                return False
+
+        except (OSError, TypeError) as e:
+            self.logger.error(f"Error verifying results_path '{self.results_path}': {e}")
+            return None
+
+
+    def run(self, func: callable, *args, **kwargs):
+        """
+        Executes a provided function with pre- and post-run prompt updates.
+        Catches exceptions and raises a RuntimeError with the original error message.
+        """
+
+        def update_prompt(new_prompt: str):
+            self.base_config.set_active_prompt(new_prompt=new_prompt)
+
+            if self.template == "crew-ai":
+                try:
+                    task_path: str = self.base_config.get_config()["agent_modifiable_config"]["prompt_configuration_file_path"]
+                    clean_task_path = task_path.removeprefix("./")
+                    self.base_config.update_instructions_within_file(
+                        file_path=f"{self.output_path}/{clean_task_path}",
+                        key="description"
+                    )
+                except Exception as e:
+                    raise RuntimeError(f"Failed to update prompt in YAML file: {e}") from e
+
+        try:
+            if not self._verify_pre_run():
+                self.start_pre_run()
+                update_prompt(new_prompt=self.get_pre_run_prompt())
+
+            agent_metrics: List[Dict] = func(*args, **kwargs)
+
+            self.start_post_run()
+            update_prompt(new_prompt=self.get_post_run_prompt())
+
+            self.aggregate_run(agent_metrics=agent_metrics)
+
+        except Exception as e:
+            raise RuntimeError(f"Run execution failed: {e}") from e
+
+    
     def get_pre_run_results(self) -> Optional[Dict[str, Any]]:
         """
         Get the results from the pre-run pipeline execution.

@@ -140,7 +140,7 @@ class CrewConfig(BaseConfig):
             if agent_config_missing:
                 return  False, f"❌ Missing required agent_modifiable_config keys: {', '.join(agent_config_missing)}"
 
-            report_required = ["output_path"]
+            report_required = ["output_path", "prompts_path"]
             report_missing = [
                 key
                 for key in report_required
@@ -224,6 +224,7 @@ class CrewConfig(BaseConfig):
                 "path/to/your/config/tasks.yml",
                 "path/to/your/config/agents.yml",
                 "reports/your_agent_name.md",
+                "reports/prompts.json",
             ]
 
             # Recursively check all string values in config_data for placeholders
