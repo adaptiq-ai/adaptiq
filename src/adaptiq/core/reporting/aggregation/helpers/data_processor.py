@@ -188,9 +188,8 @@ class DataProcessor:
 
             # Check if file exists
             if not os.path.exists(default_file_path):
-                raise FileNotFoundError(
-                    f"default_run.json not found at: {default_file_path}"
-                )
+                print("No existing default_run.json found. Using new data as initial report.")
+                return new_json_data
 
             # Load the existing default report
             with open(default_file_path, "r", encoding="utf-8") as file:
