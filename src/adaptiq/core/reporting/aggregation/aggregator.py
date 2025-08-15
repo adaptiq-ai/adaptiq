@@ -585,7 +585,6 @@ class Aggregator:
     validation_summary_path: str = None,
     reconciliation_results: Dict = None,
     should_send_report: bool = False,
-    run_number: int = None
     ) -> bool:
         """
         Aggregate results from agent metrics and build comprehensive reports.
@@ -600,7 +599,7 @@ class Aggregator:
         Returns:
             bool: True if successful, False if error occurred
         """
-        run_prefix = f"[RUN {run_number}] " if run_number is not None else ""
+        run_prefix = f"[RUN {self._run_count}] " if self._run_count is not None else ""
         
         try:
             # Process agent metrics and calculate totals

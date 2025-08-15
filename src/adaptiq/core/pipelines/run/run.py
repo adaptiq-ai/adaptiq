@@ -173,7 +173,6 @@ class RunPipeline:
         self,
         agent_metrics: List[Dict] = None, 
         should_send_report: bool = False,
-        run_number: int = None
         ) -> Dict[str, Any]:
         """
         Aggregate results from post-run pipeline.
@@ -205,7 +204,6 @@ class RunPipeline:
             validation_summary_path=validation_summary_path,
             reconciliation_results=reconciliation_results,
             should_send_report=should_send_report,
-            run_number=run_number
         )
 
         self.logger.info("Aggregation completed successfully")
@@ -229,7 +227,7 @@ class RunPipeline:
         """
         return self.post_run_results
 
-    def get_optimized_prompt(self) -> Optional[str]:
+    def get_pre_run_prompt(self) -> Optional[str]:
         """
         Get the optimized prompt generated during the pre-run phase.
 
@@ -238,6 +236,18 @@ class RunPipeline:
         """
         if self.pre_run_results and "new_prompt" in self.pre_run_results:
             return self.pre_run_results["new_prompt"]
+        return None
+    
+    def get_post_run_prompt(self) -> Optional[str]:
+        """
+        Get the prompt used during the post-run phase.
+
+        Returns:
+            The prompt string used in post-run or None if start_run hasn't been executed
+        """
+        if self.post_run_results and "reconciliation_results" in self.post_run_results:
+            reconciliation_results = self.post_run_results["reconciliation_results"]
+            return reconciliation_results.get("summary", {}).get("new_prompt", "") if reconciliation_results else ""
         return None
 
     def get_pipeline_status(self) -> Dict[str, Any]:

@@ -119,7 +119,6 @@ def execute_post_run_only(
             validation_summary_path=validation_summary_path,
             reconciliation_results=reconciliation_results,
             should_send_report=should_send_report,
-            run_number=run_number
         )
 
         find_and_clear_log_files()
@@ -135,7 +134,6 @@ def execute_post_run_only(
             validation_summary_path=None,
             reconciliation_results=None,
             should_send_report=should_send_report,
-            run_number=run_number
         )
         
         return False
