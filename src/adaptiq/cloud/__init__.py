@@ -2,13 +2,8 @@
 Adaptiq Cloud - HTTP client and API management for Adaptiq services
 """
 
-from .http_client import HTTPClient
-from .adaptiq_client import AdaptiqClient
+from .adaptiq_client import AdaptiqCloud
 
 __all__ = [
-    'HTTPClient',
-    'AdaptiqClient'
+    'AdaptiqCloud'
 ]
-
-# Version info
-__version__ = "0.12.2"  

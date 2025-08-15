@@ -4,7 +4,7 @@ import logging
 import sys  # To get command line arguments
 import logging
 
-from adaptiq.core.reporting import Aggregator, AdaptiqLogger, get_logger
+from adaptiq.core.reporting import Aggregator, get_logger
 from adaptiq.core.pipelines import PreRunPipeline, PostRunPipeline
 from adaptiq.agents.crew_ai import CrewConfig, CrewPromptParser, CrewLogParser
 

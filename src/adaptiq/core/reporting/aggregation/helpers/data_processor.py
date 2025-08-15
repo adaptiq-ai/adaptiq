@@ -6,7 +6,7 @@ import re
 from copy import deepcopy
 from typing import Any, Dict, List
 
-from adaptiq.cloud.adaptiq_client import AdaptiqClient
+from adaptiq.cloud.adaptiq_client import AdaptiqCloud
 
 
 class DataProcessor:
@@ -18,7 +18,7 @@ class DataProcessor:
     def __init__(self):
         """Initialize the data processor."""
         self.logger = logging.getLogger("ADAPTIQ-Aggregator-DataProcessor")
-        self.client = AdaptiqClient()
+        self.adaptiq_cloud = AdaptiqCloud()
 
 
     def parse_log_file(self, log_file_path: str, task_name: str) -> List[Dict[str, Any]]:
@@ -116,7 +116,7 @@ class DataProcessor:
         Returns:
             bool: True if the request was successful, False otherwise.
         """
-        return self.client.send_run_results(data)
+        return self.adaptiq_cloud.send_run_results(data)
 
     def save_json_report(
         self, data: Dict[str, Any], filename: str = "default_run.json"
