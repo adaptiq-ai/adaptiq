@@ -253,16 +253,14 @@ class PromptEngineer:
         """
         Saves the generated report to a file.
         """
-        output_path_template = self.report_path if self.report_path else "reports/agent_report.md"
+        output_path_template = str(self.report_path) if self.report_path else "reports/agent_report.md"
 
         # Substitute agent name if placeholder is present
         if "your_agent_name" in output_path_template and agent_name_for_report:
             output_path = output_path_template.replace(
                 "your_agent_name", agent_name_for_report.replace(" ", "_")
             )
-        elif (
-            agent_name_for_report
-        ):  # If no placeholder, but agent name given, append it to avoid overwrites
+        elif agent_name_for_report:  # If no placeholder, but agent name given, append it to avoid overwrites
             base, ext = os.path.splitext(output_path_template)
             output_path = f"{base}_{agent_name_for_report.replace(' ', '_')}{ext}"
         else:

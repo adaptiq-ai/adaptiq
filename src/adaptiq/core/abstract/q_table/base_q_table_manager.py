@@ -20,7 +20,6 @@ class BaseQTableManager(ABC):
     @abstractmethod
     def update_policy(
         self,
-        agent_id: str,
         s: Tuple[Any],
         a: str,
         R: float,
@@ -29,7 +28,7 @@ class BaseQTableManager(ABC):
     ) -> float:
         pass
 
-    def Q(self, agent_id: str, s: Any, a: str) -> float:
+    def Q(self, s: Any, a: str) -> float:
         return self.Q_table.get((s, a), 0.0)
 
     def get_q_table(self) -> Dict:

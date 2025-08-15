@@ -1,16 +1,12 @@
 import argparse
 import json
 import logging
-import os
 import sys  # To get command line arguments
-import time
-import tracemalloc
 import logging
 
 from adaptiq.core.reporting import Aggregator, AdaptiqLogger, get_logger
-from adaptiq.core.pipelines.pre_run import PreRunPipeline
-from adaptiq.core.pipelines.post_run import PostRunPipeline, adaptiq_reconciliation_pipeline
-from adaptiq.agents.crew_ai import CrewConfig, CrewPromptParser
+from adaptiq.core.pipelines import PreRunPipeline, PostRunPipeline
+from adaptiq.agents.crew_ai import CrewConfig, CrewPromptParser, CrewLogParser
 
 get_logger()
 
@@ -80,13 +76,19 @@ def execute_pre_run_only(args):
 
 
 def execute_post_run_and_reconciliation(
-    args, logger, run_number=None, crew_metrics=None, should_send_report=True
+    config_path:str, output_path:str, feedback:str, template: str, logs_path:str, run_number=None, agent_metrics=None, should_send_report=True
 ):
     """Execute post_run and reconciliation pipelines only."""
     run_prefix = f"[RUN {run_number}] " if run_number is not None else ""
 
+    base_config = None
+    base_log_parser = None
+    if template == "crew-ai":
+        base_config = CrewConfig(config_path=config_path, preload=True)
+        base_log_parser = CrewLogParser(logs_path= logs_path, output_path=output_path)
     # Initialize the aggregator
-    aggregator = Aggregator(config_path=args.config)
+    logging.info(f"agent_metrics: {agent_metrics}")
+    aggregator = Aggregator(config_data=base_config.get_config(), original_prompt=base_config.get_prompt())
     aggregator._default_run_mode = False
     tracer = AdaptiqLogger.setup()
 
@@ -97,12 +99,12 @@ def execute_post_run_and_reconciliation(
     total_completion_tokens = 0
     total_successful_requests = 0
 
-    if crew_metrics:
+    if agent_metrics:
         logging.info(
-            f"{run_prefix}Processing {len(crew_metrics)} crew metrics entries..."
+            f"{run_prefix}Processing {len(agent_metrics)} crew metrics entries..."
         )
 
-        for i, metrics in enumerate(crew_metrics):
+        for i, metrics in enumerate(agent_metrics):
             execution_time_seconds = metrics.get("execution_time_seconds", 0)
             peak_memory_mb = metrics.get("peak_memory_mb", 0)
             prompt_tokens = metrics.get("prompt_tokens", 0)
@@ -119,7 +121,7 @@ def execute_post_run_and_reconciliation(
             total_successful_requests += successful_requests
 
             logging.info(
-                f"{run_prefix}Metrics {i + 1}/{len(crew_metrics)}: "
+                f"{run_prefix}Metrics {i + 1}/{len(agent_metrics)}: "
                 f"time={execution_time_seconds:.2f}s, "
                 f"tokens={prompt_tokens + completion_tokens}, "
                 f"requests={successful_requests}"
@@ -129,24 +131,18 @@ def execute_post_run_and_reconciliation(
         # Step 1: Execute post_run pipeline
         logging.info(f"{run_prefix}STEP 1: Executing post_run pipeline...")
 
-        post_run_results = PostRunPipeline(
-            config_path=args.config, output_path=args.output_path
+        post_run = PostRunPipeline(
+            base_config=base_config,
+            base_log_parser=base_log_parser,
+            output_dir=output_path,
+            feedback=feedback
         )
+        post_run_results = post_run.execute_post_run_pipeline()
 
         logging.info(f"{run_prefix}[SUCCESS] Post-run pipeline completed successfully")
 
-        # Step 2: Execute reconciliation pipeline
-        logging.info(f"{run_prefix}STEP 2: Executing reconciliation pipeline...")
 
-        reconciliation_results = adaptiq_reconciliation_pipeline(
-            config_path=args.config,
-            output_path=args.output_path,
-            feedback=args.feedback,
-        )
 
-        logging.info(
-            f"{run_prefix}[SUCCESS] Reconciliation pipeline completed successfully"
-        )
         logging.info(
             f"{run_prefix}Agent token stats: input={total_prompt_tokens}, output={total_completion_tokens}, calls={total_successful_requests}"
         )
@@ -154,19 +150,22 @@ def execute_post_run_and_reconciliation(
             f"{run_prefix}Total execution time: {total_execution_time:.2f} seconds, Peak memory usage: {total_peak_memory:.2f} MB"
         )
 
-        validated_logs = post_run_results.get("outputs", {}).get(
-            "validation_summary_path", []
+        validation_summary_path = post_run_results.get(
+            "validation_results", {}
+        ).get("outputs").get("validation_summary_path")
+        reconciliation_results= post_run_results.get(
+            "reconciliation_results", {}
         )
-
         # Process each crew metrics entry and add to aggregator
-        if crew_metrics:
-            for i, metrics in enumerate(crew_metrics):
+        if agent_metrics:
+            for i, metrics in enumerate(agent_metrics):
                 execution_time_seconds = metrics.get("execution_time_seconds", 0)
                 peak_memory_mb = metrics.get("peak_memory_mb", 0)
                 prompt_tokens = metrics.get("prompt_tokens", 0)
                 completion_tokens = metrics.get("completion_tokens", 0)
                 successful_requests = metrics.get("successful_requests", 0)
                 execution_count = metrics.get("execution_count", i + 1)
+                
 
                 # Update aggregator with each run's data
                 aggregator.increment_run_count()
@@ -190,21 +189,10 @@ def execute_post_run_and_reconciliation(
 
                 # Calculate average reward from simulated scenarios
                 avg_reward = aggregator.calculate_avg_reward(
-                    validation_summary_path=validated_logs, reward_type="execution"
-                )
-
-                new_prompt = reconciliation_results.get("summary", {}).get(
-                    "new_prompt", ""
-                )
-
-                # Store last run data for performance score calculation
-                aggregator._last_reward = avg_reward
-                aggregator._last_run_time = execution_time_seconds
-                aggregator._last_original_prompt = (
-                    ""  # You might want to extract this from config
-                )
-                aggregator._last_suggested_prompt = new_prompt
-
+                    validation_summary_path=validation_summary_path, reward_type="execution"
+                ) 
+                new_prompt = reconciliation_results.get("summary", {}).get("new_prompt", "")
+                
                 # Add each run summary to the aggregator
                 aggregator.add_run_summary(
                     run_name=f"{run_prefix}Execution-{execution_count}",
@@ -242,7 +230,7 @@ def execute_post_run_and_reconciliation(
             aggregator.update_error_count(0)
 
             avg_reward = aggregator.calculate_avg_reward(
-                validation_summary_path=validated_logs, reward_type="execution"
+                validation_summary_path=validation_summary_path, reward_type="execution"
             )
 
             new_prompt = reconciliation_results.get("summary", {}).get("new_prompt", "")
@@ -301,8 +289,8 @@ def execute_post_run_and_reconciliation(
         logging.error(f"{run_prefix}Pipeline execution stopped due to error.")
 
         # Handle errors for all runs if crew_metrics provided
-        if crew_metrics:
-            for i, metrics in enumerate(crew_metrics):
+        if agent_metrics:
+            for i, metrics in enumerate(agent_metrics):
                 execution_count = metrics.get("execution_count", i + 1)
 
                 # Update aggregator with error information for each run
@@ -355,7 +343,6 @@ def execute_post_run_and_reconciliation(
             )
 
         return False
-
 
 def handle_init_command(args):
     """Handles the logic for the 'init' command - initializes a new Adaptiq project."""
@@ -440,7 +427,7 @@ def handle_run_command(args):
     """Handles the logic for the 'run' command - executes post_run and reconciliation sequentially."""
 
     logging.info("Executing the 'run' command...")
-    logging.info(f"Configuration file: {args.config}")
+    logging.info(f"Configuration file: {args.config_path}")
 
     if args.output_path:
         logging.info(f"Results will be saved to: {args.output_path}")
@@ -448,17 +435,22 @@ def handle_run_command(args):
     if args.log:
         logging.info(f"Logging to file: {args.log}")
 
+    if args.template:
+        logging.info(f"Using {args.template} configs")
+
+    
+
     # Handle crew metrics if provided
-    crew_metrics_list = []
-    if hasattr(args, "crew_metrics") and args.crew_metrics:
+    agent_metrics_list = []
+    if args.agent_metrics:
         logging.info("Crew metrics provided:")
         try:
-            crew_metrics_list = json.loads(args.crew_metrics)
-            print(f"[CREW_METRICS] {crew_metrics_list}")
+            agent_metrics_list = json.loads(args.agent_metrics)
+            print(f"[CREW_METRICS] {agent_metrics_list}")
 
             # Extract current execution count from crew metrics
-            if crew_metrics_list and len(crew_metrics_list) > 0:
-                current_execution_count = crew_metrics_list[-1].get(
+            if agent_metrics_list and len(agent_metrics_list) > 0:
+                current_execution_count = agent_metrics_list[-1].get(
                     "execution_count", 0
                 )
                 logging.info(
@@ -467,11 +459,11 @@ def handle_run_command(args):
 
         except json.JSONDecodeError as e:
             logging.error(f"Invalid JSON format for crew metrics: {e}")
-            print(f"[CREW_METRICS_RAW] {args.crew_metrics}")
+            print(f"[CREW_METRICS_RAW] {args.agent_metrics}")
 
     # Get send_report flag (defaults to True if not provided)
     should_send_report = True
-    if hasattr(args, "send_report"):
+    if args.send_report:
         should_send_report = args.send_report
         logging.info(f"Send report flag: {should_send_report}")
 
@@ -481,10 +473,13 @@ def handle_run_command(args):
     logging.info("=" * 60)
 
     success = execute_post_run_and_reconciliation(
-        args,
-        logger = None,
+        config_path= args.config_path,
+        output_path=args.output_path,
+        feedback=args.feedback,
+        template =args.template,
+        logs_path = args.log,
         run_number=None,
-        crew_metrics=crew_metrics_list,
+        agent_metrics=agent_metrics_list,
         should_send_report=should_send_report,
     )
 
@@ -560,7 +555,7 @@ def main():
 
     # Add arguments specific to the 'validate' command
     parser_validate.add_argument(
-        "--config-path",
+        "--config_path",
         type=str,
         metavar="CONFIG_PATH",
         required=True,
@@ -620,7 +615,7 @@ def main():
     )
     # Add arguments specific to the 'run' command
     parser_run.add_argument(
-        "--config",
+        "--config_path",
         type=str,
         metavar="PATH",
         required=True,
@@ -631,8 +626,8 @@ def main():
         "--template",
         type=str,
         metavar="TEMPLATE",
-        required=True,
-        help="Type of template to validate against.",
+        default="crew-ai",
+        help="Template to use for initialization (default: crew-ai)",
     )
     parser_run.add_argument(
         "--output_path",
@@ -647,10 +642,10 @@ def main():
         help="Optional path to a file for logging output.",
     )
     parser_run.add_argument(
-        "--crew_metrics",
+        "--agent_metrics",
         type=str,
         metavar="JSON_STRING",
-        help="Optional crew metrics data in JSON format to be processed during the run.",
+        help="Optional agent metrics data in JSON format to be processed during the run.",
     )
     parser_run.add_argument(
         "--send_report",

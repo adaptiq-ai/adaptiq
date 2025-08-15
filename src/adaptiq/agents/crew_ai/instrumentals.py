@@ -200,16 +200,20 @@ class CrewInstrumental:
         cmd_args = [
             "adaptiq",
             "run",
-            "--config",
+            "--config_path",
             config,
+            "--template",
+            "crew-ai",
             "--output_path",
             output_path,
+            "--log",
+            "./log.json"
         ]
 
         # Add crew metrics as CLI argument if available
         if crew_metrics:
             crew_metrics_json = json.dumps(crew_metrics)
-            cmd_args.extend(["--crew_metrics", crew_metrics_json])
+            cmd_args.extend(["--agent_metrics", crew_metrics_json])
             print(f"[INSTRUMENT] Crew metrics added to command args (size: {len(crew_metrics_json)} chars)")
 
         # Add feedback if provided
@@ -225,7 +229,7 @@ class CrewInstrumental:
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
 
-        print(f"[INSTRUMENT] Triggering command: {' '.join(cmd_args[:4])}{'...' if len(cmd_args) > 4 else ''}")
+        print(f"[INSTRUMENT] Triggering command: {' '.join(cmd_args[:])}")
 
         try:
             # Start the process with real-time output capture

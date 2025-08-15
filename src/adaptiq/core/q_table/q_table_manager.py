@@ -29,7 +29,6 @@ class QTableManager(BaseQTableManager):
 
     def update_policy(
         self,
-        agent_id: str,
         s: Tuple[str, str, str, str],
         a: str,
         R: float,
@@ -69,7 +68,6 @@ class QTableManager(BaseQTableManager):
         self.seen_states.add(s)
 
         # Log
-        logger.debug(f"[{agent_id}] Q-update: {Q_sa:.4f} → {new_Q_sa:.4f}")
         logger.debug(
             f"Formula: {Q_sa:.4f} + {self.alpha:.2f} * ({R:.2f} + {self.gamma:.2f} * {max_Q_s_prime:.4f} - {Q_sa:.4f})"
         )

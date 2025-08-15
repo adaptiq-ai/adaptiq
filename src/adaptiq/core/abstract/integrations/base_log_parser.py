@@ -45,6 +45,7 @@ class BaseLogParser(ABC):
         """
         self.logs_path = logs_path
         self.output_path = output_path
+        self.parsed_file_name = "parsed_logs.json"
 
     def load_json_data(self) -> Union[Dict, List[Dict[str, Any]]]:
         """
@@ -60,6 +61,7 @@ class BaseLogParser(ABC):
         """
         if not os.path.isfile(self.logs_path):
             raise FileNotFoundError(f"File not found: {self.logs_path}")
+        
 
         with open(self.logs_path, "r", encoding="utf-8") as file:
             try:
@@ -206,17 +208,27 @@ class BaseLogParser(ABC):
             "reward_exec": self.normalize_reward(reward),
         }
 
+        
     def save_processed_logs(self, processed_logs: List[Dict[str, Any]]) -> None:
         """
         Save processed logs to the output file.
-
-        Args:
-            processed_logs (List[Dict[str, Any]]): List of processed log entries.
+        Raises RuntimeError with original error if writing fails.
         """
-        if self.output_path:
-            with open(self.output_path, "w", encoding="utf-8") as f:
-                json.dump(processed_logs, f, indent=2, ensure_ascii=False)
+        if self.output_path and self.parsed_file_name:
+            try:
+                # Join the output path with the parsed file name
+                full_path = os.path.join(self.output_path, self.parsed_file_name)
 
+                # Ensure the parent directory exists
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                
+                # Write the logs
+                with open(full_path, "w", encoding="utf-8") as f:
+                    json.dump(processed_logs, f, indent=2, ensure_ascii=False)
+            
+            except Exception as e:
+                raise RuntimeError(f"Failed to save logs to {full_path}: {e}") from e
+            
     def parse_logs(self) -> Dict[str, List[Dict]]:
         """
         Main method to transform raw logs into state-action-reward mapping.
@@ -228,50 +240,53 @@ class BaseLogParser(ABC):
         Returns:
             Dict[str, List[Dict]]: A processed log data structure with chronological steps and rewards.
         """
-        logs: List[Dict[str, Any]] = self.load_json_data()
+        try:
+            logs: List[Dict[str, Any]] = self.load_json_data()
 
-        if not logs:
-            return {}
+            if not logs:
+                return {}
 
-        processed_logs = []
-        agent_name = self.extract_agent_name(logs)
-        supported_types = self.get_supported_entry_types()
+            processed_logs = []
+            agent_name = self.extract_agent_name(logs)
+            supported_types = self.get_supported_entry_types()
 
-        # Initialize state for chronological processing
-        previous_action = "None"
-        previous_outcome = "None"
-        previous_thought = "None"
+            # Initialize state for chronological processing
+            previous_action = "None"
+            previous_outcome = "None"
+            previous_thought = "None"
 
-        for i, log_entry in enumerate(logs):
-            entry_type = log_entry.get("type")
-            
-            # Skip unsupported entry types
-            if entry_type not in supported_types:
-                continue
+            for i, log_entry in enumerate(logs):
+                entry_type = log_entry.get("type")
+                
+                # Skip unsupported entry types
+                if entry_type not in supported_types:
+                    continue
 
-            # Extract components using abstract methods
-            current_thought = self.extract_thought_or_description(log_entry, entry_type)
-            current_action, current_outcome = self.extract_action_and_outcome(log_entry, entry_type)
-            reward = self.calculate_reward(log_entry, entry_type)
+                # Extract components using abstract methods
+                current_thought = self.extract_thought_or_description(log_entry, entry_type)
+                current_action, current_outcome = self.extract_action_and_outcome(log_entry, entry_type)
+                reward = self.calculate_reward(log_entry, entry_type)
 
-            # Create standardized log item
-            log_item = self.create_log_item(
-                current_thought=current_thought,
-                previous_action=previous_action,
-                previous_outcome=previous_outcome,
-                agent_name=agent_name,
-                current_action=current_action,
-                reward=reward
-            )
+                # Create standardized log item
+                log_item = self.create_log_item(
+                    current_thought=current_thought,
+                    previous_action=previous_action,
+                    previous_outcome=previous_outcome,
+                    agent_name=agent_name,
+                    current_action=current_action,
+                    reward=reward
+                )
 
-            processed_logs.append(log_item)
+                processed_logs.append(log_item)
 
-            # Update state for next iteration
-            previous_action = current_action
-            previous_outcome = current_outcome if current_outcome is not None else "NoOutcome"
-            previous_thought = current_thought
+                # Update state for next iteration
+                previous_action = current_action
+                previous_outcome = current_outcome if current_outcome is not None else "NoOutcome"
+                previous_thought = current_thought
 
-        # Save results
-        self.save_processed_logs(processed_logs)
+            # Save results
+            self.save_processed_logs(processed_logs)
 
-        return {"processed_logs": processed_logs}
+            return {"processed_logs": processed_logs}
+        except Exception as e:
+            raise

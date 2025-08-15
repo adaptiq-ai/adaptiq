@@ -24,7 +24,7 @@ class PostRunPipeline:
     self, 
     base_config: BaseConfig,
     base_log_parser: BaseLogParser,
-    output_dir: str,
+    output_dir: str = "./",
     feedback: Optional[str] = None,
     validate_results: bool = True
     ):
@@ -101,27 +101,28 @@ class PostRunPipeline:
             FileNotFoundError: If raw logs are not provided and can't be loaded.
         """
         self.logger.info("Starting log parsing...")
+        try:
+            # If raw_logs is None, try to load from file
+            if raw_logs is None:
+                if not os.path.exists(self.raw_logs_path):
+                    raise FileNotFoundError(
+                        f"Raw logs file not found at {self.raw_logs_path}"
+                    )
 
-        # If raw_logs is None, try to load from file
-        if raw_logs is None:
-            if not os.path.exists(self.raw_logs_path):
-                raise FileNotFoundError(
-                    f"Raw logs file not found at {self.raw_logs_path}"
-                )
+                
+            with open(self.raw_logs_path, "r", encoding="utf-8") as f:
+                if self.raw_logs_path.endswith(".json"):
+                    # Load as JSON
+                    raw_content = json.load(f)
+                    # Convert back to string if needed for parser
+                    raw_logs = json.dumps(raw_content)
+                else:
+                    # Load as text
+                    raw_logs = f.read()
 
-            try:
-                with open(self.raw_logs_path, "r", encoding="utf-8") as f:
-                    if self.raw_logs_path.endswith(".json"):
-                        # Load as JSON
-                        raw_content = json.load(f)
-                        # Convert back to string if needed for parser
-                        raw_logs = json.dumps(raw_content)
-                    else:
-                        # Load as text
-                        raw_logs = f.read()
-            except Exception as e:
-                self.logger.error(f"Failed to load raw logs from file: {e}")
-                raise
+        except Exception as e:
+            self.logger.error(f"Failed to load raw logs from file: {e}")
+            raise
 
         # Initialize parser with temporary file path for raw data
         temp_raw_logs_path = os.path.join(self.output_dir, "temp_raw_logs.json")
@@ -275,6 +276,40 @@ class PostRunPipeline:
 
         return result
 
+    def save_logs_in_raw(self, trace_output) -> str:
+        """
+        Get the agent trace and save it to raw logs file.
+
+        Returns:
+            str: The execution trace as text.
+        """
+        self.logger.info("Starting agent trace retrieval...")
+
+        if not trace_output:
+            self.logger.warning("Agent trace retrieval produced empty trace output")
+        else:
+            self.logger.info(
+                f"Agent trace retrieval completed, captured {len(trace_output)} characters of trace"
+            )
+
+            # Save raw trace to file
+            try:
+                # Try to parse as JSON first
+                try:
+                    json_data = json.loads(trace_output)
+                    with open(self.raw_logs_path, "w", encoding="utf-8") as f:
+                        json.dump(json_data, f, indent=2, ensure_ascii=False)
+                except json.JSONDecodeError:
+                    # If not valid JSON, save as text
+                    with open(self.raw_logs_path, "w", encoding="utf-8") as f:
+                        f.write(trace_output)
+
+                self.logger.info(f"Raw logs saved to {self.raw_logs_path}")
+            except Exception as e:
+                self.logger.error(f"Failed to save raw logs to file: {e}")
+
+        return trace_output
+
     def execute_post_run_pipeline(self) -> Dict[str, Any]:
         """
         Run the complete pipeline: agent execution, log parsing, and validation.
@@ -286,7 +321,7 @@ class PostRunPipeline:
 
         # Step 1: Run agent
         trace_output = self.base_config.get_agent_trace()
-
+        self.save_logs_in_raw(trace_output=trace_output)
         # Step 2: Parse logs
         parsed_data = self.parse_logs(trace_output)
 
