@@ -3,6 +3,8 @@ import logging
 import tiktoken
 from typing import Dict, List, Optional
 
+from adaptiq.core.entities import AdaptiQConfig
+
 
 class MetricsCalculator:
     """
@@ -10,7 +12,7 @@ class MetricsCalculator:
     performance scoring, and statistical aggregations.
     """
     # TODO: Unify the config to generic data model (from base config)
-    def __init__(self, config: Dict, pricings: Dict):
+    def __init__(self, config_data: AdaptiQConfig, pricings: Dict):
         """
         Initialize the metrics calculator.
 
@@ -19,8 +21,9 @@ class MetricsCalculator:
             pricings (Dict): Pricing information for different models and providers
         """
         self.logger = logging.getLogger("ADAPTIQ-Aggregator-MetricsCalculator")
-        self.config = config
         self.pricings = pricings
+        self.provider = config_data.llm_config.provider.value 
+        self.model = config_data.llm_config.model_name.value 
         
         # Initialize tracking variables
         self._run_count = 0
@@ -217,16 +220,15 @@ class MetricsCalculator:
         Returns:
             float: The average cost for the current averages.
         """
-        provider = self.config.get("llm_config", {}).get("provider")
-        model = self.config.get("llm_config", {}).get("model_name")
-        if not provider or not model:
+
+        if not self.provider or not self.model:
             self.logger.error("Provider or model not found in config.")
             return 0.0
 
-        pricing = self.pricings.get(provider, {}).get(model)
+        pricing = self.pricings.get(self.provider, {}).get(self.model)
         if not pricing:
             self.logger.error(
-                "Pricing not found for provider '%s' and model '%s'.", provider, model
+                "Pricing not found for provider '%s' and model '%s'.", self.provider, self.model
             )
             return 0.0
 
@@ -251,16 +253,14 @@ class MetricsCalculator:
         Returns:
             float: The cost for the current run.
         """
-        provider = self.config.get("llm_config", {}).get("provider")
-        model = self.config.get("llm_config", {}).get("model_name")
-        if not provider or not model:
+        if not self.provider or not self.model:
             self.logger.error("Provider or model not found in config.")
             return 0.0
 
-        pricing = self.pricings.get(provider, {}).get(model)
+        pricing = self.pricings.get(self.provider, {}).get(self.model)
         if not pricing:
             self.logger.error(
-                "Pricing not found for provider '%s' and model '%s'.", provider, model
+                "Pricing not found for provider '%s' and model '%s'.", self.provider, self.model
             )
             return 0.0
 

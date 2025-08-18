@@ -24,9 +24,8 @@ class PostRunPipeline:
     self, 
     base_config: BaseConfig,
     base_log_parser: BaseLogParser,
-    output_dir: str = "./",
-    feedback: Optional[str] = None,
-    validate_results: bool = True
+    output_dir: str,
+    feedback: Optional[str] = None
     ):
         """
         Initialize the AdaptiqPostRunOrchestrator.
@@ -55,16 +54,13 @@ class PostRunPipeline:
         self.output_dir = output_dir
         self.feedback = feedback
 
-        self.api_key = self.configuration.get("llm_config", {}).get("api_key") or os.getenv("OPENAI_API_KEY")
-        self.model_name = self.configuration.get("llm_config", {}).get("model_name")
-        self.provider = self.configuration.get("llm_config", {}).get("providedr", "openai")
-        self.agent_name = self.configuration.get("agent_modifiable_config", "").get("agent_name", "default_agent")
-        self.report_path = self.configuration.get("report_config", "").get("output_path", "adaptiq_report.md")
-        
-        # Loading the old prompt of agent
-        self.old_prompt = base_config.get_prompt()
-
-        self.validate_results = validate_results
+        self.api_key = self.configuration.llm_config.api_key
+        self.model_name = self.configuration.llm_config.model_name.value
+        self.provider = self.configuration.llm_config.provider.value
+        self.agent_name = self.configuration.agent_modifiable_config.agent_name
+        self.report_path = self.configuration.report_config.output_path 
+    
+        self.old_prompt = base_config.get_prompt(get_newest=True)
 
         # Ensure output directory exists
         if not os.path.exists(output_dir):
@@ -82,7 +78,6 @@ class PostRunPipeline:
         self.validation_summary_path = os.path.join(
             output_dir, "validation_summary.json"
         )
-
 
     def parse_logs(
         self, raw_logs: Optional[str] = None
@@ -329,17 +324,17 @@ class PostRunPipeline:
         validation_results = None
         corrected_logs = None
 
-        if self.validate_results:
-            # Load the raw and parsed logs from files
-            with open(self.raw_logs_path, "r", encoding="utf-8") as f:
-                raw_logs = json.load(f)
 
-            with open(self.parsed_logs_path, "r", encoding="utf-8") as f:
-                parsed_logs = json.load(f)
+        # Load the raw and parsed logs from files
+        with open(self.raw_logs_path, "r", encoding="utf-8") as f:
+            raw_logs = json.load(f)
 
-            _ , validation_results = self.validate_parsed_logs(
-                raw_logs, parsed_logs
-            )
+        with open(self.parsed_logs_path, "r", encoding="utf-8") as f:
+            parsed_logs = json.load(f)
+
+        _ , validation_results = self.validate_parsed_logs(
+            raw_logs, parsed_logs
+        )
 
         # Prepare pipeline results
         validation_results = {
@@ -357,18 +352,18 @@ class PostRunPipeline:
             },
         }
 
-        if self.validate_results:
-            validation_results["outputs"][
-                "validated_logs_path"
-            ] = self.validated_logs_path
-            validation_results["outputs"][
-                "validation_summary_path"
-            ] = self.validation_summary_path
 
-            if validation_results and "summary" in validation_results:
-                validation_results["stats"]["validation_summary"] = validation_results[
-                    "summary"
-                ]
+        validation_results["outputs"][
+            "validated_logs_path"
+        ] = self.validated_logs_path
+        validation_results["outputs"][
+            "validation_summary_path"
+        ] = self.validation_summary_path
+
+        if validation_results and "summary" in validation_results:
+            validation_results["stats"]["validation_summary"] = validation_results[
+                "summary"
+            ]
         
         # Step 4: Reconciliate logs
         reconciliated_data = self.reconciliate_logs()

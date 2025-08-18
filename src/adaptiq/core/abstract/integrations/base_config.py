@@ -1,8 +1,10 @@
+from datetime import datetime
 import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Tuple
+from adaptiq.core.entities import AdaptiQConfig, FrameworkEnum
 import yaml
 
 # Set up logger
@@ -17,12 +19,11 @@ class BaseConfig(ABC):
     This class can be extended to create specialized configuration managers
     for specific applications or services.
     """
-    _shared_config:Dict[str, Any] = None
+    _shared_config: AdaptiQConfig = None
     _current_prompt:str = None
-    _template_type: str = "crew-ai"
 
     @staticmethod
-    def get_config() -> Dict[str, Any]:
+    def get_config() -> AdaptiQConfig:
         """
         Retrieve the shared configuration instance.
         Raises an error if no config was preloaded.
@@ -116,8 +117,6 @@ class BaseConfig(ABC):
         with open(file_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
 
-
-
     def __init__(self, config_path: str = None, preload: bool = False):
         """
         Initialize the configuration manager with the path to the configuration file.
@@ -133,7 +132,7 @@ class BaseConfig(ABC):
         if preload:
             if not config_path:
                 raise ValueError("Configuration path must be provided for preloading.")
-            self.config = self._load_config(config_path)
+            self.config: AdaptiQConfig  = self._load_config(config_path)
             BaseConfig._shared_config = self.config
 
             return
@@ -141,7 +140,51 @@ class BaseConfig(ABC):
         self.config_path = None
         self.config = None
     
-    def _load_config(self, config_path: str) -> Dict[str, Any]:
+    def get_prompt(self, get_newest:bool = False) -> str:
+        if self.config.framework_adapter.name == FrameworkEnum.crewai:
+            prompt_path = self.config.agent_modifiable_config.prompt_configuration_file_path
+            current_dir = os.getcwd()
+            file_path = os.path.join(current_dir, prompt_path)
+
+            # Read YAML file
+            with open(file_path, 'r', encoding='utf-8') as f:
+                yaml_content = yaml.safe_load(f)
+
+            task_name = list(yaml_content.keys())[0]
+            description = yaml_content[task_name]["description"]
+            expected_output = yaml_content[task_name]["expected_output"]
+
+            # Combine both sections
+            return f"{description}\nExpected output:\n{expected_output}"
+        
+        else:
+            prompt_path = self.config.report_config.prompts_path
+            current_dir = os.getcwd()
+            file_path = os.path.join(current_dir, prompt_path) 
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                prompt_content = json.load(f)  # list of dicts
+
+            if not prompt_content:
+                return ""
+
+            if get_newest:
+                # sort by timestamp and take the latest
+                newest_entry = max(
+                    prompt_content,
+                    key=lambda x: datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S")
+                )
+                return newest_entry["prompt"]
+            else:
+                # get the first entry with type=default
+                for entry in prompt_content:
+                    if entry.get("type") == "default":
+                        return entry["prompt"]
+                
+                # fallback: return first prompt if no default found
+                return prompt_content[0]["prompt"]
+    
+    def _load_config(self, config_path: str) -> AdaptiQConfig:
         """
         Load the configuration file from the given path.
         
@@ -149,7 +192,7 @@ class BaseConfig(ABC):
             config_path (str): Path to the configuration file.
             
         Returns:
-            Dict[str, Any]: The loaded configuration.
+            AdaptiQConfig: The loaded configuration.
             
         Raises:
             FileNotFoundError: If the file does not exist.
@@ -161,104 +204,23 @@ class BaseConfig(ABC):
         try:
             
             with open(config_path, "r", encoding="utf-8") as file:
-                return yaml.safe_load(file) or {}
+                raw_config =  yaml.safe_load(file) or {}
+            
+            return AdaptiQConfig(**raw_config)
         
         except yaml.YAMLError as e:
             raise ValueError(f"Failed to parse YAML configuration file: {e}")
         except Exception as e:
             raise ValueError(f"Failed to load configuration file: {e}")
     
-    def save_config(self, output_path: Optional[str] = None) -> None:
-        """
-        Save the current configuration to a file.
-        
-        Args:
-            output_path (Optional[str]): Path to save the configuration. 
-                                       If None, saves to the original config_path.
-        
-        Raises:
-            ValueError: If the configuration cannot be saved.
-        """
-        save_path = output_path or self.config_path
-        
-        try:
-            # Create directory if it doesn't exist
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            
-            with open(save_path, "w", encoding="utf-8") as file:
-                yaml.safe_dump(self.config, file, default_flow_style=False, 
-                                 allow_unicode=True, indent=2)
-            
-            logger.info(f"Configuration saved successfully to: {save_path}")
-            
-        except Exception as e:
-            logger.error(f"Failed to save configuration to {save_path}: {e}")
-            raise ValueError(f"Failed to save configuration: {e}")
-    
-    def get_config(self) -> Dict[str, Any]:
+    def get_config(self) -> AdaptiQConfig:
         """
         Get the entire configuration dictionary.
         
         Returns:
-            Dict[str, Any]: The complete configuration.
+            AdaptiQConfig: The complete configuration.
         """
-        return self.config.copy()
-    
-    def get_value(self, key: str, default: Any = None) -> Any:
-        """
-        Get a specific configuration value by key.
-        Supports nested keys using dot notation (e.g., 'database.host').
-        
-        Args:
-            key (str): The configuration key to retrieve.
-            default (Any): Default value if key is not found.
-            
-        Returns:
-            Any: The configuration value or default.
-        """
-        keys = key.split('.')
-        value = self.config
-        
-        try:
-            for k in keys:
-                value = value[k]
-            return value
-        except (KeyError, TypeError):
-            return default
-    
-    def set_value(self, key: str, value: Any) -> None:
-        """
-        Set a specific configuration value by key.
-        Supports nested keys using dot notation (e.g., 'database.host').
-        
-        Args:
-            key (str): The configuration key to set.
-            value (Any): The value to set.
-        """
-        keys = key.split('.')
-        config_ref = self.config
-        
-        # Navigate to the parent of the target key
-        for k in keys[:-1]:
-            if k not in config_ref:
-                config_ref[k] = {}
-            config_ref = config_ref[k]
-        
-        # Set the final value
-        config_ref[keys[-1]] = value
-        logger.debug(f"Set configuration value: {key} = {value}")
-    
-    def update_config(self, updates: Dict[str, Any]) -> None:
-        """
-        Update multiple configuration values at once.
-        
-        Args:
-            updates (Dict[str, Any]): Dictionary of key-value pairs to update.
-        """
-        for key, value in updates.items():
-            self.set_value(key, value)
-        
-        logger.info(f"Updated {len(updates)} configuration values")
+        return self.config
     
     def reload_config(self) -> None:
         """
@@ -291,17 +253,6 @@ class BaseConfig(ABC):
         pass
 
     @abstractmethod
-    def get_agent_trace(self) -> str:
-        """
-        Retrieve the trace or log of actions performed by the agent.
-
-        Returns:
-            str: A string representation of the agent's execution trace, 
-                which may include decisions, actions, or reasoning steps.
-        """
-        pass
-    
-    @abstractmethod
     def create_project_template(project_name=None, base_path=".") -> Tuple[bool, str]:
         """
         Creates a repository template structure for an agent example.
@@ -315,17 +266,50 @@ class BaseConfig(ABC):
         """
 
         pass
-    
-    @abstractmethod 
-    def get_prompt() -> str:
-        pass
-    
-    def __str__(self) -> str:
-        """String representation of the configuration manager."""
-        return f"{self.__class__.__name__}(config_path='{self.config_path}')"
-    
-    def __repr__(self) -> str:
-        """Detailed string representation of the configuration manager."""
-        return f"{self.__class__.__name__}(config_path='{self.config_path}', keys={list(self.config.keys())})"
+
+    def get_agent_trace(self) -> str:
+        """
+        Access agent trace based on execution mode configuration.
+
+        Returns:
+            str: The execution trace as text.
+        """
+        framework_settings = self.config.framework_adapter.settings
+        execution_mode = framework_settings.execution_mode or "dev"
+        log_source_type = framework_settings.log_source.type or "stdout_capture"
+        log_file_path = framework_settings.log_source.path
+
+        trace_output = ""
+
+        # Log the execution mode
+        if execution_mode == "prod":
+            logger.info("Running in PROD mode - accessing log file directly")
+        else:
+            logger.info("Running in DEV mode - accessing log file directly")
+
+        # Read the log file if type is file_path
+        if log_source_type == "file_path":
+            if not log_file_path:
+                logger.error(
+                    "Log source type is 'file_path' but no path is specified in config."
+                )
+                return ""
+            try:
+                with open(log_file_path, "r", encoding="utf-8") as f:
+                    trace_output = f.read()
+                logger.info(f"Successfully read trace from log file: {log_file_path}")
+            except FileNotFoundError:
+                logger.error(f"Log file not found: {log_file_path}")
+                return ""
+            except Exception as e:
+                logger.error(f"Error reading log file {log_file_path}: {str(e)}")
+                return ""
+        else:
+            logger.warning(
+                f"Log source type '{log_source_type}' is not 'file_path'. Cannot access logs without execution."
+            )
+            return ""
+
+        return trace_output
 
 

@@ -33,8 +33,8 @@ framework_adapter:
     settings:
         execution_mode: "prod"                # Execution mode (dev or prod)
         log_source:
-        type: "file_path"                  # Type of log source (for now it is supported only path mode)
-        path: "log.json"       # Default path to AdaptiQ agent's logs
+            type: "file_path"                  # Type of log source (for now it is supported only path mode)
+            path: "log.json"       # Default path to AdaptiQ agent's logs
 
 # --- Agent Configuration Files ---
 # Paths to your agent's configuration files
@@ -49,8 +49,8 @@ agent_modifiable_config:
 # --- Report Output Configuration ---
 # Where AdaptiQ will save optimization reports
 report_config:
-    output_path: "reports/{project_name}.md"    # Path for the optimization report (Been set by default)
-    prompts_path: "reports/prompts.json"
+    output_path: "./reports/{project_name}.md"    # Path for the optimization report (Been set by default)
+    prompts_path: "./reports/prompts.json"
 
 # --- Alert Mode Configuration ---
 # Configure when AdaptiQ should generate reports

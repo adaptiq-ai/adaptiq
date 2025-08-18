@@ -2,8 +2,8 @@ import logging
 from typing import Any, Dict, List
 
 from adaptiq.core.reporting.aggregation.helpers import DataProcessor, MetricsCalculator, ReportBuilder
-from adaptiq.core.reporting.monitoring.adaptiq_logger import AdaptiqLogger
-
+from adaptiq.core.reporting.monitoring import AdaptiqLogger
+from adaptiq.core.entities import AdaptiQConfig
 
 class Aggregator:
     """
@@ -21,7 +21,7 @@ class Aggregator:
     """
     # TODO: Unify the config to generic data model (from base config)
     # TODO: Add Start Aggregation that process incoming results and manage all logic inside the aggregator
-    def __init__(self, config_data: Dict[str, Any], original_prompt: str):
+    def __init__(self, config_data: AdaptiQConfig, original_prompt: str):
         """Initialize the aggregator with pricing information for different models."""
         # Set up logging
         logging.basicConfig(
@@ -32,7 +32,7 @@ class Aggregator:
         self.original_prompt = original_prompt
         
         self.config_data = config_data
-        self.email = self.config_data.get("email", "")
+        self.email = self.config_data.email
 
         # Initialize run tracking
         self._run_count = 0
@@ -51,8 +51,8 @@ class Aggregator:
 
         # Initialize metrics calculator and report builder
         self.data_processor = DataProcessor()
-        self.metrics_calculator = MetricsCalculator(self.config_data, self.pricings)
-        self.report_builder = ReportBuilder(self.config_data)
+        self.metrics_calculator = MetricsCalculator(config_data=self.config_data, pricings= self.pricings)
+        self.report_builder = ReportBuilder(config_data= self.config_data)
         self.tracer = AdaptiqLogger.setup()
 
     def increment_run_count(self) -> int:
@@ -273,13 +273,7 @@ class Aggregator:
         """
         Build a summary JSON for a single run.
         """
-        # Get task name and original prompt
-        prompt_file_path = self.config_data.get("agent_modifiable_config", {}).get(
-            "prompt_configuration_file_path", "N/A"
-        )
-
         task_name = "Under-Fixing (Dev msg)"
-
 
         # Calculate token totals from metrics calculator
         pre = self.metrics_calculator.run_tokens["pre_tokens"]
@@ -335,13 +329,7 @@ class Aggregator:
     ):
         """
         Build and add a run summary to the runs list.
-        """
-        # Get task name and original prompt
-        prompt_file_path = self.config_data.get("agent_modifiable_config", {}).get(
-            "prompt_configuration_file_path", "N/A"
-        )
-        
-
+        """      
         task_name = "Under-Fixing (Dev msg)"
 
         # Calculate token totals from metrics calculator
@@ -454,10 +442,7 @@ class Aggregator:
         log_file_path = None
         if not self._default_run_mode:
             log_file_path = (
-                self.config_data.get("framework_adapter", {})
-                .get("settings", {})
-                .get("log_source", {})
-                .get("path")
+                self.config_data.framework_adapter.settings.log_source.path
             )
 
         # Parse tools if needed
@@ -550,14 +535,6 @@ class Aggregator:
     def get_run_count(self) -> int:
         """Get the current run count."""
         return self._run_count
-
-    def get_config(self) -> Dict:
-        """Get the current configuration."""
-        return self.config_data
-
-    def get_email(self) -> str:
-        """Get the email from configuration."""
-        return self.email
 
     def set_task_name(self, task_name: str):
         """Set the current task name."""

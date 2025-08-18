@@ -5,7 +5,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from adaptiq.core.q_table.q_table_manager import QTableManager
-
+from adaptiq.core.entities import AgentTool
 
 class PromptEstimator:
     """
@@ -27,7 +27,7 @@ class PromptEstimator:
         hypothetical_states: Optional[List[Dict]] = None,
         offline_learner: Optional[QTableManager] = None,
         prompt_analysis: Optional[Dict] = None,
-        agent_tools: Optional[List[Dict]] = None,
+        agent_tools: Optional[List[AgentTool]] = None,
         output_path: Optional[str] = None
     ):
         """
@@ -68,9 +68,8 @@ class PromptEstimator:
         
         # Process agent tools into string format
         self.tool_strings = [
-            f"{name}: {desc}"
+            f"{tool_dict.name}: {tool_dict.description}"
             for tool_dict in self.agent_tools
-            for name, desc in tool_dict.items()
         ]
         self.tools_string = "\n".join(self.tool_strings)
         
@@ -178,10 +177,7 @@ class PromptEstimator:
 
                 # Infer which heuristics might have been applied based on Q-value
                 if q_value < 0:
-                    if "undeclared_tool" in action.lower() or not any(
-                        tool in action for tool in [tool_dict for tool_dict in self.agent_tools 
-                                                   for tool in tool_dict.keys()]
-                    ):
+                    if "undeclared_tool" in action.lower() or not any(tool.name in action for tool in self.agent_tools):
                         heuristic_counts["undeclared_tool_penalty"] = (
                             heuristic_counts.get("undeclared_tool_penalty", 0) + 1
                         )

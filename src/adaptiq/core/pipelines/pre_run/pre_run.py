@@ -45,35 +45,24 @@ class PreRunPipeline:
         self.base_config = base_config
         self.config = base_config.config
         self.output_path = output_path
-        self.configuration = self.base_config.get_config()
+        self.config_data = self.base_config.get_config()
 
         # Ensure output directory exists
         self.q_table_path = os.path.join(output_path, "adaptiq_q_table.json")
 
         # Loading the old prompt of agent
-        self.old_prompt = self.base_config.get_prompt()
+        self.old_prompt = self.base_config.get_prompt(get_newest=True)
 
         # Store the prompt parser
         self.prompt_parser = base_prompt_parser
 
-        # Extract key configuration
-        self.agent_config = self.configuration.get("agent_modifiable_config", {})
-
         # Load environment variables for API access
-        load_dotenv()
-        self.api_key = self.configuration.get("llm_config", {}).get("api_key") or os.getenv("OPENAI_API_KEY")
-        self.model_name = self.configuration.get("llm_config", {}).get("model_name")
-        self.provider = self.configuration.get("llm_config", {}).get("providedr", "openai")
+        self.api_key = self.config_data.llm_config.api_key
+        self.model_name = self.config_data.llm_config.model_name.value
+        self.provider = self.config_data.llm_config.provider.value
 
         # Get the list of tools available to the agent
-        tools_config = self.configuration.get("agent_modifiable_config", {}).get(
-            "agent_tools", []
-        )
-        self.agent_tools = (
-            [{tool["name"]: tool["description"]} for tool in tools_config]
-            if tools_config
-            else []
-        )
+        self.agent_tools = self.config_data.agent_modifiable_config.agent_tools
 
         if not self.api_key:
             raise ValueError("API key not provided in config or environment variables")
@@ -346,8 +335,7 @@ class PreRunPipeline:
 
         try:
             # Load the agent prompt
-            agent_prompt = self.configuration.get("agent_modifiable_config", {}).get("prompt_configuration_file_path")
-
+            agent_prompt = self.config_data.agent_modifiable_config.prompt_configuration_file_path
             # Initialize the prompt consultant
             self.prompt_consultant = PromptConsulting(
                 agent_prompt=agent_prompt,
@@ -382,7 +370,7 @@ class PreRunPipeline:
             # Initialize the prompt estimator
             self.prompt_estimator = PromptEstimator(
                 status=self.get_status_summary(),
-                agent_id=self.configuration.get("project_name", "N/A"),
+                agent_id=self.config_data.project_name,
                 old_prompt=self.old_prompt,
                 parsed_steps=self.parsed_steps,
                 hypothetical_states=self.hypothetical_states,

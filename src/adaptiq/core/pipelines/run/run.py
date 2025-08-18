@@ -8,7 +8,7 @@ from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser, Bas
 from adaptiq.core.pipelines import PreRunPipeline
 from adaptiq.core.pipelines import PostRunPipeline
 from adaptiq.core.reporting.aggregation import Aggregator
-
+from adaptiq.core.entities import AdaptiQConfig
 
 class AdaptiqRun:
     """
@@ -37,7 +37,6 @@ class AdaptiqRun:
         current_dir: str,
         template: str = "crew-ai",
         feedback: Optional[str] = None,
-        validate_results: bool = True,
         prompt_auto_update: bool = False,
         save_results: bool = True,
         allow_pipeline: bool = True,
@@ -64,12 +63,12 @@ class AdaptiqRun:
 
         # Store configuration and components
         self.base_config = base_config
+        self.adaptiq_config : AdaptiQConfig = self.base_config.get_config()
         self.base_prompt_parser = base_prompt_parser
         self.base_log_parser = base_log_parser
         self.current_dir = current_dir 
         self.output_path = current_dir + "/results"
         self.feedback = feedback
-        self.validate_results = validate_results
         self.save_results = save_results
         self.template =template
         self.prompt_auto_update = prompt_auto_update
@@ -169,8 +168,7 @@ class AdaptiqRun:
                 base_config=self.base_config,
                 base_log_parser=self.base_log_parser,
                 output_dir=self.output_path,
-                feedback=self.feedback,
-                validate_results=self.validate_results
+                feedback=self.feedback
             )
 
             # Execute the complete post-run pipeline
@@ -202,8 +200,8 @@ class AdaptiqRun:
 
         # Initialize aggregator
         self.aggerator = Aggregator(
-            config_data=self.base_config.get_config(),
-            original_prompt=self.base_config.get_prompt(),
+            config_data= self.adaptiq_config,
+            original_prompt=self.base_config.get_prompt(get_newest=True),
         )
 
         validation_summary_path = self.post_run_results.get(
@@ -240,16 +238,15 @@ class AdaptiqRun:
     def update_prompt(self, new_prompt: str, type: str):
             # update in memory config
             self.base_config.set_active_prompt(new_prompt=new_prompt)
-            prompts_files = self.base_config.get_config()["report_config"]["prompts_path"]
+            prompts_files = self.adaptiq_config.report_config.prompts_path
             prompts_path = os.path.join(self.current_dir, prompts_files)
 
             # save to prompt configuration if crew-ai template
             if self.template == "crew-ai" and self.prompt_auto_update:
                 try:
-                    task_path: str = self.base_config.get_config()["agent_modifiable_config"]["prompt_configuration_file_path"]
-                    clean_task_path = task_path.removeprefix("./")
+                    task_path: str = self.adaptiq_config.agent_modifiable_config.prompt_configuration_file_path
                     self.base_config.update_instructions_within_file(
-                        file_path=os.path.join(self.current_dir, clean_task_path),
+                        file_path=os.path.join(self.current_dir, task_path),
                         key="description"
                     )
                 except Exception as e:
@@ -313,10 +310,10 @@ class AdaptiqRun:
     def run(self, agent_metrics: List[Dict[str, Any]]):
         try:
             if self.allow_pipeline:
+                # order here matters ecause the aggregation need the old prompt
                 self.start_post_run()
-                self.update_prompt(new_prompt=self.get_post_run_prompt(), type="post-run")
-
                 self.aggregate_run(agent_metrics=agent_metrics)
+                self.update_prompt(new_prompt=self.get_post_run_prompt(), type="post-run")     
         except Exception as e:
             raise RuntimeError(f"Run execution failed: {e}") from e
 

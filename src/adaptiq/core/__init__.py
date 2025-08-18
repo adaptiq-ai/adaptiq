@@ -7,6 +7,7 @@ try:
     from .pipelines import *
     from .q_table import *
     from .reporting import *
+    from .entities import *
     
 except ImportError:
     pass

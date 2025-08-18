@@ -9,39 +9,6 @@ from adaptiq.agents.crew_ai import CrewConfig, CrewPromptParser, CrewLogParser
 
 get_logger()
 
-def find_and_clear_log_files(
-    search_directory=".", log_filename="log.txt", json_filename="log.json"
-):
-    """
-    Search for log files in the directory and clear their content.
-
-    Args:
-        search_directory: Directory to search for log files (default: current directory)
-        log_filename: Name of the text log file to search for
-        json_filename: Name of the JSON log file to search for
-    """
-
-    # Search for files in the directory
-    # for root, _, files in os.walk(search_directory):
-    #     for file in files:
-    #         file_path = os.path.join(root, file)
-
-    #         # Check if it's a text log file
-    #         if file == log_filename:
-    #             print(f"Found text log file: {file_path}")
-    #             with open(file_path, "w", encoding="utf-8") as f:
-    #                 f.write("")
-    #             print(f"Cleared content from: {file_path}")
-
-    #         # Check if it's a JSON log file
-    #         elif file == json_filename:
-    #             print(f"Found JSON log file: {file_path}")
-    #             with open(file_path, "w", encoding="utf-8") as f:
-    #                 json.dump([], f, ensure_ascii=False, indent=2)
-    #             print(f"Cleared content from: {file_path}")
-
-    pass
-
 def execute_pre_run_only(args):
     """Execute only the pre_run pipeline."""
 
@@ -273,7 +240,6 @@ def main():
 
     # Execute the function associated with the chosen subcommand
     args.func(args)
-
 
 if __name__ == "__main__":
     # This allows running the script directly (python src/adaptiq/cli.py run --log ...)

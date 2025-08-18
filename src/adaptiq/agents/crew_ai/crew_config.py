@@ -66,22 +66,6 @@ class CrewConfig(BaseConfig):
                 shutil.rmtree(project_path)
             return False, f"❌ Error creating template: {str(e)}"
 
-    def get_prompt(self) -> str:
-        prompt_path = self.config["agent_modifiable_config"]["prompt_configuration_file_path"]
-        current_dir = os.getcwd()
-        file_path = os.path.join(current_dir, prompt_path)
-
-        # Read YAML file
-        with open(file_path, 'r', encoding='utf-8') as f:
-            yaml_content = yaml.safe_load(f)
-
-        task_name = list(yaml_content.keys())[0]
-        description = yaml_content[task_name]["description"]
-        expected_output = yaml_content[task_name]["expected_output"]
-
-        # Combine both sections
-        return f"{description}\n\n{expected_output}"
-
     def _validate_config(self) -> Tuple[bool, str]:
         """
         Validate the AdaptiqAgentTracer configuration.
@@ -253,84 +237,3 @@ class CrewConfig(BaseConfig):
 
         except Exception as e:
             return False, f"❌ Error reading config file: {str(e)}"
-
-    def get_agent_trace(self) -> str:
-        """
-        Access agent trace based on execution mode configuration.
-
-        Returns:
-            str: The execution trace as text.
-        """
-        framework_settings = self.config.get("framework_adapter", {}).get(
-            "settings", {}
-        )
-        execution_mode = framework_settings.get(
-            "mode_execution", "dev"
-        )  # Default to 'dev'
-
-        log_source_config = framework_settings.get("log_source", {})
-        log_source_type = log_source_config.get(
-            "type", "stdout_capture"
-        )  # Default to stdout
-        log_file_path = log_source_config.get("path")
-
-        trace_output = ""
-
-        # Log the execution mode
-        if execution_mode == "prod":
-            logger.info("Running in PROD mode - accessing log file directly")
-        else:
-            logger.info("Running in DEV mode - accessing log file directly")
-
-        # Read the log file regardless of mode
-        if log_source_type == "file_path":
-            if not log_file_path:
-                logger.error(
-                    "Log source type is 'file_path' but no path is specified in config."
-                )
-                return ""
-            else:
-                try:
-                    with open(log_file_path, "r", encoding="utf-8") as f:
-                        trace_output = f.read()
-                    logger.info(
-                        f"Successfully read trace from log file: {log_file_path}"
-                    )
-                except FileNotFoundError:
-                    logger.error(f"Log file not found: {log_file_path}")
-                    return ""
-                except Exception as e:
-                    logger.error(f"Error reading log file {log_file_path}: {str(e)}")
-                    return ""
-        else:
-            logger.warning(
-                f"Log source type '{log_source_type}' is not 'file_path'. Cannot access logs without execution."
-            )
-            return ""
-
-        return trace_output
-    
-    def get_agent_config(self) -> Dict[str, Any]:
-        """
-        Get the agent-specific configuration.
-        
-        Returns:
-            Dict[str, Any]: The agent configuration section.
-        """
-        return self.get_value("agent", {})
-    
-    def update_log_source(self, log_type: str, log_path: Optional[str] = None) -> None:
-        """
-        Update the log source configuration.
-        
-        Args:
-            log_type (str): Type of log source.
-            log_path (Optional[str]): Path to the log file.
-        """
-        log_source_config = {
-            "type": log_type,
-            "path": log_path
-        }
-        
-        self.set_value("logging.source", log_source_config)
-        logger.info(f"Updated log source configuration to: {log_source_config}")

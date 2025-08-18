@@ -4,6 +4,8 @@ import traceback
 import uuid
 from typing import Any, Dict, List, Optional
 
+from adaptiq.core.entities import AdaptiQConfig
+
 
 class ReportBuilder:
     """
@@ -11,15 +13,15 @@ class ReportBuilder:
     for project summaries, run details, and performance analysis.
     """
     # TODO: Unify the config to generic data model (from base config)
-    def __init__(self, config: Dict):
+    def __init__(self, config_data: AdaptiQConfig):
         """
         Initialize the report builder.
 
         Args:
-            config (Dict): Configuration dictionary containing project and model info
+            config_data AdaptiQConfig: Configuration dictionary containing project and model info
         """
         self.logger = logging.getLogger("ADAPTIQ-Aggregator-ReportBuilder")
-        self.config = config
+        self.config_data = config_data
         self.runs = []
 
     def build_project_result(self, total_runs: int, summary_metrics: List[Dict]) -> Dict:
@@ -34,15 +36,13 @@ class ReportBuilder:
             dict: The project overview.
         """
         return {
-            "email": self.config.get("email", ""),
+            "email": self.config_data.email,
             "overview": {
-                "project_name": self.config.get("project_name", ""),
+                "project_name": self.config_data.project_name,
                 "metadata": {
-                    "agent_type": self.config.get("agent_modifiable_config", {}).get(
-                        "agent_name", ""
-                    ),
+                    "agent_type": self.config_data.agent_modifiable_config.agent_name,
                     "total_runs_analyzed": total_runs,
-                    "model": self.config.get("llm_config", {}).get("model_name", ""),
+                    "model": self.config_data.llm_config.model_name.value,
                 },
                 "summary_metrics": summary_metrics,
             },
@@ -333,7 +333,7 @@ class ReportBuilder:
         return {
             "title": f"Prompt Analysis - Run #{run_number}",
             "task_name": task_name,
-            "model": self.config.get("llm_config", {}).get("model_name", "unknown"),
+            "model": self.config_data.llm_config.model_name,
             "timestamp": timestamp,
             "prompt_analysis": {
                 "original_text": original_prompt,
