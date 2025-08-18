@@ -6,7 +6,8 @@ import time
 import tracemalloc
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
-from adaptiq.agents.crew_ai.crew_logger import CrewLogger
+from adaptiq.agents.crew_ai import CrewLogger, CrewConfig, CrewLogParser, CrewPromptParser
+from adaptiq.core.pipelines import AdaptiqRun
 import yaml
 
 class CrewInstrumental:
@@ -21,8 +22,46 @@ class CrewInstrumental:
         self._crew_counter: int = 0
         self.logger = CrewLogger()
         self._crew_metrics: List[Dict[str, Any]] = []
+        self.current_dir = os.getcwd()
+        self.logs_path = "./log.json"
+
+    def display_agent_last_exec(self):
+        crew_metrics = None
+        try:
+            crew_metrics = self.get_crew_metrics()
+
+            print("[INSTRUMENT] === CREW METRICS CAPTURED ===")
+            print(f"[INSTRUMENT] Total executions tracked: {len(crew_metrics)}")
+
+            # Print summary of crew metrics for testing
+            if crew_metrics:
+                total_tokens = sum(
+                    metric.get("total_tokens", 0) for metric in crew_metrics
+                )
+                total_time = sum(
+                    metric.get("execution_time_seconds", 0)
+                    for metric in crew_metrics
+                )
+                print(
+                    f"[INSTRUMENT] Total tokens across all executions: {total_tokens:,}"
+                )
+                print(f"[INSTRUMENT] Total execution time: {total_time:.2f}s")
+
+                # Show last execution details
+                if crew_metrics:
+                    last_metric = crew_metrics[-1]
+                    print(
+                        f"[INSTRUMENT] Last execution: {last_metric.get('execution_time_seconds', 0):.2f}s, "
+                        f"{last_metric.get('total_tokens', 0):,} tokens"
+                    )
+
+            print("[INSTRUMENT] === END CREW METRICS ===")
+
+        except Exception as e:
+            print(f"[INSTRUMENT] Warning: Error capturing crew metrics: {e}")
+            crew_metrics = None
     
-    def run(self, config_path: Optional[str] = None, enabled: bool = True, feedback: Optional[str] = None):
+    def run(self, config_path: Optional[str] = None, enable_pipeline: bool = True, prompt_auto_update: bool = False, feedback: Optional[str] = None):
         """
         Decorator to instrument a function with execution timing and optional AdaptiQ pipeline triggering.
 
@@ -34,90 +73,39 @@ class CrewInstrumental:
         def decorator(func):
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
-                start_time = datetime.now()
-                trigger_command = enabled
-                include_crew_metrics = True
+            
+                try:
+                    alert_mode_info = self._get_alert_mode(config_path)
+                    print(f"[INSTRUMENT] Alert mode detected: {alert_mode_info['mode']}")
+                    if alert_mode_info["runs"]:
+                        print(f"[INSTRUMENT] Number of runs configured: {alert_mode_info['runs']}")
+                except Exception as e:
+                    print(f"[INSTRUMENT] Warning: Could not read alert mode configuration: {str(e)}")
+                    alert_mode_info = {"mode": "none", "runs": None}
 
-                # Execute the original function
-                result = func(*args, **kwargs)
+                base_config = CrewConfig(config_path=config_path, preload=True)
+                base_log_parser = CrewLogParser(logs_path=self.logs_path, output_path=os.path.join(self.current_dir, "results"))
+                base_prompt_parser = CrewPromptParser(config_path=config_path)
 
-                # Calculate execution time
-                duration = (datetime.now() - start_time).total_seconds()
+                adaptiq_run = AdaptiqRun(
+                    base_config=base_config, 
+                    base_log_parser=base_log_parser, 
+                    base_prompt_parser=base_prompt_parser, 
+                    feedback=feedback, 
+                    current_dir=self.current_dir, 
+                    template="crew-ai", 
+                    prompt_auto_update=prompt_auto_update,
+                    allow_pipeline=enable_pipeline  
+                    )
+                
+                result = adaptiq_run.init_run(func=func, *args, **kwargs)
 
-                print(f"[INSTRUMENT] Function {func.__name__} completed in {duration:.3f}s")
-                print(f"[INSTRUMENT] Result: {result}")
+                adaptiq_run.run(agent_metrics= self._crew_metrics)
 
-                # Capture crew metrics if requested
-                crew_metrics = None
-                if include_crew_metrics:
-                    try:
-                        crew_metrics = self.get_crew_metrics()
-
-                        print("[INSTRUMENT] === CREW METRICS CAPTURED ===")
-                        print(f"[INSTRUMENT] Total executions tracked: {len(crew_metrics)}")
-
-                        # Print summary of crew metrics for testing
-                        if crew_metrics:
-                            total_tokens = sum(
-                                metric.get("total_tokens", 0) for metric in crew_metrics
-                            )
-                            total_time = sum(
-                                metric.get("execution_time_seconds", 0)
-                                for metric in crew_metrics
-                            )
-                            print(
-                                f"[INSTRUMENT] Total tokens across all executions: {total_tokens:,}"
-                            )
-                            print(f"[INSTRUMENT] Total execution time: {total_time:.2f}s")
-
-                            # Show last execution details
-                            if crew_metrics:
-                                last_metric = crew_metrics[-1]
-                                print(
-                                    f"[INSTRUMENT] Last execution: {last_metric.get('execution_time_seconds', 0):.2f}s, "
-                                    f"{last_metric.get('total_tokens', 0):,} tokens"
-                                )
-
-                        print("[INSTRUMENT] === END CREW METRICS ===")
-
-                    except Exception as e:
-                        print(f"[INSTRUMENT] Warning: Error capturing crew metrics: {e}")
-                        crew_metrics = None
-
-                # Trigger command after function finishes
-                if trigger_command:
-                    return self._execute_adaptiq_pipeline(config_path, crew_metrics, feedback, include_crew_metrics, result)
-
-                # Return the original result if no command triggered
-                # But include crew metrics if requested and no subprocess was run
-                if include_crew_metrics and crew_metrics and not trigger_command:
-                    return {"original_result": result, "crew_metrics": crew_metrics}
-
-                return result
+                return {"original_result": result, "crew_metrics": self._crew_metrics}
 
             return wrapper
         return decorator
-
-    def _find_results_folder(self) -> Optional[str]:
-        """Find the 'results' folder in current directory or parent directories."""
-        current_dir = os.getcwd()
-
-        # Check current directory first
-        results_path = os.path.join(current_dir, "results")
-        if os.path.exists(results_path) and os.path.isdir(results_path):
-            return results_path
-
-        # Check parent directories up to 3 levels
-        for i in range(3):
-            parent_dir = os.path.dirname(current_dir)
-            if parent_dir == current_dir:  # Reached root
-                break
-            current_dir = parent_dir
-            results_path = os.path.join(current_dir, "results")
-            if os.path.exists(results_path) and os.path.isdir(results_path):
-                return results_path
-
-        return None
 
     def _get_alert_mode(self, config_path: str) -> Dict[str, Any]:
         """
@@ -141,159 +129,35 @@ class CrewInstrumental:
         else:
             return {"mode": "none", "runs": None}
 
-    def _determine_should_send_report(self, crew_metrics: List[Dict], alert_mode_info: Dict[str, Any]) -> bool:
-        """
-        Determines whether to send a report based on alert mode and crew metrics.
+    # def _determine_should_send_report(self, crew_metrics: List[Dict], alert_mode_info: Dict[str, Any]) -> bool:
+    #     """
+    #     Determines whether to send a report based on alert mode and crew metrics.
 
-        Args:
-            crew_metrics (list): List of crew metrics
-            alert_mode_info (dict): Alert mode configuration
+    #     Args:
+    #         crew_metrics (list): List of crew metrics
+    #         alert_mode_info (dict): Alert mode configuration
 
-        Returns:
-            bool: True if report should be sent, False otherwise
-        """
-        if not crew_metrics:
-            return True  # Default to sending report if no crew metrics
+    #     Returns:
+    #         bool: True if report should be sent, False otherwise
+    #     """
+    #     if not crew_metrics:
+    #         return True  # Default to sending report if no crew metrics
 
-        # Get current execution count from crew metrics
-        current_execution_count = (
-            crew_metrics[-1].get("execution_count", 0) if crew_metrics else 0
-        )
+    #     # Get current execution count from crew metrics
+    #     current_execution_count = (
+    #         crew_metrics[-1].get("execution_count", 0) if crew_metrics else 0
+    #     )
 
-        # Determine if we should send report based on alert mode
-        if alert_mode_info["mode"] == "on_demand" and alert_mode_info["runs"]:
-            # Send report only when we reach the target number of runs
-            return current_execution_count >= alert_mode_info["runs"]
-        elif alert_mode_info["mode"] == "per_run":
-            # Send report after each run
-            return True
-        else:
-            # Standard mode - send report
-            return True
-
-    def _execute_adaptiq_pipeline(self, config_path: str, crew_metrics: List, feedback: Optional[str], 
-                                include_crew_metrics: bool, original_result: Any) -> Any:
-        """Execute the AdaptiQ pipeline with the provided parameters."""
-        # Find the results folder
-        output_path = self._find_results_folder()
-        if output_path is None:
-            print("[INSTRUMENT] Warning: No 'results' folder found. Skipping AdaptiQ pipeline execution.")
-            return original_result
-
-        print(f"[INSTRUMENT] Found results folder at: {output_path}")
-
-        # Get alert mode configuration
-        try:
-            alert_mode_info = self._get_alert_mode(config_path)
-            print(f"[INSTRUMENT] Alert mode detected: {alert_mode_info['mode']}")
-            if alert_mode_info["runs"]:
-                print(f"[INSTRUMENT] Number of runs configured: {alert_mode_info['runs']}")
-        except Exception as e:
-            print(f"[INSTRUMENT] Warning: Could not read alert mode configuration: {str(e)}")
-            alert_mode_info = {"mode": "none", "runs": None}
-
-        # Determine if we should send report
-        should_send_report = self._determine_should_send_report(crew_metrics, alert_mode_info)
-        print(f"[INSTRUMENT] Should send report: {should_send_report}")
-
-        config = config_path
-        cmd_args = [
-            "adaptiq",
-            "run",
-            "--config_path",
-            config,
-            "--template",
-            "crew-ai",
-            "--output_path",
-            output_path,
-            "--log",
-            "./log.json"
-        ]
-
-        # Add crew metrics as CLI argument if available
-        if crew_metrics:
-            crew_metrics_json = json.dumps(crew_metrics)
-            cmd_args.extend(["--agent_metrics", crew_metrics_json])
-            print(f"[INSTRUMENT] Crew metrics added to command args (size: {len(crew_metrics_json)} chars)")
-
-        # Add feedback if provided
-        if feedback:
-            cmd_args.extend(["--feedback", feedback])
-            print(f"[INSTRUMENT] Feedback added to command args: {feedback[:100]}{'...' if len(feedback) > 100 else ''}")
-
-        # Add send_report flag
-        cmd_args.extend(["--send_report", str(should_send_report).lower()])
-        print(f"[INSTRUMENT] Send report flag added: {should_send_report}")
-
-        # Set up environment
-        env = os.environ.copy()
-        env["PYTHONIOENCODING"] = "utf-8"
-
-        print(f"[INSTRUMENT] Triggering command: {' '.join(cmd_args[:])}")
-
-        try:
-            # Start the process with real-time output capture
-            process = subprocess.Popen(
-                cmd_args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,  # Merge stderr with stdout
-                text=True,
-                encoding="utf-8",
-                errors="replace",  # Replace problematic characters
-                env=env,
-                bufsize=1,  # Line buffered
-                universal_newlines=True,
-            )
-
-            output_lines = []
-
-            # Read output line by line and display in real-time
-            print("[INSTRUMENT] === ADAPTIQ PIPELINE OUTPUT ===")
-            while True:
-                line = process.stdout.readline()
-                if not line and process.poll() is not None:
-                    break
-                if line:
-                    # Clean the line
-                    clean_line = line.rstrip()
-                    # Print to console
-                    print(f"[ADAPTIQ] {clean_line}")
-                    output_lines.append(clean_line)
-
-            # Wait for process to complete
-            return_code = process.wait(timeout=600)  # 10 minute timeout
-
-            print("[INSTRUMENT] === END ADAPTIQ PIPELINE OUTPUT ===")
-
-            if return_code == 0:
-                print("[INSTRUMENT] AdaptiQ pipeline executed successfully")
-                # Return both subprocess output and crew metrics if requested
-                if include_crew_metrics and crew_metrics:
-                    return {
-                        "adaptiq_output": "\n".join(output_lines),
-                        "crew_metrics": crew_metrics,
-                        "should_send_report": should_send_report,
-                    }
-                else:
-                    return "\n".join(output_lines)
-            else:
-                print(f"[INSTRUMENT] AdaptiQ pipeline failed with return code: {return_code}")
-                return None
-
-        except FileNotFoundError:
-            print("[INSTRUMENT] Error: 'adaptiq' command not found. Make sure AdaptiQ is installed and in PATH.")
-            return None
-        except subprocess.TimeoutExpired:
-            print("[INSTRUMENT] Error: AdaptiQ pipeline timed out after 10 minutes")
-            try:
-                process.kill()
-                process.wait(timeout=5)
-            except Exception:
-                pass
-            return None
-        except Exception as e:
-            print(f"[INSTRUMENT] Error executing AdaptiQ pipeline: {e}")
-            return None
+    #     # Determine if we should send report based on alert mode
+    #     if alert_mode_info["mode"] == "on_demand" and alert_mode_info["runs"]:
+    #         # Send report only when we reach the target number of runs
+    #         return current_execution_count >= alert_mode_info["runs"]
+    #     elif alert_mode_info["mode"] == "per_run":
+    #         # Send report after each run
+    #         return True
+    #     else:
+    #         # Standard mode - send report
+    #         return True
 
     def agent_logger(self, func: Callable) -> Callable:
         """

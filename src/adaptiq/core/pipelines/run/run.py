@@ -1,3 +1,5 @@
+from datetime import datetime
+import json
 import logging
 
 import os
@@ -29,15 +31,17 @@ class AdaptiqRun:
 
     def __init__(
         self,
-        
         base_config: BaseConfig,
         base_prompt_parser: BasePromptParser,
         base_log_parser: BaseLogParser,
-        output_path: str,
+        current_dir: str,
         template: str = "crew-ai",
         feedback: Optional[str] = None,
         validate_results: bool = True,
+        prompt_auto_update: bool = False,
         save_results: bool = True,
+        allow_pipeline: bool = True,
+        
 
     ):
         """
@@ -62,13 +66,15 @@ class AdaptiqRun:
         self.base_config = base_config
         self.base_prompt_parser = base_prompt_parser
         self.base_log_parser = base_log_parser
-        self.output_path = output_path
+        self.current_dir = current_dir 
+        self.output_path = current_dir + "/results"
         self.feedback = feedback
         self.validate_results = validate_results
         self.save_results = save_results
         self.template =template
-
+        self.prompt_auto_update = prompt_auto_update
         self.results_path = self.output_path  + "/adaptiq_results.json"
+        self.allow_pipeline = allow_pipeline
 
         # Initialize pipeline components
         self.pre_run_pipeline = None
@@ -191,8 +197,8 @@ class AdaptiqRun:
         """
         self.logger.info("Starting aggregation of run results...")
 
-        if not self.pre_run_results or not self.post_run_results:
-            raise ValueError("Both pre-run and post-run results must be available for aggregation.")
+        if not self.post_run_results:
+            raise ValueError("Post-run results must be available for aggregation.")
 
         # Initialize aggregator
         self.aggerator = Aggregator(
@@ -218,7 +224,6 @@ class AdaptiqRun:
         self.logger.info("Aggregation completed successfully")
         return aggregated_results_status
     
-    
     def _verify_pre_run(self) -> bool:
         try:
 
@@ -232,43 +237,90 @@ class AdaptiqRun:
             self.logger.error(f"Error verifying results_path '{self.results_path}': {e}")
             return None
 
-
-    def run(self, func: callable, *args, **kwargs):
-        """
-        Executes a provided function with pre- and post-run prompt updates.
-        Catches exceptions and raises a RuntimeError with the original error message.
-        """
-
-        def update_prompt(new_prompt: str):
+    def update_prompt(self, new_prompt: str, type: str):
+            # update in memory config
             self.base_config.set_active_prompt(new_prompt=new_prompt)
+            prompts_files = self.base_config.get_config()["report_config"]["prompts_path"]
+            prompts_path = os.path.join(self.current_dir, prompts_files)
 
-            if self.template == "crew-ai":
+            # save to prompt configuration if crew-ai template
+            if self.template == "crew-ai" and self.prompt_auto_update:
                 try:
                     task_path: str = self.base_config.get_config()["agent_modifiable_config"]["prompt_configuration_file_path"]
                     clean_task_path = task_path.removeprefix("./")
                     self.base_config.update_instructions_within_file(
-                        file_path=f"{self.output_path}/{clean_task_path}",
+                        file_path=os.path.join(self.current_dir, clean_task_path),
                         key="description"
                     )
                 except Exception as e:
                     raise RuntimeError(f"Failed to update prompt in YAML file: {e}") from e
 
+            # Save prompt into prompts file
+            try:
+                # load existing prompts if file exists and has content
+                prompts_data = []
+                if os.path.exists(prompts_path) and os.path.getsize(prompts_path) > 0:
+                    with open(prompts_path, "r", encoding="utf-8") as f:
+                        try:
+                            prompts_data = json.load(f)
+                        except json.JSONDecodeError:
+                            prompts_data = []  # reset if corrupted
+
+                # append new prompt with timestamp
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                prompts_data.append({
+                    "timestamp": timestamp,
+                    "type":type,
+                    "prompt": new_prompt
+                })
+
+                # write back
+                with open(prompts_path, "w", encoding="utf-8") as f:
+                    json.dump(prompts_data, f, indent=4, ensure_ascii=False)
+
+            except Exception as e:
+                raise RuntimeError(f"Failed to save prompt in JSON file: {e}") from e
+            
+
+    def init_run(self,  func: callable, *args, **kwargs, ):
+        """
+        Executes a provided function with pre- and post-run prompt updates.
+        Catches exceptions and raises a RuntimeError with the original error message.
+        """
+
         try:
-            if not self._verify_pre_run():
-                self.start_pre_run()
-                update_prompt(new_prompt=self.get_pre_run_prompt())
+            results = None
+            
+            if self.allow_pipeline:
+                if not self._verify_pre_run():
+                    self.start_pre_run()
+                    self.update_prompt(new_prompt=self.get_pre_run_prompt(), type="pre-run")
 
-            agent_metrics: List[Dict] = func(*args, **kwargs)
+                start_time = datetime.now()
+                #Exec the agent's main func
+                results = func(*args, **kwargs)
+                duration = (datetime.now() - start_time).total_seconds()
+                self.logger.info(f"Function {func.__name__} completed in {duration:.3f}s")
 
-            self.start_post_run()
-            update_prompt(new_prompt=self.get_post_run_prompt())
-
-            self.aggregate_run(agent_metrics=agent_metrics)
+            else:
+                results = func(*args, **kwargs)
+            
+            return results
 
         except Exception as e:
             raise RuntimeError(f"Run execution failed: {e}") from e
+        
+    def run(self, agent_metrics: List[Dict[str, Any]]):
+        try:
+            if self.allow_pipeline:
+                self.start_post_run()
+                self.update_prompt(new_prompt=self.get_post_run_prompt(), type="post-run")
 
-    
+                self.aggregate_run(agent_metrics=agent_metrics)
+        except Exception as e:
+            raise RuntimeError(f"Run execution failed: {e}") from e
+
+
     def get_pre_run_results(self) -> Optional[Dict[str, Any]]:
         """
         Get the results from the pre-run pipeline execution.

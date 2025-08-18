@@ -1,7 +1,6 @@
 import argparse
-import json
 import logging
-import sys  # To get command line arguments
+import sys
 import logging
 
 from adaptiq.core.reporting import Aggregator, get_logger
@@ -9,7 +8,6 @@ from adaptiq.core.pipelines import PreRunPipeline, PostRunPipeline
 from adaptiq.agents.crew_ai import CrewConfig, CrewPromptParser, CrewLogParser
 
 get_logger()
-
 
 def find_and_clear_log_files(
     search_directory=".", log_filename="log.txt", json_filename="log.json"
@@ -44,8 +42,6 @@ def find_and_clear_log_files(
 
     pass
 
-
-
 def execute_pre_run_only(args):
     """Execute only the pre_run pipeline."""
 
@@ -74,7 +70,6 @@ def execute_pre_run_only(args):
         logging.error("Pre-run pipeline execution stopped due to error.")
         return False
 
-
 def execute_post_run_only(
     config_path: str, output_path: str, feedback: str, template: str, logs_path: str, run_number=None, agent_metrics=None, should_send_report=True
 ):
@@ -86,6 +81,7 @@ def execute_post_run_only(
     if template == "crew-ai":
         base_config = CrewConfig(config_path=config_path, preload=True)
         base_log_parser = CrewLogParser(logs_path=logs_path, output_path=output_path)
+        base_prompt_parser = CrewPromptParser(config_path=config_path)
     
     # Initialize the aggregator
     logging.info("agent_metrics: %s", agent_metrics)
@@ -192,106 +188,6 @@ def handle_validate_command(args):
         logging.error(f"Validation failed: {str(e)}")
         return False
 
-def handle_default_run_command(args):
-    """Handles the logic for the 'default-run' command - executes only pre_run pipeline."""
-
-    logging.info("Executing the 'default-run' command...")
-
-    # if args.output_path:
-    #     logging.info(f"Results will be saved to: {args.output_path}")
-
-    # if args.log:
-    #     logging.info(f"Logging to file: {args.log}")
-
-    logging.info("DEFAULT-RUN MODE: Executing pre-run pipeline only")
-
-    # Execute pre-run pipeline (runs only once)
-    success = execute_pre_run_only(args)
-
-    if success:
-        logging.info("=" * 60)
-        logging.info("[SUCCESS] ADAPTIQ DEFAULT-RUN COMPLETED SUCCESSFULLY")
-        logging.info("Pre-run pipeline executed successfully!")
-        logging.info("=" * 60)
-    else:
-        logging.error("DEFAULT-RUN FAILED!")
-        sys.exit(1)
-
-def handle_run_command(args):
-    """Handles the logic for the 'run' command - executes post_run and reconciliation sequentially."""
-
-    logging.info("Executing the 'run' command...")
-    logging.info(f"Configuration file: {args.config_path}")
-
-    if args.output_path:
-        logging.info(f"Results will be saved to: {args.output_path}")
-
-    if args.log:
-        logging.info(f"Logging to file: {args.log}")
-
-    if args.template:
-        logging.info(f"Using {args.template} configs")
-
-    
-
-    # Handle crew metrics if provided
-    agent_metrics_list = []
-    if args.agent_metrics:
-        logging.info("Crew metrics provided:")
-        try:
-            agent_metrics_list = json.loads(args.agent_metrics)
-            print(f"[CREW_METRICS] {agent_metrics_list}")
-
-            # Extract current execution count from crew metrics
-            if agent_metrics_list and len(agent_metrics_list) > 0:
-                current_execution_count = agent_metrics_list[-1].get(
-                    "execution_count", 0
-                )
-                logging.info(
-                    f"Current execution count from crew metrics: {current_execution_count}"
-                )
-
-        except json.JSONDecodeError as e:
-            logging.error(f"Invalid JSON format for crew metrics: {e}")
-            print(f"[CREW_METRICS_RAW] {args.agent_metrics}")
-
-    # Get send_report flag (defaults to True if not provided)
-    should_send_report = True
-    if args.send_report:
-        should_send_report = args.send_report
-        logging.info(f"Send report flag: {should_send_report}")
-
-    # Execute single run (post_run and reconciliation only)
-    logging.info("=" * 60)
-    logging.info("[START] STARTING ADAPTIQ RUN")
-    logging.info("=" * 60)
-
-    success = execute_post_run_only(
-        config_path= args.config_path,
-        output_path=args.output_path,
-        feedback=args.feedback,
-        template =args.template,
-        logs_path = args.log,
-        run_number=None,
-        agent_metrics=agent_metrics_list,
-        should_send_report=should_send_report,
-    )
-
-    if success:
-        logging.info("[SUCCESS] ADAPTIQ RUN COMPLETED SUCCESSFULLY")
-        logging.info("All pipelines (post_run -> reconciliation) executed successfully!")
-        if should_send_report:
-            logging.info("[REPORT] Report sent successfully!")
-        else:
-            logging.info("[REPORT] Report sending skipped (send_report=False)")
-    else:
-        logging.error("ADAPTIQ RUN FAILED!")
-        logging.error("Execution failed during pipeline execution.")
-        sys.exit(1)
-
-    logging.info("=" * 60)
-
-
 def main():
     """Main entry point for the adaptiq CLI."""
     parser = argparse.ArgumentParser(
@@ -366,96 +262,6 @@ def main():
 
     # Set the function to call when 'validate' is chosen
     parser_validate.set_defaults(func=handle_validate_command)
-
-    # --- Define the 'default-run' command ---
-    parser_default_run = subparsers.add_parser(
-        "default-run", help="Run only the pre_run pipeline (executes once)."
-    )
-    # Add arguments specific to the 'default-run' command
-    parser_default_run.add_argument(
-        "--config_path",
-        type=str,
-        metavar="PATH",
-        required=True,
-        help="Path to the configuration file for the pre_run pipeline.",
-    )
-    parser_default_run.add_argument(
-        "--template",
-        type=str,
-        metavar="TEMPLATE",
-        default="crew-ai",
-        help="Template to use for initialization (default: crew-ai)",
-    )
-    
-    # parser_default_run.add_argument(
-    #     "--output_path",
-    #     type=str,
-    #     metavar="PATH",
-    #     help="Path to save the results of the pre_run pipeline.",
-    # )
-    # parser_default_run.add_argument(
-    #     "--log",
-    #     type=str,  # Expecting a string (path)
-    #     metavar="PATH",  # Placeholder name shown in help message
-    #     help="Optional path to a file for logging output.",
-    # )
-    # Set the function to call when 'default-run' is chosen
-    parser_default_run.set_defaults(func=handle_default_run_command)
-
-    # --- Define the 'run' command ---
-    parser_run = subparsers.add_parser(
-        "run",
-        help="Run the post_run and reconciliation pipelines (single execution with optional report sending).",
-    )
-    # Add arguments specific to the 'run' command
-    parser_run.add_argument(
-        "--config_path",
-        type=str,
-        metavar="PATH",
-        required=True,
-        help="Path to the configuration file for post_run and reconciliation pipelines.",
-    )
-
-    parser_run.add_argument(
-        "--template",
-        type=str,
-        metavar="TEMPLATE",
-        default="crew-ai",
-        help="Template to use for initialization (default: crew-ai)",
-    )
-    parser_run.add_argument(
-        "--output_path",
-        type=str,
-        metavar="PATH",
-        help="Path to save the results of post_run and reconciliation pipelines.",
-    )
-    parser_run.add_argument(
-        "--log",
-        type=str,  # Expecting a string (path)
-        metavar="PATH",  # Placeholder name shown in help message
-        help="Optional path to a file for logging output.",
-    )
-    parser_run.add_argument(
-        "--agent_metrics",
-        type=str,
-        metavar="JSON_STRING",
-        help="Optional agent metrics data in JSON format to be processed during the run.",
-    )
-    parser_run.add_argument(
-        "--send_report",
-        type=lambda x: x.lower() in ["true", "1", "yes", "on"],
-        metavar="BOOL",
-        default=True,
-        help="Whether to send a report after execution. Accepts: true/false, 1/0, yes/no, on/off (default: true).",
-    )
-    parser_run.add_argument(
-        "--feedback",
-        type=str,
-        metavar="STRING",
-        help="Optional human feedback about the agent's performance to be used for prompt optimization.",
-    )
-    # Set the function to call when 'run' is chosen
-    parser_run.set_defaults(func=handle_run_command)
 
     # If no arguments are given (just 'adaptiq'), argparse automatically shows help
     # because subparsers are 'required'.
