@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from dotenv import load_dotenv
 
 from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser
+from adaptiq.core.entities import TaskIntent, ScenarioModel, HypotheticalStateRepresentation, StatusSummary, PromptParsingStatus, HypotheticalRepresentationStatus, ScenarioSimulationStatus, QTableInitializationStatus,PromptAnalysisStatus, FormattedAnalysis
 from adaptiq.core.q_table import QTableManager
 from adaptiq.core.pipelines.pre_run.tools import HypotheticalStateGenerator, PromptConsulting, ScenarioSimulator, PromptEstimator
 
@@ -77,10 +78,10 @@ class PreRunPipeline:
         self.offline_learner = QTableManager(file_path=self.q_table_path)
 
         # Results storage
-        self.parsed_steps = []
-        self.hypothetical_states = []
-        self.prompt_analysis = {}
-        self.simulated_scenarios = []
+        self.parsed_steps:List[TaskIntent] = []
+        self.hypothetical_states: List[HypotheticalStateRepresentation] = []
+        self.prompt_analysis: FormattedAnalysis = None
+        self.simulated_scenarios: List[ScenarioModel] = []
 
     def _ensure_output_directory(self) -> str:
         """
@@ -102,7 +103,7 @@ class PreRunPipeline:
 
         return self.output_path
 
-    def run_prompt_parsing(self) -> List[Dict[str, Any]]:
+    def run_prompt_parsing(self):
         """
         Execute the prompt parsing step to analyze the agent's task and tools.
 
@@ -113,19 +114,18 @@ class PreRunPipeline:
 
         try:
             # Parse the prompt
-            self.parsed_steps = self.prompt_parser.parse_prompt()
+            self.parsed_steps = self.prompt_parser.run_parse_prompt()
 
             self.logger.info(
                 "Prompt Parsing complete. Identified %d steps.",
                 len(self.parsed_steps)
             )
-            return self.parsed_steps
 
         except Exception as e:
             self.logger.error("Prompt Parsing failed: %s", str(e))
             raise
 
-    def run_hypothetical_representation(self) -> List[Dict]:
+    def run_hypothetical_representation(self):
         """
         Generate hypothetical state-action pairs based on parsed steps.
 
@@ -133,12 +133,6 @@ class PreRunPipeline:
             List of state-action pairs
         """
         self.logger.info("Starting Hypothetical State Generation...")
-
-        if not self.parsed_steps:
-            self.logger.warning(
-                "No parsed steps available. Running prompt parsing first."
-            )
-            self.run_prompt_parsing()
 
         try:
             # Initialize the hypothetical state generator
@@ -150,22 +144,18 @@ class PreRunPipeline:
             )
 
             # Generate state-action pairs
-            raw_states = self.state_generator.generate_hypothetical_state_action_pairs()
-            self.hypothetical_states = self.state_generator.clean_representation(
-                raw_states
-            )
+            self.hypothetical_states = self.state_generator.generate_hypothetical_state_action_pairs()
 
             self.logger.info(
                 "Hypothetical State Generation complete. Generated %d state-action pairs.",
                 len(self.hypothetical_states)
             )
-            return self.hypothetical_states
 
         except Exception as e:
             self.logger.error("Hypothetical State Generation failed: %s", str(e))
             raise
 
-    def run_simulation(self) -> List[Dict]:
+    def run_simulation(self):
         """
         Run scenario simulation based on the generated hypothetical states.
         Generates multiple plausible scenarios for each state-action pair.
@@ -174,13 +164,6 @@ class PreRunPipeline:
             List of simulated scenarios
         """
         self.logger.info("Starting Scenario Simulation...")
-
-        # Ensure hypothetical states are available
-        if not self.hypothetical_states:
-            self.logger.warning(
-                "No hypothetical states available. Running hypothetical representation first."
-            )
-            self.run_hypothetical_representation()
 
         try:
             # Create a filename for the simulation results
@@ -207,7 +190,7 @@ class PreRunPipeline:
                 "Scenario Simulation complete. Generated %d scenarios.",
                 len(self.simulated_scenarios)
             )
-            return self.simulated_scenarios
+
 
         except Exception as e:
             self.logger.error("Scenario Simulation failed: %s", str(e))
@@ -241,21 +224,17 @@ class PreRunPipeline:
         # Collect all possible actions from scenarios
         all_actions = set()
         for scenario in self.simulated_scenarios:
-            action = scenario.get("simulated_action", scenario.get("intended_action"))
+            action = scenario.simulated_action 
             if action:
                 all_actions.add(action)
 
         # Process each scenario
         for scenario in self.simulated_scenarios:
             try:
-                state = scenario.get("original_state")
-                action = scenario.get(
-                    "simulated_action", scenario.get("intended_action")
-                )
-                reward = scenario.get("reward_sim", 0.0)
-                next_state = str(
-                    scenario.get("next_state")
-                )  # use string representation directly
+                state = scenario.original_state
+                action = scenario.simulated_action 
+                reward = scenario.reward_sim
+                next_state = str(scenario.next_state) 
 
                 def ensure_tuple(s):
                     if isinstance(s, str) and s.startswith("(") and s.endswith(")"):
@@ -281,9 +260,9 @@ class PreRunPipeline:
                 # Gather possible actions from scenarios with matching next_state
                 actions_prime = list(
                     {
-                        s.get("simulated_action", s.get("intended_action"))
+                        s.simulated_action
                         for s in self.simulated_scenarios
-                        if str(s.get("original_state")) == next_state
+                        if str(s.original_state) == next_state
                     }
                 )
 
@@ -345,13 +324,11 @@ class PreRunPipeline:
             )
 
             # Analyze the prompt
-            raw_analysis = self.prompt_consultant.analyze_prompt()
-            self.prompt_analysis = self.prompt_consultant.get_formatted_analysis(
-                raw_analysis
-            )
+            self.prompt_analysis = self.prompt_consultant.analyze_prompt()
+
 
             self.logger.info("Prompt Analysis complete.")
-            return self.prompt_analysis
+
 
         except Exception as e:
             self.logger.error("Prompt Analysis failed: %s", str(e))
@@ -408,20 +385,20 @@ class PreRunPipeline:
             self.logger.info("Starting ADAPTIQ Pre-Run Pipeline...")
 
             # Execute all steps
-            parsed_steps = self.run_prompt_parsing()
-            hypothetical_states = self.run_hypothetical_representation()
-            simulated_scenarios = self.run_simulation()
+            self.run_prompt_parsing()
+            self.run_hypothetical_representation()
+            self.run_simulation()
+            self.run_prompt_analysis()
             q_table = self.run_qtable_initialization()
-            prompt_analysis = self.run_prompt_analysis()
             new_prompt = self.run_prompt_estimation()
 
             # Compile results
             results = {
-                "parsed_steps": parsed_steps,
-                "hypothetical_states": hypothetical_states,
-                "simulated_scenarios": simulated_scenarios,
+                "parsed_steps": [step.model_dump() for step in self.parsed_steps],
+                "hypothetical_states": [state.model_dump() for state in self.hypothetical_states],
+                "simulated_scenarios": [sim.model_dump() for sim in self.simulated_scenarios],
                 "q_table_size": len(q_table),
-                "prompt_analysis": prompt_analysis,
+                "prompt_analysis": self.prompt_analysis.model_dump(),
                 "new_prompt": new_prompt,
             }
 
@@ -444,50 +421,53 @@ class PreRunPipeline:
             return {"error": str(e),}
             
 
-    def get_status_summary(self) -> Dict:
+    def get_status_summary(self) -> StatusSummary:
         """
         Get a summary of the current status of each pre-run component.
 
         Returns:
-            Dictionary with status information
+            StatusSummary model with structured status info
         """
-        return {
-            "prompt_parsing": {
-                "completed": len(self.parsed_steps) > 0,
-                "steps_found": len(self.parsed_steps),
-            },
-            "hypothetical_representation": {
-                "completed": len(self.hypothetical_states) > 0,
-                "states_generated": len(self.hypothetical_states),
-            },
-            "scenario_simulation": {
-                "completed": hasattr(self, "simulated_scenarios")
+        return StatusSummary(
+            prompt_parsing=PromptParsingStatus(
+                completed=len(self.parsed_steps) > 0,
+                steps_found=len(self.parsed_steps),
+            ),
+            hypothetical_representation=HypotheticalRepresentationStatus(
+                completed=len(self.hypothetical_states) > 0,
+                states_generated=len(self.hypothetical_states),
+            ),
+            scenario_simulation=ScenarioSimulationStatus(
+                completed=hasattr(self, "simulated_scenarios")
+                and self.simulated_scenarios is not None
                 and len(self.simulated_scenarios) > 0,
-                "scenarios_generated": (
+                scenarios_generated=(
                     len(self.simulated_scenarios)
-                    if hasattr(self, "simulated_scenarios")
+                    if getattr(self, "simulated_scenarios", None)
                     else 0
                 ),
-            },
-            "qtable_initialization": {
-                "completed": self.offline_learner is not None
+            ),
+            qtable_initialization=QTableInitializationStatus(
+                completed=self.offline_learner is not None
                 and len(self.offline_learner.Q_table) > 0,
-                "q_entries": (
-                    len(self.offline_learner.Q_table) if self.offline_learner else 0
+                q_entries=(
+                    len(self.offline_learner.Q_table)
+                    if self.offline_learner
+                    else 0
                 ),
-            },
-            "prompt_analysis": {
-                "completed": bool(self.prompt_analysis),
-                "weaknesses_found": (
-                    len(self.prompt_analysis.get("weaknesses", []))
+            ),
+            prompt_analysis=PromptAnalysisStatus(
+                completed=bool(self.prompt_analysis),
+                weaknesses_found=(
+                    len(self.prompt_analysis.weaknesses)
                     if self.prompt_analysis
                     else 0
                 ),
-                "suggestions_provided": (
-                    len(self.prompt_analysis.get("suggested_modifications", []))
+                suggestions_provided=(
+                    len(self.prompt_analysis.suggested_modifications)
                     if self.prompt_analysis
                     else 0
                 ),
-            },
-        }
+            ),
+        )
 

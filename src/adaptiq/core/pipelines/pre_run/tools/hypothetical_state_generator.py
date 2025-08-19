@@ -6,6 +6,8 @@ from typing import Dict, List
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
+from adaptiq.core.entities import TaskIntent, HypotheticalStateRepresentation
+
 class HypotheticalStateGenerator:
     """
     Generator that transforms a parsed plan into hypothetical state-action pairs
@@ -14,7 +16,7 @@ class HypotheticalStateGenerator:
 
     def __init__(
         self,
-        prompt_parsed_plan: List[Dict],
+        prompt_parsed_plan: List[TaskIntent],
         model_name: str,
         api_key: str,
         provider: str,
@@ -71,19 +73,7 @@ class HypotheticalStateGenerator:
         """
         )
 
-    def configure_llm(self, llm_instance: ChatOpenAI, prompt_template: str = None):
-        """
-        Configure the LLM and prompt template.
-
-        Args:
-            llm_instance: LLM to use for state representation
-            prompt_template: Optional custom prompt template
-        """
-        self.llm = llm_instance
-        if prompt_template:
-            self.prompt_template = ChatPromptTemplate.from_template(prompt_template)
-
-    def generate_hypothetical_state_action_pairs(self) -> List[Dict]:
+    def generate_hypothetical_state_action_pairs(self) -> List[HypotheticalStateRepresentation]:
         """
         Generate all hypothetical state-action pairs in a single LLM call.
 
@@ -91,7 +81,7 @@ class HypotheticalStateGenerator:
             List of state-action pairs with detailed step context.
         """
         # Prepare full context for LLM
-        context = {"parsed_plan": self.prompt_parsed_plan}
+        context = {"parsed_plan": [plan.model_dump() for plan in self.prompt_parsed_plan]}
 
         prompt = self.prompt_template.format_messages(**context)
         response = self.llm.invoke(prompt)
@@ -128,7 +118,7 @@ class HypotheticalStateGenerator:
                     error_msg += f"Original response:\n{response.content}"
                     raise ValueError(error_msg) from inner_e
 
-        return result
+        return [ HypotheticalStateRepresentation(**item) for item in self._clean_representation(raw_data=result) ]
     
     def _parse_python_literal(self, content: str) -> List[Dict]:
         """
@@ -228,7 +218,7 @@ class HypotheticalStateGenerator:
 
         return result
 
-    def clean_representation(self, raw_data: List[Dict]) -> List[Dict]:
+    def _clean_representation(self, raw_data: List[Dict]) -> List[Dict]:
         """
         Cleaner for LLM output. Handles escaped quotes and properly formats JSON.
 

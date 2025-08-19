@@ -5,6 +5,8 @@ from typing import Dict
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
+from adaptiq.core.entities import FormattedAnalysis
+
 
 
 class PromptConsulting:
@@ -57,24 +59,12 @@ class PromptConsulting:
         """
         )
 
-    def configure_llm(self, llm_instance: ChatOpenAI, prompt_template: str = None):
-        """
-        Configure the LLM and prompt template.
-
-        Args:
-            llm_instance: LLM to use for prompt analysis
-            prompt_template: Optional custom prompt template
-        """
-        self.llm = llm_instance
-        if prompt_template:
-            self.analysis_template = ChatPromptTemplate.from_template(prompt_template)
-
-    def analyze_prompt(self) -> Dict:
+    def analyze_prompt(self) -> FormattedAnalysis:
         """
         Analyze the prompt and generate structured feedback in a single LLM call.
 
         Returns:
-            Dictionary containing analysis and recommendations.
+            FormattedAnalysis containing analysis and recommendations.
         """
         # Prepare context for LLM
         context = {"agent_prompt": self.agent_prompt}
@@ -90,9 +80,9 @@ class PromptConsulting:
                 f"Failed to parse LLM response as JSON: {e}\n\nResponse:\n{response.content}"
             ) from e
 
-        return result
+        return self.get_formatted_analysis(raw_analysis=result)
 
-    def get_formatted_analysis(self, raw_analysis: Dict = None) -> Dict:
+    def get_formatted_analysis(self, raw_analysis: Dict) -> FormattedAnalysis:
         """
         Format the analysis results or get a new analysis if none provided.
 
@@ -102,16 +92,15 @@ class PromptConsulting:
         Returns:
             Formatted analysis dictionary
         """
-        if raw_analysis is None:
-            raw_analysis = self.analyze_prompt()
 
         # Ensure all expected keys exist
-        formatted_analysis = {
-            "summary": raw_analysis.get("summary", ""),
-            "weaknesses": raw_analysis.get("weaknesses", []),
-            "suggested_modifications": raw_analysis.get("suggested_modifications", []),
-            "best_practices": raw_analysis.get("best_practices", []),
-            "missing_components": raw_analysis.get("missing_components", []),
-        }
+        formatted_analysis = FormattedAnalysis(
+            summary=raw_analysis.get("summary", ""),
+            weaknesses=raw_analysis.get("weaknesses", []),
+            suggested_modifications=raw_analysis.get("suggested_modifications", []),
+            best_practices=raw_analysis.get("best_practices", []),
+            missing_components=raw_analysis.get("missing_components", []),
+            strengths=raw_analysis.get("strengths", [])
+        )
 
         return formatted_analysis

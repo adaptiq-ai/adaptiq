@@ -278,7 +278,6 @@ class AdaptiqRun:
             except Exception as e:
                 raise RuntimeError(f"Failed to save prompt in JSON file: {e}") from e
             
-
     def init_run(self,  func: callable, *args, **kwargs, ):
         """
         Executes a provided function with pre- and post-run prompt updates.
@@ -316,7 +315,6 @@ class AdaptiqRun:
                 self.update_prompt(new_prompt=self.get_post_run_prompt(), type="post-run")     
         except Exception as e:
             raise RuntimeError(f"Run execution failed: {e}") from e
-
 
     def get_pre_run_results(self) -> Optional[Dict[str, Any]]:
         """

@@ -3,9 +3,11 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 from adaptiq.core.entities import AdaptiQConfig, FrameworkEnum
 import yaml
+
+from adaptiq.core.entities.adaptiq_config import AgentTool
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -140,6 +142,35 @@ class BaseConfig(ABC):
         self.config_path = None
         self.config = None
     
+    def _load_config(self, config_path: str) -> AdaptiQConfig:
+        """
+        Load the configuration file from the given path.
+        
+        Args:
+            config_path (str): Path to the configuration file.
+            
+        Returns:
+            AdaptiQConfig: The loaded configuration.
+            
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the file cannot be parsed.
+        """
+        if not os.path.isfile(config_path):
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        
+        try:
+            
+            with open(config_path, "r", encoding="utf-8") as file:
+                raw_config =  yaml.safe_load(file) or {}
+            
+            return AdaptiQConfig(**raw_config)
+        
+        except yaml.YAMLError as e:
+            raise ValueError(f"Failed to parse YAML configuration file: {e}")
+        except Exception as e:
+            raise ValueError(f"Failed to load configuration file: {e}")
+    
     def get_prompt(self, get_newest:bool = False) -> str:
         if self.config.framework_adapter.name == FrameworkEnum.crewai:
             prompt_path = self.config.agent_modifiable_config.prompt_configuration_file_path
@@ -183,36 +214,7 @@ class BaseConfig(ABC):
                 
                 # fallback: return first prompt if no default found
                 return prompt_content[0]["prompt"]
-    
-    def _load_config(self, config_path: str) -> AdaptiQConfig:
-        """
-        Load the configuration file from the given path.
-        
-        Args:
-            config_path (str): Path to the configuration file.
             
-        Returns:
-            AdaptiQConfig: The loaded configuration.
-            
-        Raises:
-            FileNotFoundError: If the file does not exist.
-            ValueError: If the file cannot be parsed.
-        """
-        if not os.path.isfile(config_path):
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
-        
-        try:
-            
-            with open(config_path, "r", encoding="utf-8") as file:
-                raw_config =  yaml.safe_load(file) or {}
-            
-            return AdaptiQConfig(**raw_config)
-        
-        except yaml.YAMLError as e:
-            raise ValueError(f"Failed to parse YAML configuration file: {e}")
-        except Exception as e:
-            raise ValueError(f"Failed to load configuration file: {e}")
-    
     def get_config(self) -> AdaptiQConfig:
         """
         Get the entire configuration dictionary.
@@ -221,6 +223,15 @@ class BaseConfig(ABC):
             AdaptiQConfig: The complete configuration.
         """
         return self.config
+    
+    def get_tools(self) -> List[AgentTool]:
+        """
+        Get the list of agent tools from the configuration.
+        
+        Returns:
+            List[AgentTool]: The list of agent tools.
+        """
+        return self.config.agent_modifiable_config.agent_tools
     
     def reload_config(self) -> None:
         """

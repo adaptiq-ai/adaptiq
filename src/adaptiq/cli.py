@@ -19,7 +19,7 @@ def execute_pre_run_only(args):
     
     if template == "crew-ai":
         base_config = CrewConfig(config_path=config_path, preload=True)
-        base_prompt_parser = CrewPromptParser(config_path=config_path)
+        base_prompt_parser = CrewPromptParser(config_data=config_path)
 
     try:
         logging.info("STEP : Executing pre_run pipeline...")
@@ -48,7 +48,7 @@ def execute_post_run_only(
     if template == "crew-ai":
         base_config = CrewConfig(config_path=config_path, preload=True)
         base_log_parser = CrewLogParser(logs_path=logs_path, output_path=output_path)
-        base_prompt_parser = CrewPromptParser(config_path=config_path)
+        base_prompt_parser = CrewPromptParser(config_data=config_path)
     
     # Initialize the aggregator
     logging.info("agent_metrics: %s", agent_metrics)

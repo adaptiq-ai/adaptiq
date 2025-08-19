@@ -85,7 +85,7 @@ class CrewInstrumental:
 
                 base_config = CrewConfig(config_path=config_path, preload=True)
                 base_log_parser = CrewLogParser(logs_path=self.logs_path, output_path=os.path.join(self.current_dir, "results"))
-                base_prompt_parser = CrewPromptParser(config_path=config_path)
+                base_prompt_parser = CrewPromptParser(config_data=base_config.get_config(), task=base_config.get_prompt(get_newest= True), tools=base_config.get_tools())
 
                 adaptiq_run = AdaptiqRun(
                     base_config=base_config, 
@@ -128,36 +128,6 @@ class CrewInstrumental:
             return {"mode": "per_run", "runs": None}
         else:
             return {"mode": "none", "runs": None}
-
-    # def _determine_should_send_report(self, crew_metrics: List[Dict], alert_mode_info: Dict[str, Any]) -> bool:
-    #     """
-    #     Determines whether to send a report based on alert mode and crew metrics.
-
-    #     Args:
-    #         crew_metrics (list): List of crew metrics
-    #         alert_mode_info (dict): Alert mode configuration
-
-    #     Returns:
-    #         bool: True if report should be sent, False otherwise
-    #     """
-    #     if not crew_metrics:
-    #         return True  # Default to sending report if no crew metrics
-
-    #     # Get current execution count from crew metrics
-    #     current_execution_count = (
-    #         crew_metrics[-1].get("execution_count", 0) if crew_metrics else 0
-    #     )
-
-    #     # Determine if we should send report based on alert mode
-    #     if alert_mode_info["mode"] == "on_demand" and alert_mode_info["runs"]:
-    #         # Send report only when we reach the target number of runs
-    #         return current_execution_count >= alert_mode_info["runs"]
-    #     elif alert_mode_info["mode"] == "per_run":
-    #         # Send report after each run
-    #         return True
-    #     else:
-    #         # Standard mode - send report
-    #         return True
 
     def agent_logger(self, func: Callable) -> Callable:
         """

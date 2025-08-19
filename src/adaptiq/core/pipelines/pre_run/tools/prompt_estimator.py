@@ -4,6 +4,7 @@ from typing import Dict, List, Any, Optional
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
+from adaptiq.core.entities import TaskIntent, HypotheticalStateRepresentation, FormattedAnalysis, StatusSummary
 from adaptiq.core.q_table.q_table_manager import QTableManager
 from adaptiq.core.entities import AgentTool
 
@@ -17,16 +18,16 @@ class PromptEstimator:
     
     def __init__(
         self,
-        status: Dict[str, Any],
+        status: StatusSummary,
         old_prompt: str,
         agent_id: str,
         api_key: str,
         model_name: str,
         provider: str,
-        parsed_steps: Optional[List[Dict]] = None,
-        hypothetical_states: Optional[List[Dict]] = None,
+        parsed_steps: Optional[List[TaskIntent]] = None,
+        hypothetical_states: Optional[List[HypotheticalStateRepresentation]] = None,
         offline_learner: Optional[QTableManager] = None,
-        prompt_analysis: Optional[Dict] = None,
+        prompt_analysis: Optional[FormattedAnalysis] = None,
         agent_tools: Optional[List[AgentTool]] = None,
         output_path: Optional[str] = None
     ):
@@ -98,9 +99,16 @@ class PromptEstimator:
 
         # Check for missing components
         missing_components = []
-        for component, data in self.status.items():
-            if not data.get("completed", False):
-                missing_components.append(component)
+        if not self.status.prompt_parsing.completed:
+            missing_components.append("prompt_parsing")
+        if not self.status.hypothetical_representation.completed:
+            missing_components.append("hypothetical_representation")
+        if not self.status.scenario_simulation.completed:
+            missing_components.append("scenario_simulation")
+        if not self.status.qtable_initialization.completed:
+            missing_components.append("qtable_initialization")
+        if not self.status.prompt_analysis.completed:
+            missing_components.append("prompt_analysis")
 
         if missing_components:
             self.logger.warning(
@@ -113,7 +121,7 @@ class PromptEstimator:
             num_parsed_steps = len(self.parsed_steps)
             first_few_subtasks = []
             for step in self.parsed_steps[:3]:  # Get first three steps
-                subtask_name = step.get("subtask_name", "Unnamed task")
+                subtask_name = step.intended_subtask
                 first_few_subtasks.append(subtask_name)
 
             # Process hypothetical states
@@ -166,8 +174,8 @@ class PromptEstimator:
             return heuristic_counts
             
         for i, hypothetical_step in enumerate(self.hypothetical_states[:20]):  # Sample from first 20 states
-            state_repr = hypothetical_step.get("state")
-            action = hypothetical_step.get("action")
+            state_repr = hypothetical_step.state
+            action = hypothetical_step.action
 
             # Convert state representation to a tuple if it's in string form
             state_key = self._parse_state_key(state_repr)
@@ -216,9 +224,9 @@ class PromptEstimator:
     
     def _create_prompt_analysis_summary(self) -> str:
         """Create a formatted summary of prompt analysis results."""
-        weaknesses = self.prompt_analysis.get("weaknesses", [])
-        suggestions = self.prompt_analysis.get("suggested_modifications", [])
-        strengths = self.prompt_analysis.get("strengths", [])
+        weaknesses = self.prompt_analysis.weaknesses
+        suggestions = self.prompt_analysis.suggested_modifications
+        strengths = self.prompt_analysis.strengths
 
         prompt_analysis_summary = ""
         if strengths:
@@ -333,7 +341,7 @@ class PromptEstimator:
             num_parsed_steps=num_parsed_steps,
             first_few_subtasks=", ".join(first_few_subtasks),
             num_hypothetical_states=num_hypothetical_states,
-            hypothetical_states_sample=self.hypothetical_states,
+            hypothetical_states_sample=[item.state for item in self.hypothetical_states],
             q_table_size=q_table_size,
             key_heuristics=(
                 ", ".join(key_heuristics) if key_heuristics else "None identified"
