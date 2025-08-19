@@ -1,6 +1,5 @@
-import json
 import re
-import ast
+import xml.etree.ElementTree as ET
 from typing import Dict, List
 
 from langchain.prompts import ChatPromptTemplate
@@ -11,7 +10,7 @@ from adaptiq.core.entities import TaskIntent, HypotheticalStateRepresentation
 class HypotheticalStateGenerator:
     """
     Generator that transforms a parsed plan into hypothetical state-action pairs
-    using a single LLM invocation. The LLM returns structured state-action mappings.
+    using XML output format for more reliable parsing.
     """
 
     def __init__(
@@ -39,7 +38,7 @@ class HypotheticalStateGenerator:
                 f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
             )
 
-        # Updated prompt to prevent JSON formatting issues with escaped quotes
+        # XML-based prompt template
         self.prompt_template = ChatPromptTemplate.from_template(
             """
         You are an RL state-action pair generator for agent training.
@@ -47,27 +46,37 @@ class HypotheticalStateGenerator:
         TASK:
         For EACH step in the provided plan, create a corresponding state-action pair.
 
-        STATE FORMAT (as tuple string):
-        ('Current_SubTask_Category', 'Last_Action_Taken', 'Last_Outcome_Category', 'Key_Context')
-
-        Where:
+        STATE COMPONENTS:
         - Current_SubTask_Category: Identify the general category/type of subtask based on what you observe in the current step
         - Last_Action_Taken: The Intended_Action from previous step (use "None" for first step)
         - Last_Outcome_Category: Categorize from: [Success_DataFound, Success_ActionCompleted, Success_NoDataFound, Failure_PreconditionNotMet, Outcome_Unknown, None]
         - Key_Context: 1-3 keywords (max 3 words) summarizing information up to this point
 
-        ACTION:
-        The Intended_Action from the current step.
+        OUTPUT FORMAT:
+        Return your response as XML with this exact structure:
 
-        OUTPUT:
-        A JSON list where each item has:
-        1. "hypothetical_state_representation": The 4-element tuple string
-        2. "hypothetical_action": The current step's Intended_Action
-        3. "source_prompt_step_details": Copy of the original step object
+        <state_action_pairs>
+            <pair>
+                <current_subtask_category>CATEGORY_HERE</current_subtask_category>
+                <last_action_taken>ACTION_HERE</last_action_taken>
+                <last_outcome_category>OUTCOME_HERE</last_outcome_category>
+                <key_context>CONTEXT_HERE</key_context>
+                <hypothetical_action>INTENDED_ACTION_HERE</hypothetical_action>
+                <source_step>
+                    <step_number>NUMBER</step_number>
+                    <intended_action>ACTION</intended_action>
+                    <expected_outcome>OUTCOME</expected_outcome>
+                    <reasoning>REASONING</reasoning>
+                </source_step>
+            </pair>
+            <!-- Repeat <pair> for each step -->
+        </state_action_pairs>
 
-        IMPORTANT: Use single quotes inside JSON strings to avoid escaping issues.
-        For example, write "Expected_Ideal_Outcome_Mentioned_In_Prompt": "Lead's name is retrieved."
-        instead of using escaped double quotes.
+        IMPORTANT: 
+        - Use clear, concise text in each field
+        - Avoid special characters that might break XML
+        - Keep Key_Context to maximum 3 words
+        - Use the exact outcome categories listed above
 
         Parse this plan: {parsed_plan}
         """
@@ -75,185 +84,181 @@ class HypotheticalStateGenerator:
 
     def generate_hypothetical_state_action_pairs(self) -> List[HypotheticalStateRepresentation]:
         """
-        Generate all hypothetical state-action pairs in a single LLM call.
+        Generate all hypothetical state-action pairs using XML output.
 
         Returns:
-            List of state-action pairs with detailed step context.
+            List of HypotheticalStateRepresentation objects.
         """
-        # Prepare full context for LLM
+        # Prepare context for LLM
         context = {"parsed_plan": [plan.model_dump() for plan in self.prompt_parsed_plan]}
 
         prompt = self.prompt_template.format_messages(**context)
         response = self.llm.invoke(prompt)
 
-        # Get the content from the response
-        content = response.content
+        # Extract XML content from response
+        xml_content = self._extract_xml_content(response.content)
+        
+        # Parse XML and extract state-action pairs
+        pairs = self._parse_xml_response(xml_content)
+        
+        return [HypotheticalStateRepresentation(**pair) for pair in pairs]
 
-        # Check if response is wrapped in markdown code blocks (```json ... ```)
-        if "```" in content:
-            # Extract content between code blocks
-            code_block_pattern = r"```(?:json)?\s*([\s\S]*?)\s*```"
-            matches = re.findall(code_block_pattern, content)
-            if matches:
-                # Use the first matched code block
-                content = matches[0].strip()
-
-        # Try parsing as JSON first, then Python literal
-        try:
-            # Apply comprehensive JSON fixing
-            fixed_content = self._comprehensive_json_fix(content)
-            result = json.loads(fixed_content)
-        except Exception as e:
-            # If JSON parsing fails, try Python literal parsing
-            try:
-                result = self._parse_python_literal(content)
-            except Exception as literal_e:
-                # If that fails too, try manual parsing
-                try:
-                    result = self._parse_json_manually(content)
-                except Exception as inner_e:
-                    # If all parsing attempts fail, provide detailed error info
-                    error_msg = f"Failed to parse LLM response. Tried JSON: {e}, Python literal: {literal_e}, Manual: {inner_e}\n\n"
-                    error_msg += f"Processed content:\n{content}\n\n"
-                    error_msg += f"Original response:\n{response.content}"
-                    raise ValueError(error_msg) from inner_e
-
-        return [ HypotheticalStateRepresentation(**item) for item in self._clean_representation(raw_data=result) ]
-    
-    def _parse_python_literal(self, content: str) -> List[Dict]:
+    def _extract_xml_content(self, content: str) -> str:
         """
-        Parse Python literal format (single quotes, tuples) returned by some models.
-        """
-        try:
-            # Safely evaluate the Python literal
-            result = ast.literal_eval(content.strip())
+        Extract XML content from LLM response, handling potential markdown wrapping.
+        
+        Args:
+            content: Raw LLM response content
             
-            # Convert tuples to strings for consistency
-            for item in result:
-                if isinstance(item.get('hypothetical_state_representation'), tuple):
-                    item['hypothetical_state_representation'] = str(item['hypothetical_state_representation'])
+        Returns:
+            Clean XML content
+        """
+        # Remove markdown code blocks if present
+        if "```xml" in content:
+            xml_match = re.search(r"```xml\s*(.*?)\s*```", content, re.DOTALL)
+            if xml_match:
+                content = xml_match.group(1)
+        elif "```" in content:
+            # Handle generic code blocks
+            xml_match = re.search(r"```\s*(.*?)\s*```", content, re.DOTALL)
+            if xml_match:
+                content = xml_match.group(1)
+
+        # Look for XML content between <state_action_pairs> tags
+        xml_pattern = r"<state_action_pairs>.*?</state_action_pairs>"
+        xml_match = re.search(xml_pattern, content, re.DOTALL)
+        
+        if xml_match:
+            return xml_match.group(0)
+        else:
+            # If no wrapper found, assume the entire content is XML
+            return content.strip()
+
+    def _parse_xml_response(self, xml_content: str) -> List[Dict]:
+        """
+        Parse XML response and extract state-action pair data.
+        
+        Args:
+            xml_content: XML string containing state-action pairs
             
-            return result
-        except Exception as e:
-            raise ValueError(f"Failed to parse Python literal: {e}")
-
-    def _comprehensive_json_fix(self, json_str: str) -> str:
-        """
-        Comprehensive JSON fixing that handles various issues.
-
-        Args:
-            json_str: JSON string with potential issues
-
         Returns:
-            Fixed JSON string
+            List of dictionaries with parsed data
         """
-        # Step 1: Normalize line endings
-        fixed_str = json_str.replace("\r\n", "\n").replace("\r", "\n")
+        try:
+            # Parse XML
+            root = ET.fromstring(xml_content)
+            pairs = []
+            
+            for pair_elem in root.findall('pair'):
+                # Extract state components
+                current_subtask = self._get_xml_text(pair_elem, 'current_subtask_category')
+                last_action = self._get_xml_text(pair_elem, 'last_action_taken')
+                last_outcome = self._get_xml_text(pair_elem, 'last_outcome_category')
+                key_context = self._get_xml_text(pair_elem, 'key_context')
+                
+                # Create state tuple string
+                state_tuple = f"('{current_subtask}', '{last_action}', '{last_outcome}', '{key_context}')"
+                
+                # Extract action
+                action = self._get_xml_text(pair_elem, 'hypothetical_action')
+                
+                # Extract source step details
+                source_step_elem = pair_elem.find('source_step')
+                source_details = {}
+                
+                if source_step_elem is not None:
+                    source_details = {
+                        'step_number': self._get_xml_text(source_step_elem, 'step_number'),
+                        'intended_action': self._get_xml_text(source_step_elem, 'intended_action'),
+                        'expected_outcome': self._get_xml_text(source_step_elem, 'expected_outcome'),
+                        'reasoning': self._get_xml_text(source_step_elem, 'reasoning')
+                    }
+                
+                pairs.append({
+                    'state': state_tuple,
+                    'action': action,
+                    'details': source_details
+                })
+            
+            return pairs
+            
+        except ET.ParseError as e:
+            # If XML parsing fails, try regex fallback
+            print(f"XML parsing error: {e}. Attempting regex fallback.")
+            return self._parse_xml_with_regex(xml_content)
 
-        # Step 2: Handle escaped quotes properly
-        # Replace \" with ' when it appears within strings (between quotes)
-        fixed_str = re.sub(r"(\"[^\"]*?)\\\"([^\"]*?\")", r"\1\'\2", fixed_str)
-
-        # Step 3: Fix control characters
-        control_chars = ["\b", "\f", "\n", "\r", "\t"]
-        for char in control_chars:
-            # Replace unescaped control characters within strings
-            fixed_str = re.sub(f'(?<="[^"]*){char}(?=[^"]*")', " ", fixed_str)
-
-        # Step 4: Fix quotes around JSON keys
-        # This finds JSON keys that are not properly quoted
-        fixed_str = re.sub(
-            r"([{,])\s*([A-Za-z_][A-Za-z0-9_]*)\s*:", r'\1"\2":', fixed_str
-        )
-
-        # Step 5: Fix issues with apostrophes
-        # Convert apostrophes in words to avoid JSON parsing issues
-        fixed_str = re.sub(r'(\w)"(\w)', r"\1'\2", fixed_str)
-
-        # Step 6: Fix missing quotes around string values
-        # This is more complex and might need refinement for specific cases
-
-        return fixed_str
-
-    def _parse_json_manually(self, content: str) -> List[Dict]:
+    def _get_xml_text(self, element: ET.Element, tag_name: str) -> str:
         """
-        Manual JSON parsing for cases where automatic parsing fails.
-        Implements a simplified parser for the specific structure we expect.
-
+        Safely extract text from XML element.
+        
         Args:
-            content: The JSON-like string to parse
-
+            element: XML element to search in
+            tag_name: Tag name to find
+            
         Returns:
-            List of dictionaries representing the parsed JSON
+            Text content or empty string if not found
         """
-        result = []
+        child = element.find(tag_name)
+        return child.text.strip() if child is not None and child.text else ""
 
-        # Pattern to match each JSON object in the array
-        object_pattern = r'{\s*"hypothetical_state_representation":\s*"([^"]*)",\s*"hypothetical_action":\s*"([^"]*)",\s*"source_prompt_step_details":\s*{([^}]*)}\s*}'
-
-        # Find all objects in the content
-        objects = re.findall(object_pattern, content, re.DOTALL)
-
-        for obj in objects:
-            state_repr = obj[0]
-            action = obj[1]
-            details_str = obj[2]
-
-            # Parse the details dictionary
-            details = {}
-            detail_pattern = r'"([^"]*)"\s*:\s*"([^"]*)"'
-            detail_matches = re.findall(detail_pattern, details_str)
-
-            for key, value in detail_matches:
-                details[key] = value
-
-            # Create the result dictionary
-            result.append(
-                {
-                    "hypothetical_state_representation": state_repr,
-                    "hypothetical_action": action,
-                    "source_prompt_step_details": details,
+    def _parse_xml_with_regex(self, xml_content: str) -> List[Dict]:
+        """
+        Fallback regex-based XML parsing for malformed XML.
+        
+        Args:
+            xml_content: XML string to parse
+            
+        Returns:
+            List of dictionaries with extracted data
+        """
+        pairs = []
+        
+        # Pattern to match each pair block
+        pair_pattern = r'<pair>(.*?)</pair>'
+        pair_matches = re.findall(pair_pattern, xml_content, re.DOTALL)
+        
+        for pair_content in pair_matches:
+            # Extract individual components using regex
+            current_subtask = self._extract_tag_content(pair_content, 'current_subtask_category')
+            last_action = self._extract_tag_content(pair_content, 'last_action_taken')
+            last_outcome = self._extract_tag_content(pair_content, 'last_outcome_category')
+            key_context = self._extract_tag_content(pair_content, 'key_context')
+            action = self._extract_tag_content(pair_content, 'hypothetical_action')
+            
+            # Create state tuple
+            state_tuple = f"('{current_subtask}', '{last_action}', '{last_outcome}', '{key_context}')"
+            
+            # Extract source step details
+            source_details = {}
+            source_step_match = re.search(r'<source_step>(.*?)</source_step>', pair_content, re.DOTALL)
+            if source_step_match:
+                source_content = source_step_match.group(1)
+                source_details = {
+                    'step_number': self._extract_tag_content(source_content, 'step_number'),
+                    'intended_action': self._extract_tag_content(source_content, 'intended_action'),
+                    'expected_outcome': self._extract_tag_content(source_content, 'expected_outcome'),
+                    'reasoning': self._extract_tag_content(source_content, 'reasoning')
                 }
-            )
+            
+            pairs.append({
+                'state': state_tuple,
+                'action': action,
+                'details': source_details
+            })
+        
+        return pairs
 
-        return result
-
-    def _clean_representation(self, raw_data: List[Dict]) -> List[Dict]:
+    def _extract_tag_content(self, xml_string: str, tag_name: str) -> str:
         """
-        Cleaner for LLM output. Handles escaped quotes and properly formats JSON.
-
+        Extract content from a specific XML tag using regex.
+        
         Args:
-            raw_data: Raw state-action pairs
-
+            xml_string: XML string to search in
+            tag_name: Name of the tag to extract
+            
         Returns:
-            Cleaned list of dictionaries
+            Content of the tag or empty string if not found
         """
-        cleaned = []
-
-        for item in raw_data:
-            # Process any potentially problematic fields
-            details = item.get("source_prompt_step_details", {})
-            if isinstance(details, dict):
-                # Deep clone to avoid modifying the original
-                cleaned_details = {}
-                for key, value in details.items():
-                    # Handle escaped quotes in string values
-                    if isinstance(value, str):
-                        # Normalize the string value to avoid escaped quote issues
-                        cleaned_details[key] = value.replace('\\"', '"').replace(
-                            '\\"', '"'
-                        )
-                    else:
-                        cleaned_details[key] = value
-            else:
-                cleaned_details = details
-
-            cleaned.append(
-                {
-                    "state": item["hypothetical_state_representation"],
-                    "action": item["hypothetical_action"],
-                    "details": cleaned_details,
-                }
-            )
-
-        return cleaned
+        pattern = f'<{tag_name}>(.*?)</{tag_name}>'
+        match = re.search(pattern, xml_string, re.DOTALL)
+        return match.group(1).strip() if match else ""
