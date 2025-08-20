@@ -10,6 +10,7 @@ class ProviderEnum(str, Enum):
 
 class ModelNameEnum(str, Enum):
     gpt_4_1_mini = "gpt-4.1-mini"
+    gpt_4_1 = "gpt-4.1"  # Full model, not mini
     # add more here as they’re supported later
 
 
