@@ -1,9 +1,8 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Dict, List
 
-from dotenv import load_dotenv
 
 from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser
 from adaptiq.core.entities import TaskIntent, ScenarioModel, HypotheticalStateRepresentation, StatusSummary, PromptParsingStatus, HypotheticalRepresentationStatus, ScenarioSimulationStatus, QTableInitializationStatus,PromptAnalysisStatus, FormattedAnalysis, QTableState, QTableAction, QTableQValue
@@ -138,9 +137,7 @@ class PreRunPipeline:
             # Initialize the hypothetical state generator
             self.state_generator = HypotheticalStateGenerator(
                 prompt_parsed_plan=self.parsed_steps,
-                model_name=self.model_name,
-                api_key=self.api_key,
-                provider=self.provider,
+                llm=self.base_config.get_llm_instance()
             )
 
             # Generate state-action pairs
@@ -175,9 +172,7 @@ class PreRunPipeline:
             # Initialize the scenario simulator
             self.scenario_simulator = ScenarioSimulator(
                 hypothetical_states=self.hypothetical_states,
-                model_name=self.model_name,
-                api_key=self.api_key,
-                provider=self.provider,
+                llm=self.base_config.get_llm_instance(),
                 output_path=simulation_output_path,
             )
 
@@ -370,9 +365,7 @@ class PreRunPipeline:
             # Initialize the prompt consultant
             self.prompt_consultant = PromptConsulting(
                 agent_prompt=agent_prompt,
-                model_name=self.model_name,
-                api_key=self.api_key,
-                provider=self.provider,
+                llm=self.base_config.get_llm_instance()
             )
 
             # Analyze the prompt
@@ -400,14 +393,12 @@ class PreRunPipeline:
             self.prompt_estimator = PromptEstimator(
                 status=self.get_status_summary(),
                 agent_id=self.config_data.project_name,
+                llm=self.base_config.get_llm_instance(),
                 old_prompt=self.old_prompt,
                 parsed_steps=self.parsed_steps,
                 hypothetical_states=self.hypothetical_states,
                 offline_learner=self.offline_learner,
                 prompt_analysis=self.prompt_analysis,
-                model_name=self.model_name,
-                api_key=self.api_key,
-                provider=self.provider,
                 agent_tools= self.agent_tools,
                 output_path= self.output_path,
             )

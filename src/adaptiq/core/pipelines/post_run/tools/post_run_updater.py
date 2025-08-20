@@ -1,10 +1,9 @@
 import ast
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 import numpy as np
-from langchain_openai import OpenAIEmbeddings
 
+from langchain_core.embeddings import Embeddings
 from adaptiq.core.entities.q_table import QTableAction, QTableState, QTableQValue
 from adaptiq.core.q_table.q_table_manager import QTableManager
 
@@ -22,35 +21,25 @@ class PostRunUpdater:
 
     def __init__(
         self,
-        provider: str,
-        api_key: str,
-        model: str = "text-embedding-3-small",
-        alpha=0.8,
-        gamma=0.8,
-        similarity_threshold=0.7,
+        embeddings: Embeddings,
+        alpha: float = 0.8,
+        gamma: float = 0.8,
+        similarity_threshold: float = 0.7,
     ):
         """
         Initialize the AdaptiqQtableUpdate class.
 
         Args:
-            api_key: OpenAI API key.
             model: OpenAI embedding model name.
             alpha: Learning rate for Q-learning updates (default 0.8)
             gamma: Discount factor for Q-learning updates (default 0.8)
             similarity_threshold: Threshold for action similarity matching (default 0.7)
         """
-
+        self.embeddings = embeddings
         self.learner = QTableManager(alpha=alpha, gamma=gamma, file_path="adaptiq_q_table.json")
-
         self.similarity_threshold = similarity_threshold
-        self.provider = provider
-
-        if self.provider == "openai":
-            self.embeddings = OpenAIEmbeddings(model=model, api_key=api_key)
-        else:
-            raise ValueError(
-                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )
+        
+        
         
     def load_q_table(self, q_table_data: Dict) -> None:
         """

@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, List
 
 from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 
 from adaptiq.core.entities import HypotheticalStateRepresentation, ScenarioModel
 
@@ -28,9 +28,7 @@ class ScenarioSimulator:
     def __init__(
         self,
         hypothetical_states: List[HypotheticalStateRepresentation],
-        model_name: str,
-        api_key: str,
-        provider: str,
+        llm: BaseChatModel,
         output_path: str,
     ):
         """
@@ -44,16 +42,7 @@ class ScenarioSimulator:
         """
         self.hypothetical_states = hypothetical_states
         self.output_path = output_path
-        self.provider = provider
-
-        if self.provider == "openai":
-            self.scenario_generation_llm = ChatOpenAI(
-                temperature=0.2, model=model_name, api_key=api_key
-            )
-        else:
-            raise ValueError(
-                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )
+        self.scenario_generation_llm=llm
 
         # XML-based prompt template
         self.scenario_generation_prompt_template = ChatPromptTemplate.from_template(

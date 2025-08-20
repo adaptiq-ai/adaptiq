@@ -2,9 +2,8 @@ import json
 from typing import Dict, List,  Union
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-
 from adaptiq.core.abstract.q_table.base_state_mapper import BaseStateMapper
+
 
 class StateMapper(BaseStateMapper):
     """
@@ -14,18 +13,8 @@ class StateMapper(BaseStateMapper):
     if they correspond to any known state from the Q-table, ignoring actions completely.
     """
 
-    def _initialize_reconciliation_llm(self):
-        """Initialize the LLM for state reconciliation."""
-        if self.provider == "openai":
-            return ChatOpenAI(
-                model=self.llm_model_name, api_key=self.llm_api_key
-            )
-        else:
-            raise ValueError(
-                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )
 
-    def _create_classification_prompt(self):
+    def _create_classification_prompt(self) -> ChatPromptTemplate:
         """Create the prompt template for state classification."""
         classification_template = """You are an AI Agent State Classifier specializing in semantic matching.
 
@@ -109,7 +98,7 @@ class StateMapper(BaseStateMapper):
 
         # Create and invoke the prompt
         prompt = self.classification_prompt_template.format_messages(**inputs)
-        response = self.reconciliation_llm.invoke(prompt)
+        response = self.llm.invoke(prompt)
 
         # Parse the response content as JSON
         try:

@@ -1,9 +1,9 @@
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Tuple
+from typing import Tuple
 from langchain.schema import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 
 
 logging.basicConfig(
@@ -23,9 +23,7 @@ class PromptEngineer:
     """
 
     def __init__(self, 
-        model_name: str,
-        api_key: str,
-        provider: str,
+        llm: BaseChatModel,
         report_path: str,
         old_prompt: str,
         agent_name: str = None,
@@ -38,37 +36,15 @@ class PromptEngineer:
             main_config_path: Path to the main YAML configuration file.
             feedback: Human feedback for agent's evaluation.
         """
+        self.llm = llm
         self.task_name = None
         self.new_prompt = None
         self.feedback = feedback
-        self.model_name = model_name
-        self.api_key = api_key
-        self.provider = provider
         self.old_prompt = old_prompt
         self.agent_name = agent_name if agent_name else "agent"
         self.report_path = report_path
 
-        if not self.api_key:
-            logger.warning("API key for LLM is not set in the configuration.")
-
-        # Initialize LLM, handle potential missing API key for non-LLM parts
-        try:
-            if self.provider == "openai":
-                self.llm = ChatOpenAI(
-                    model=self.model_name, api_key=self.api_key, temperature=0.3
-                )
-            else:
-                raise ValueError(
-                    f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-                )
-
-        except ValueError as e:
-            logger.error(
-                "Failed to initialize ChatOpenAI: %s. Ensure API key is valid.", e
-            )
-            self.llm = None  # Allow class to function for non-LLM tasks if needed
-
-        logger.info("PromptEngineerLLM initialized with model: %s", self.model_name)
+        logger.info("PromptEngineerLLM initialized")
 
     def _invoke_llm_for_analysis(
         self, old_prompt: str, q_table_insights: str

@@ -33,8 +33,6 @@ class PostRunPipeline:
         Args:
             config_path (str): Path to the agent configuration file in YAML format.
             output_dir (str): Directory for saving outputs (logs, parsed data, validation results).
-            model_name (str): Name of the LLM model to use for validation.
-            api_key (Optional[str]): API key for the LLM service. If None, will try to use environment variable.
             validate_results (bool): Whether to perform validation after parsing.
 
         Raises:
@@ -51,12 +49,11 @@ class PostRunPipeline:
 
         self.base_config = base_config
         self.configuration = base_config.get_config()
+        self.llm =self.base_config.get_llm_instance()
+        self.embedding = self.base_config.get_embeddings_instance()
         self.output_dir = output_dir
         self.feedback = feedback
 
-        self.api_key = self.configuration.llm_config.api_key
-        self.model_name = self.configuration.llm_config.model_name.value
-        self.provider = self.configuration.llm_config.provider.value
         self.agent_name = self.configuration.agent_modifiable_config.agent_name
         self.report_path = self.configuration.report_config.output_path 
     
@@ -167,9 +164,6 @@ class PostRunPipeline:
         """
         self.logger.info("Starting validation of parsed logs...")
 
-        if self.api_key is None:
-            raise ValueError("API key is required for validation but none was provided")
-
         # Load raw logs if not provided
         if raw_logs is None:
             if not os.path.exists(self.raw_logs_path):
@@ -202,9 +196,7 @@ class PostRunPipeline:
         self.validator = PostRunValidator(
             raw_logs=raw_logs,
             parsed_logs=parsed_logs,
-            model_name=self.model_name,
-            api_key=self.api_key,
-            provider=self.provider,
+            llm=self.llm
         )
 
         corrected_logs, validation_results = self.validator.run_validation_pipeline()
@@ -253,9 +245,8 @@ class PostRunPipeline:
             execution_data_file=str(execution_data_file),
             warmed_qtable_file=str(warmed_qtable_file),
             reward_execs_file=str(reward_execs_file),
-            model_name=self.model_name,
-            api_key=self.api_key,
-            provider=self.provider,
+            llm=self.llm,
+            embeddings=self.embedding,
             old_prompt=self.old_prompt,
             agent_name=self.agent_name,
             feedback=self.feedback,

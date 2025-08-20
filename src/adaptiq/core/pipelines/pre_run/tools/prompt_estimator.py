@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Dict, List, Any, Optional
 from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 
 from adaptiq.core.entities import TaskIntent, HypotheticalStateRepresentation, FormattedAnalysis, StatusSummary
 from adaptiq.core.q_table.q_table_manager import QTableManager
@@ -21,9 +21,7 @@ class PromptEstimator:
         status: StatusSummary,
         old_prompt: str,
         agent_id: str,
-        api_key: str,
-        model_name: str,
-        provider: str,
+        llm: BaseChatModel,
         parsed_steps: Optional[List[TaskIntent]] = None,
         hypothetical_states: Optional[List[HypotheticalStateRepresentation]] = None,
         offline_learner: Optional[QTableManager] = None,
@@ -55,10 +53,7 @@ class PromptEstimator:
         self.status = status
         self.old_prompt = old_prompt
         self.agent_id = agent_id
-        self.api_key = api_key
-        self.model_name = model_name
-        self.provider = provider
-        
+        self.llm = llm
         # Store analysis results
         self.parsed_steps = parsed_steps or []
         self.hypothetical_states = hypothetical_states or []
@@ -74,13 +69,7 @@ class PromptEstimator:
         ]
         self.tools_string = "\n".join(self.tool_strings)
         
-        # Validate required parameters
-        if not self.api_key:
-            raise ValueError("API key is required")
-        if not self.model_name:
-            raise ValueError("Model name is required")
-        if not self.provider:
-            raise ValueError("Provider is required")
+
     
     def generate_estimated_prompt(self) -> str:
         """
@@ -321,18 +310,6 @@ class PromptEstimator:
         # Create the prompt
         prompt = ChatPromptTemplate.from_template(template)
 
-        # Initialize the LLM
-        if self.provider == "openai":
-            chat_model = ChatOpenAI(
-                api_key=self.api_key,
-                model_name=self.model_name,
-                temperature=0.7,  # Balanced between creativity and consistency
-            )
-        else:
-            raise ValueError(
-                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )
-
         # Format the message with our data
         formatted_prompt = prompt.format(
             agent_id=self.agent_id,
@@ -350,7 +327,7 @@ class PromptEstimator:
         )
 
         # Generate the report
-        response = chat_model.invoke(formatted_prompt)
+        response = self.llm.invoke(formatted_prompt)
         return response.content
     
     def _save_report(self, report: str) -> None:

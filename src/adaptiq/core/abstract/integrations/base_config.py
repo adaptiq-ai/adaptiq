@@ -4,10 +4,14 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple
-from adaptiq.core.entities import AdaptiQConfig, FrameworkEnum
-import yaml
 
-from adaptiq.core.entities.adaptiq_config import AgentTool
+from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.embeddings import Embeddings
+from adaptiq.core.entities import AdaptiQConfig, FrameworkEnum, AgentTool, ProviderEnum
+
+import yaml
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -323,4 +327,34 @@ class BaseConfig(ABC):
 
         return trace_output
 
+    def get_llm_instance(self) -> BaseChatModel:
+        """
+        Get the LLM instance based on the configuration.
+        
+        Returns:
+            Any: The LLM instance configured for the project.
+        """
+        llm_config = self.config.llm_config
+        model = llm_config.model_name.value
+        api_key = llm_config.api_key
+        
+        if llm_config.provider == ProviderEnum.openai:
+            return ChatOpenAI(model=model, api_key=api_key)
+        else:
+            raise ValueError(f"Unsupported LLM provider: {llm_config.provider}")
 
+    def get_embeddings_instance(self) -> Embeddings:
+        """
+        Get the LLM instance based on the configuration.
+        
+        Returns:
+            Any: The LLM instance configured for the project.
+        """
+        llm_config = self.config.llm_config
+        model = llm_config.model_name.value
+        api_key = llm_config.api_key
+        
+        if llm_config.provider == ProviderEnum.openai:
+            return OpenAIEmbeddings(model="text-embedding-3-small", api_key=api_key)
+        else:
+            raise ValueError(f"Unsupported Embeddings provider: {llm_config.provider}")

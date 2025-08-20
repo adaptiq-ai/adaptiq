@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, List
 
 from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 
 from adaptiq.core.entities import FormattedAnalysis
 
@@ -13,7 +13,7 @@ class PromptConsulting:
     using a single LLM invocation. The LLM returns structured analysis and recommendations.
     """
 
-    def __init__(self, agent_prompt: str, model_name: str, api_key: str, provider: str):
+    def __init__(self, agent_prompt: str, llm: BaseChatModel):
         """
         Initialize with an agent prompt to analyze.
 
@@ -21,17 +21,8 @@ class PromptConsulting:
             agent_prompt: The prompt text to be analyzed.
         """
         self.agent_prompt = agent_prompt
-        self.api_key = api_key
-        self.model = model_name
-        self.provider = provider
-
-        if self.provider == "openai":
-            self.llm = ChatOpenAI(model=self.model, api_key=self.api_key)
-        else:
-            raise ValueError(
-                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )
-
+        self.llm = llm
+        
         self.analysis_template = ChatPromptTemplate.from_template(
             """
         You are an expert Prompt Consultant for AI Agents.

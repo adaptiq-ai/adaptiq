@@ -2,7 +2,8 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict
-
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models.chat_models import BaseChatModel
 from adaptiq.core.q_table.state_mapper import StateMapper
 from adaptiq.core.q_table.state_action_extractor import StateActionExtractor
 from adaptiq.core.pipelines.post_run.tools.post_run_updater import PostRunUpdater
@@ -26,9 +27,8 @@ class PostRunReconciler:
         execution_data_file: str,
         warmed_qtable_file: str,
         reward_execs_file: str,
-        model_name: str,
-        api_key: str,
-        provider: str,
+        llm: BaseChatModel,
+        embeddings: Embeddings,
         old_prompt: str = None,
         agent_name: str = None,
         feedback: str = None,
@@ -50,16 +50,10 @@ class PostRunReconciler:
         self.embedding_model = "text-embedding-3-small"
         self.old_prompt = old_prompt
         self.agent_name = agent_name
+        self.llm = llm
+        self.embedding = embeddings
         self.report_path = Path(report_path) if report_path else None
-
         self.feedback = feedback
-        self.api_key = api_key
-
-        if not self.api_key:
-            raise ValueError("API key must be provided for the reconciliation pipeline")
-        
-        self.model_name = model_name
-        self.provider = provider
         self.alpha = 0.8
         self.gamma = 0.8
         self.similarity_threshold = 0.7
@@ -110,9 +104,7 @@ class PostRunReconciler:
         """Initialize the StateActionExtractor if not already done."""
         if self.extractor is None:
             self.extractor = StateActionExtractor(
-                provider=self.provider,
-                model=self.model_name,
-                api_key=self.api_key,
+                llm=self.llm,
             )
             logger.info("StateActionExtractor initialized")
 
@@ -121,9 +113,7 @@ class PostRunReconciler:
         if self.mapper is None:
             self.mapper = StateMapper(
                 warmed_qtable_data=warmed_qtable_data,
-                provider=self.provider,
-                llm_model_name_for_reconciliation=self.model_name,
-                llm_api_key=self.api_key,
+                
             )
             logger.info("StateMapper initialized")
 
@@ -131,9 +121,7 @@ class PostRunReconciler:
         """Initialize the PostRunUpdater if not already done."""
         if self.post_run_updater is None:
             self.post_run_updater = PostRunUpdater(
-                provider=self.provider,
-                api_key=self.api_key,
-                model=self.model_name,
+                embeddings=self.embedding,
                 alpha=self.alpha,
                 gamma=self.gamma,
                 similarity_threshold=self.similarity_threshold,
@@ -144,9 +132,7 @@ class PostRunReconciler:
         """Initialize the AdaptiqPromptEngineer if not already done."""
         if self.prompt_engineer is None:
             self.prompt_engineer = PromptEngineer(
-                model_name=self.model_name,
-                api_key=self.api_key,
-                provider=self.provider,
+                llm=self.llm,
                 report_path=self.report_path,
                 old_prompt=self.old_prompt,
                 agent_name=self.agent_name,

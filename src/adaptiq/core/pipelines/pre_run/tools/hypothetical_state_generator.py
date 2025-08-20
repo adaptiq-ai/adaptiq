@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, List
 
 from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 
 from adaptiq.core.entities import TaskIntent, HypotheticalStateRepresentation
 
@@ -16,9 +16,7 @@ class HypotheticalStateGenerator:
     def __init__(
         self,
         prompt_parsed_plan: List[TaskIntent],
-        model_name: str,
-        api_key: str,
-        provider: str,
+        llm: BaseChatModel
     ):
         """
         Initialize with a parsed plan.
@@ -27,16 +25,7 @@ class HypotheticalStateGenerator:
             prompt_parsed_plan: List of dictionaries containing intended steps.
         """
         self.prompt_parsed_plan = prompt_parsed_plan
-        self.api_key = api_key
-        self.model = model_name
-        self.provider = provider
-
-        if self.provider == "openai":
-            self.llm = ChatOpenAI(model=self.model, api_key=self.api_key)
-        else:
-            raise ValueError(
-                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )
+        self.llm = llm
 
         # XML-based prompt template
         self.prompt_template = ChatPromptTemplate.from_template(

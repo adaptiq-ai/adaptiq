@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
+from typing import Dict, Tuple
 from langchain_core.prompts import  PromptTemplate
+from langchain_core.language_models.chat_models import BaseChatModel
+
 class BaseStateActionExtractor(ABC):
     """
     Abstract base class for extracting state and action information from execution data
     and transforming it into a standardized format.
     """
 
-    def __init__(self, provider: str, model: str, api_key: str = None):
+    def __init__(self, llm: BaseChatModel):
         """
         Initialize the extractor.
 
@@ -15,21 +18,9 @@ class BaseStateActionExtractor(ABC):
             model (str): The model name to use
             api_key (str, optional): API key for the provider
         """
-        self.provider = provider
-        self.model = model
-        self.api_key = api_key
-        self.llm = self._initialize_llm()
+        self.llm = llm
         self.prompt_template = self._create_prompt_template()
 
-    @abstractmethod
-    def _initialize_llm(self):
-        """
-        Initialize the LLM client based on the provider.
-        
-        Returns:
-            Initialized LLM client
-        """
-        pass
 
     @abstractmethod
     def _create_prompt_template(self) -> PromptTemplate:
@@ -42,7 +33,7 @@ class BaseStateActionExtractor(ABC):
         pass
 
     @abstractmethod
-    def _extract_raw_state_and_action(self, input_data):
+    def _extract_raw_state_and_action(self, input_data)-> Tuple[Dict, str]:
         """
         Extract raw state and action from the input data.
 

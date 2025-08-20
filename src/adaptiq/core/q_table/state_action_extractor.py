@@ -1,10 +1,7 @@
 import json
 import re
-from typing import Dict
-
+from typing import Dict, Tuple
 from langchain_core.prompts import  PromptTemplate
-from langchain_openai import ChatOpenAI
-
 from adaptiq.core.abstract.q_table.base_state_action_extractor import BaseStateActionExtractor
 
 
@@ -13,15 +10,6 @@ class StateActionExtractor(BaseStateActionExtractor):
     Class for extracting state and action information from execution data and
     transforming it into a standardized format.
     """
-
-    def _initialize_llm(self):
-        """Initialize the LLM client based on the provider."""
-        if self.provider == "openai":
-            return ChatOpenAI(model=self.model, api_key=self.api_key, temperature=0)
-        else:
-            raise ValueError(
-                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )
 
     def _create_prompt_template(self) -> PromptTemplate:
         """Create the prompt template for state-action extraction."""
@@ -56,7 +44,7 @@ class StateActionExtractor(BaseStateActionExtractor):
             """,
         )
 
-    def _extract_raw_state_and_action(self, input_data):
+    def _extract_raw_state_and_action(self, input_data) -> Tuple[Dict, str]:
         """
         Extract raw state and action from the input data.
 

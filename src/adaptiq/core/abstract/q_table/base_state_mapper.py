@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 import ast
 import json
 from typing import Any, Dict, List, Tuple, Union
-
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.prompts import ChatPromptTemplate
 
 class BaseStateMapper(ABC):
     """
@@ -12,23 +13,16 @@ class BaseStateMapper(ABC):
     def __init__(
         self,
         warmed_qtable_data: Dict[str, Any],
-        provider: str,
-        llm_model_name_for_reconciliation: str,
-        llm_api_key: str,
+        llm: BaseChatModel
     ):
         """
         Initialize the StateMapper.
 
         Args:
             warmed_qtable_data: Q-table data containing Q_table and seen_states
-            provider: The LLM provider
-            llm_model_name_for_reconciliation: Model name to use for reconciliation
-            llm_api_key: API key for the provider
+            llm: BaseChatModel
         """
-        self.provider = provider
-        self.llm_model_name = llm_model_name_for_reconciliation
-        self.llm_api_key = llm_api_key
-        
+        self.llm = llm
         # Store the Q-table data
         self.qtable = warmed_qtable_data.get("Q_table", {})
         
@@ -43,24 +37,11 @@ class BaseStateMapper(ABC):
         # Parse states for better matching
         self.parsed_states = self._parse_known_states()
         
-        # Initialize the LLM for reconciliation
-        self.reconciliation_llm = self._initialize_reconciliation_llm()
-        
         # Create classification prompt template
         self.classification_prompt_template = self._create_classification_prompt()
 
     @abstractmethod
-    def _initialize_reconciliation_llm(self):
-        """
-        Initialize the LLM for state reconciliation.
-        
-        Returns:
-            Initialized LLM client
-        """
-        pass
-
-    @abstractmethod
-    def _create_classification_prompt(self):
+    def _create_classification_prompt(self) -> ChatPromptTemplate:
         """
         Create the prompt template for state classification.
         

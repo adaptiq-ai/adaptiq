@@ -2,8 +2,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from langchain_openai import ChatOpenAI
-
+from langchain_core.language_models.chat_models import BaseChatModel
 logger = logging.getLogger(__name__)
 
 
@@ -19,9 +18,7 @@ class PostRunValidator:
         self,
         raw_logs: List[Dict[str, Any]],
         parsed_logs: List[Dict[str, Any]],
-        model_name: str,
-        api_key: str,
-        provider: str,
+        llm:BaseChatModel
     ):
         """
         Initialize the validator with raw and parsed logs.
@@ -29,21 +26,11 @@ class PostRunValidator:
         Args:
             raw_logs: The original agent logs with timestamps, actions, thoughts, etc.
             parsed_logs: The processed logs with state and reward information
-            model_name: The name of the LLM model to use
-            api_key: OpenAI API key
         """
         self.raw_logs = raw_logs
         self.parsed_logs = parsed_logs
-        self.model = model_name
-        self.api_key = api_key
-        self.provider = provider
+        self.llm = llm
 
-        if self.provider == "openai":
-            self.llm = ChatOpenAI(model=self.model, api_key=self.api_key)
-        else:
-            raise ValueError(
-                f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )
 
     def _create_validation_prompt(
         self, raw_log_entry: Dict[str, Any], parsed_log_entry: Dict[str, Any]
