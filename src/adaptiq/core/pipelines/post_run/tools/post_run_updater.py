@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 from langchain_openai import OpenAIEmbeddings
 
+from adaptiq.core.entities.q_table import QTableAction, QTableState, QTableQValue
 from adaptiq.core.q_table.q_table_manager import QTableManager
 
 logging.basicConfig(
@@ -62,20 +63,32 @@ class PostRunUpdater:
         self.learner.seen_states = set()
 
         serialized_q = q_table_data.get("Q_table", {})
-
         for state_str, actions in serialized_q.items():
             try:
-                state_key = self._parse_state_key(state_str)
-                if state_key is None:  # Should not happen with proper parsing
+                # Parse state string back to QTableState object
+                state_obj = self._parse_state_to_qtable_state(state_str)
+                if state_obj is None:
                     logger.warning(
-                        "Parsed state_key is None for input %s, skipping.", state_str
+                        "Failed to parse state_str %s, skipping.", state_str
                     )
                     continue
 
-                self.learner.seen_states.add(state_key)
+                self.learner.seen_states.add(state_obj)
 
-                for action, value in actions.items():
-                    self.learner.Q_table[(state_key, action)] = float(value)
+                # Initialize state in Q_table if not exists
+                if state_obj not in self.learner.Q_table:
+                    self.learner.Q_table[state_obj] = {}
+
+                for action_str, q_value_data in actions.items():
+                    action_obj = QTableAction.from_str(action_str)
+                    # Handle both direct float values and QTableQValue objects
+                    if isinstance(q_value_data, dict):
+                        q_value_obj = QTableQValue(**q_value_data)
+                    else:
+                        # FIX (Latent Bug): Use keyword argument for QTableQValue as well
+                        q_value_obj = QTableQValue(q_value=float(q_value_data))
+                    
+                    self.learner.Q_table[state_obj][action_obj] = q_value_obj
 
             except Exception as e:
                 logger.warning(
@@ -85,117 +98,86 @@ class PostRunUpdater:
         seen_states_list = q_table_data.get("seen_states", [])
         for state_str in seen_states_list:
             try:
-                state_key = self._parse_state_key(state_str)
-                if state_key is None:
+                state_obj = self._parse_state_to_qtable_state(state_str)
+                if state_obj is None:
                     logger.warning(
-                        f"Parsed state_key for seen_state is None for input {state_str}, skipping."
+                        f"Failed to parse seen_state {state_str}, skipping."
                     )
                     continue
-                self.learner.seen_states.add(state_key)
+                self.learner.seen_states.add(state_obj)
             except Exception as e:
                 logger.warning(
                     f"Error adding seen state from string {state_str}: {str(e)}"
                 )
 
         logger.info(
-            f"Loaded Q-table with {len(self.learner.Q_table)} state-action pairs"
+            f"Loaded Q-table with {len(self.learner.Q_table)} states"
         )
         logger.info(f"Loaded {len(self.learner.seen_states)} unique seen states")
 
-    def _parse_state_key(self, state_input: Any) -> Tuple:
+    def _parse_state_to_qtable_state(self, state_str: str) -> QTableState:
         """
-        Parse a state representation (string, list, or tuple) into a fully hashable key.
-        Converts lists to tuples and dictionaries within structures to sorted tuples of items.
+        Parse a state string back to QTableState object.
+        Expects format from QTableState.to_tuple() joined with separator.
 
         Args:
-            state_input: The state representation.
+            state_str: String representation of state
 
         Returns:
-            A hashable representation of the state (typically a tuple).
+            QTableState object or None if parsing fails
         """
         try:
-            # Inner function to recursively make elements hashable
-            def _make_hashable_recursive(item: Any) -> Any:
-                if isinstance(item, list):
-                    return tuple(
-                        _make_hashable_recursive(sub_item) for sub_item in item
-                    )
-                elif isinstance(item, tuple):
-                    return tuple(
-                        _make_hashable_recursive(sub_item) for sub_item in item
-                    )
-                elif isinstance(item, dict):
-                    # Sort by key to ensure consistent hashing for equivalent dicts
-                    # Recursively make values hashable
-                    return tuple(
-                        sorted(
-                            (k, _make_hashable_recursive(v)) for k, v in item.items()
-                        )
-                    )
-                # Basic types (int, str, float, bool, NoneType) are already hashable
-                return item
-
-            processed_state = state_input
-            if isinstance(state_input, str):
-                stripped_input = state_input.strip("'\"")
-                if (
-                    stripped_input.startswith("[") and stripped_input.endswith("]")
-                ) or (stripped_input.startswith("(") and stripped_input.endswith(")")):
-                    try:
-                        processed_state = ast.literal_eval(stripped_input)
-                    except (ValueError, SyntaxError) as eval_err:
-                        logger.debug(
-                            f"ast.literal_eval failed for {stripped_input}: {eval_err}. Treating as plain string."
-                        )
-                        # If ast.literal_eval fails, it's likely just a string,
-                        # or a malformed string. processed_state remains state_input (the string).
-                        pass
-
-            # Ensure the (potentially parsed) state is fully hashable
-            hashable_state = _make_hashable_recursive(processed_state)
-
-            return hashable_state
-
+            # Try to split by the separator used in QTableManager.serialize_q_table
+            # Looking at the serialize method, it uses "".join(state.to_tuple())
+            # But to_tuple returns 4 strings, so we need to figure out how to split them back
+            
+            # Since the original serialize method uses "".join() without separator,
+            # we need a different approach. Let's try to parse it as a tuple first
+            if state_str.startswith("(") and state_str.endswith(")"):
+                # Try to evaluate as tuple
+                state_tuple = ast.literal_eval(state_str)
+                if len(state_tuple) == 4:
+                    return QTableState.from_tuple(state_tuple)
+            
+            # If it's a direct concatenation, we need to assume a separator
+            # Let's try splitting by "||" which is commonly used
+            if "||" in state_str:
+                parts = state_str.split("||")
+                if len(parts) == 4:
+                    return QTableState.from_tuple(tuple(parts))
+            
+            # If no separator, try to parse as literal
+            try:
+                parsed = ast.literal_eval(state_str)
+                if isinstance(parsed, (list, tuple)) and len(parsed) == 4:
+                    return QTableState.from_tuple(tuple(parsed))
+            except (ValueError, SyntaxError):
+                pass
+            
+            logger.warning(f"Could not parse state string: {state_str}")
+            return None
+            
         except Exception as e:
-            logger.error(
-                f"CRITICAL Error parsing state key {state_input!r}: {str(e)}. Falling back to string representation of input."
-            )
-            # Fallback to string representation of the original input if deep hashing fails
-            return str(state_input)
+            logger.error(f"Error parsing state string {state_str}: {str(e)}")
+            return None
 
-    def _get_actions_for_state(self, state: Any) -> List[str]:
+    def _state_equals(self, state1: QTableState, state2: QTableState) -> bool:
         """
-        Get all actions available for a given state in the Q-table.
+        Compare two QTableState objects for equality.
 
         Args:
-            state: The state to look up (should be in its hashable form).
-
-        Returns:
-            List[str]: List of actions associated with the state
-        """
-        actions = []
-        for s, a in self.learner.Q_table.keys():
-            # Ensure comparison is between consistently parsed states
-            # The `state` arg is already parsed. `s` from Q_table.keys() is also parsed.
-            if s == state:  # Direct comparison of hashable types
-                actions.append(a)
-        return actions
-
-    def _state_equals(self, state1: Any, state2: Any) -> bool:
-        """
-        Compare two states for equality. Assumes states are already parsed to their
-        hashable forms by _parse_state_key.
-
-        Args:
-            state1: First state (hashable form)
-            state2: Second state (hashable form)
+            state1: First state
+            state2: Second state
 
         Returns:
             bool: True if states are equivalent
         """
-        # After _parse_state_key, equivalent states should have identical hashable forms.
-        # e.g. {'a':1, 'b':2} and {'b':2, 'a':1} both become (('a',1),('b',2))
-        return state1 == state2
+        return (
+            state1.current_subtask == state2.current_subtask and
+            state1.last_action_taken == state2.last_action_taken and
+            state1.last_outcome == state2.last_outcome and
+            state1.key_context == state2.key_context
+        )
 
     def _calculate_action_similarity(
         self, input_action: str, q_table_actions: List[str]
@@ -274,7 +256,7 @@ class PostRunUpdater:
 
     def update_q_table(
         self, state_classifications: List[Dict], reward_execs: List[Dict]
-    ) -> Dict:
+    ):
         """
         Update the Q-table based on state classifications and reward executions.
 
@@ -296,18 +278,20 @@ class PostRunUpdater:
 
             if classification["classification"]["is_known_state"]:
                 matched_state_repr = classification["classification"]["matched_state"]
-                # Ensure matched_state is in the canonical hashable form
-                matched_state = self._parse_state_key(matched_state_repr)
+                # Parse the matched state representation to QTableState
+                matched_state = self._parse_state_to_qtable_state(matched_state_repr)
+                
+                if matched_state is None:
+                    logger.warning(f"Could not parse matched state: {matched_state_repr}")
+                    continue
 
                 input_action = classification["input_state"]["action"]
                 reward = reward_exec["reward_exec"]
 
-                available_actions = self._get_actions_for_state(matched_state)
+                available_actions = self.learner.get_actions_for_state(matched_state)
 
                 if not available_actions:
-                    # This case implies the state might be in seen_states but has no actions yet,
-                    # or it's a truly new state not even in seen_states.
-                    # _parse_state_key makes it hashable, so it can be added.
+                    # Add state to seen_states and create new action
                     if matched_state not in self.learner.seen_states:
                         logger.info(f"Adding new state {matched_state} to seen_states.")
                         self.learner.seen_states.add(matched_state)
@@ -315,9 +299,8 @@ class PostRunUpdater:
                     logger.info(
                         f"State {matched_state} has no actions in Q-table. Adding new action {input_action}."
                     )
-                    self.learner.Q_table[(matched_state, input_action)] = (
-                        reward  # Initial Q-value set to reward
-                    )
+                    # FIX: Use keyword argument `action=`
+                    self.learner.set_q_value(matched_state, QTableAction(action=input_action), reward)
                 else:
                     if input_action in available_actions:
                         logger.info(
@@ -334,17 +317,22 @@ class PostRunUpdater:
                             next_state_repr = state_classifications[i + 1][
                                 "classification"
                             ]["matched_state"]
-                            next_state_parsed = self._parse_state_key(next_state_repr)
-                            next_actions_for_next_state = self._get_actions_for_state(
-                                next_state_parsed
-                            )
+                            next_state_parsed = self._parse_state_to_qtable_state(next_state_repr)
+                            if next_state_parsed:
+                                next_actions_for_next_state = self.learner.get_actions_for_state(
+                                    next_state_parsed
+                                )
 
                         self.learner.update_policy(
-                            matched_state,
-                            input_action,
-                            reward,
-                            next_state_parsed,
-                            next_actions_for_next_state,
+                            s=matched_state,
+                            # FIX: Use keyword argument `action=`
+                            a=QTableAction(action=input_action),
+                            R=reward,
+                            s_prime=next_state_parsed,
+                            actions_prime=[
+                                # FIX: Use keyword argument `action=` in list comprehension
+                                QTableAction(action=a) for a in next_actions_for_next_state
+                            ],
                         )
                     else:  # Action not found, use similarity
                         similarities = self._calculate_action_similarity(
@@ -356,7 +344,8 @@ class PostRunUpdater:
                             logger.info(
                                 f"No similar actions found or could be computed for {input_action} in state {matched_state}. Adding as new action."
                             )
-                            self.learner.Q_table[(matched_state, input_action)] = reward
+                            # FIX: Use keyword argument `action=`
+                            self.learner.set_q_value(matched_state, QTableAction(action=input_action), reward)
                             continue  # Skip to next classification
 
                         most_similar_action_tuple = max(
@@ -380,55 +369,42 @@ class PostRunUpdater:
                                 next_state_repr = state_classifications[i + 1][
                                     "classification"
                                 ]["matched_state"]
-                                next_state_parsed = self._parse_state_key(
+                                next_state_parsed = self._parse_state_to_qtable_state(
                                     next_state_repr
                                 )
-                                next_actions_for_next_state = (
-                                    self._get_actions_for_state(next_state_parsed)
-                                )
+                                if next_state_parsed:
+                                    next_actions_for_next_state = (
+                                        self.learner.get_actions_for_state(next_state_parsed)
+                                    )
 
                             self.learner.update_policy(
-                                matched_state,
-                                action_to_update,  # Update the similar action
-                                reward,
-                                next_state_parsed,
-                                next_actions_for_next_state,
+                                s=matched_state,
+                                # FIX: Use keyword argument `action=`
+                                a=QTableAction(action=action_to_update),
+                                R=reward,
+                                s_prime=next_state_parsed,
+                                actions_prime=[
+                                    # FIX: Use keyword argument `action=` in list comprehension
+                                    QTableAction(action=a) for a in next_actions_for_next_state
+                                ],
                             )
                         else:
                             logger.info(
                                 f"No action similar enough (max sim: {most_similar_action_tuple[1]:.2f} < {self.similarity_threshold}) for '{input_action}'. Adding as new action to state {matched_state}."
                             )
-                            self.learner.Q_table[(matched_state, input_action)] = reward
+                            # FIX: Use keyword argument `action=`
+                            self.learner.set_q_value(matched_state, QTableAction(action=input_action), reward)
             else:
                 logger.info(
                     f"Skipping unknown state at index {i}: {classification['input_state']}"
                 )
 
-        output_q_table = {}
-        for (state, action), value in self.learner.Q_table.items():
-            state_key_str = str(
-                state
-            )  # Convert hashable state back to string for JSON output
-            if state_key_str not in output_q_table:
-                output_q_table[state_key_str] = {}
-            output_q_table[state_key_str][action] = value
-
-        seen_states_output = [str(s) for s in self.learner.seen_states]
-
-        result = {
-            "Q_table": output_q_table,
-            "seen_states": seen_states_output,
-            "timestamp": datetime.now().isoformat(),
-            "version": "1.0_updated",  # Indicate change
-        }
-        return result
-
-    def process_data(
+    def  process_data(
         self,
         state_classifications_data: List[Dict],
         reward_execs_data: List[Dict],
         q_table_data: Dict,
-    ) -> Dict:
+    ) -> Tuple[Dict, str]:
         """
         Process input data and update the Q-table.
 
@@ -441,10 +417,7 @@ class PostRunUpdater:
             Dict: Updated Q-table data
         """
         self.load_q_table(q_table_data)
-
-        updated_q_table = self.update_q_table(
-            state_classifications_data, reward_execs_data
-        )
-
+        self.update_q_table(state_classifications_data, reward_execs_data)
         self.learner.save_q_table(prefix_version="post_run")
-        return updated_q_table
+
+        return self.learner.get_q_table_dict(), self.learner.extract_q_table_insights_to_str()

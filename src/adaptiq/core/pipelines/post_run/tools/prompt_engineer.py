@@ -70,37 +70,6 @@ class PromptEngineer:
 
         logger.info("PromptEngineerLLM initialized with model: %s", self.model_name)
 
-
-    def _extract_q_table_insights(self, q_table_output: Dict) -> str:
-        """
-        Extracts insights from the Q-table output.
-        Focuses on states and actions with non-zero Q-values.
-        """
-        q_table = q_table_output.get("Q_table", {})
-        if not q_table:
-            return "No Q-table data available to analyze."
-
-        insights = ["Q-Table Insights (States and Actions with Non-Zero Q-values):\n"]
-        for state_str, actions_dict in q_table.items():
-            if not actions_dict:
-                continue
-
-            # Filter actions with non-zero Q-values
-            non_zero_actions = {a: q for a, q in actions_dict.items() if q != 0.0}
-            if not non_zero_actions:
-                continue
-
-            insights.append(f"  State: {state_str}")
-            for action, q_value in non_zero_actions.items():
-                insights.append(f"    - Action: {action}, Q-Value: {q_value:.4f}")
-            insights.append("")  # Newline for readability
-
-        if len(insights) == 1:  # Only the header was added
-            return "Q-table exists but contains no states with non-zero Q-values."
-
-        logger.info("Extracted insights from Q-table.")
-        return "\n".join(insights)
-
     def _invoke_llm_for_analysis(
         self, old_prompt: str, q_table_insights: str
     ) -> Tuple[str, str]:
@@ -275,12 +244,12 @@ class PromptEngineer:
             f.write(report_content)
         logger.info("Report saved to: %s", output_path)
 
-    def generate_and_save_report(self, q_table_output: Dict) -> str:
+    def generate_and_save_report(self, q_insights: str) -> str:
         """
         Orchestrates the process of loading data, invoking LLM, and saving the report.
 
         Args:
-            q_table_output: The output dictionary from AdaptiqQtablePostrunUpdate.
+            q_insights: The insights extracted from the Q-table.
         Returns:
             The generated report content as a string.
         """
@@ -297,8 +266,6 @@ class PromptEngineer:
             report_content += f"## Error\nFailed to load the original prompt: {e}\n"
             self._save_report(report_content, agent_name)
             return report_content
-
-        q_insights = self._extract_q_table_insights(q_table_output)
 
         suggested_new_prompt, review_diagnostic = self._invoke_llm_for_analysis(
             old_prompt, q_insights

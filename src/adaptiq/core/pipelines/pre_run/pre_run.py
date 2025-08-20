@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from dotenv import load_dotenv
 
 from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser
-from adaptiq.core.entities import TaskIntent, ScenarioModel, HypotheticalStateRepresentation, StatusSummary, PromptParsingStatus, HypotheticalRepresentationStatus, ScenarioSimulationStatus, QTableInitializationStatus,PromptAnalysisStatus, FormattedAnalysis
+from adaptiq.core.entities import TaskIntent, ScenarioModel, HypotheticalStateRepresentation, StatusSummary, PromptParsingStatus, HypotheticalRepresentationStatus, ScenarioSimulationStatus, QTableInitializationStatus,PromptAnalysisStatus, FormattedAnalysis, QTableState, QTableAction, QTableQValue
 from adaptiq.core.q_table import QTableManager
 from adaptiq.core.pipelines.pre_run.tools import HypotheticalStateGenerator, PromptConsulting, ScenarioSimulator, PromptEstimator
 
@@ -196,6 +196,55 @@ class PreRunPipeline:
             self.logger.error("Scenario Simulation failed: %s", str(e))
             raise
 
+    def _create_qtable_state_from_scenario(self, scenario: ScenarioModel) -> QTableState:
+        """
+        Create a QTableState from scenario data.
+        
+        Args:
+            scenario: ScenarioModel containing state information
+            
+        Returns:
+            QTableState: Properly structured state object
+        """
+        # Extract state components from scenario
+        # Assuming scenario has attributes we can use to construct the state
+        current_subtask = str(scenario.original_state) if scenario.original_state else "unknown"
+        
+        # For hypothetical states, we may not have complete information
+        # so we'll use reasonable defaults
+        last_action_taken = getattr(scenario, 'previous_action', 'none')
+        last_outcome = getattr(scenario, 'previous_outcome', 'unknown')
+        key_context = getattr(scenario, 'context', str(scenario.simulated_action)[:50] if scenario.simulated_action else 'none')
+        
+        return QTableState(
+            current_subtask=current_subtask,
+            last_action_taken=last_action_taken,
+            last_outcome=last_outcome,
+            key_context=key_context
+        )
+
+    def _create_next_qtable_state_from_scenario(self, scenario: ScenarioModel) -> QTableState:
+        """
+        Create a next state QTableState from scenario data.
+        
+        Args:
+            scenario: ScenarioModel containing next state information
+            
+        Returns:
+            QTableState: Properly structured next state object
+        """
+        current_subtask = str(scenario.next_state) if scenario.next_state else "terminal"
+        last_action_taken = str(scenario.simulated_action) if scenario.simulated_action else "none"
+        last_outcome = "success" if scenario.reward_sim > 0 else "failure" if scenario.reward_sim < 0 else "neutral"
+        key_context = getattr(scenario, 'outcome_context', str(scenario.next_state)[:50] if scenario.next_state else 'terminal')
+        
+        return QTableState(
+            current_subtask=current_subtask,
+            last_action_taken=last_action_taken,
+            last_outcome=last_outcome,
+            key_context=key_context
+        )
+
     def run_qtable_initialization(self, alpha: float = 0.8, gamma: float = 0.8) -> Dict:
         """
         Q-table initialization using the simulated scenarios.
@@ -206,7 +255,7 @@ class PreRunPipeline:
             gamma: Discount factor for future rewards
 
         Returns:
-            The initialized Q-table
+            The initialized Q-table as a dictionary
         """
         self.logger.info("Running Q-table initialization from simulated scenarios...")
 
@@ -228,45 +277,41 @@ class PreRunPipeline:
             if action:
                 all_actions.add(action)
 
+        # Convert to QTableAction objects
+        all_qtable_actions = [QTableAction(action=action) for action in all_actions]
+
         # Process each scenario
         for scenario in self.simulated_scenarios:
             try:
-                state = scenario.original_state
-                action = scenario.simulated_action 
-                reward = scenario.reward_sim
-                next_state = str(scenario.next_state) 
-
-                def ensure_tuple(s):
-                    if isinstance(s, str) and s.startswith("(") and s.endswith(")"):
-                        try:
-                            import ast
-                            return ast.literal_eval(
-                                s
-                            )  # safer than eval for parsing tuples
-                        except (ValueError, SyntaxError):
-                            return s
-                    return s
-
-                state = ensure_tuple(state)
-                next_state = ensure_tuple(next_state)
-
-                if not state or not action:
-                    self.logger.warning("Skipping incomplete scenario: %s", scenario)
+                if not scenario.simulated_action:
+                    self.logger.warning("Skipping scenario with no action: %s", scenario)
                     continue
 
+                # Create structured state objects
+                state = self._create_qtable_state_from_scenario(scenario)
+                next_state = self._create_next_qtable_state_from_scenario(scenario)
+                action = QTableAction(action=scenario.simulated_action)
+                reward = scenario.reward_sim
+
+                # Mark states as seen
                 self.offline_learner.seen_states.add(state)
                 self.offline_learner.seen_states.add(next_state)
 
-                # Gather possible actions from scenarios with matching next_state
-                actions_prime = list(
-                    {
-                        s.simulated_action
-                        for s in self.simulated_scenarios
-                        if str(s.original_state) == next_state
-                    }
-                )
+                # Find possible actions from scenarios with matching next_state
+                actions_prime = []
+                next_state_str = str(next_state.current_subtask)
+                
+                for other_scenario in self.simulated_scenarios:
+                    if (other_scenario.original_state and 
+                        str(other_scenario.original_state) == next_state_str and 
+                        other_scenario.simulated_action):
+                        actions_prime.append(QTableAction(action=other_scenario.simulated_action))
 
-                # Update Q-table using update_policy if next state and actions_prime exist
+                # If no specific actions found for next state, use all available actions
+                if not actions_prime:
+                    actions_prime = all_qtable_actions
+
+                # Update Q-table using the structured update_policy method
                 if next_state and actions_prime:
                     self.offline_learner.update_policy(
                         s=state,
@@ -277,7 +322,9 @@ class PreRunPipeline:
                     )
                 else:
                     # Direct assignment if no next state info
-                    self.offline_learner.Q_table[(state, action)] = reward
+                    if state not in self.offline_learner.Q_table:
+                        self.offline_learner.Q_table[state] = {}
+                    self.offline_learner.Q_table[state][action] = QTableQValue(q_value=reward)
 
             except (KeyError, TypeError, ValueError) as e:
                 self.logger.error("Failed to process scenario: %s", e)
@@ -286,14 +333,18 @@ class PreRunPipeline:
         # Add default Q-values for all seen states and actions
         # This ensures every state in seen_states has entries in the Q-table
         for state in self.offline_learner.seen_states:
-            for action in all_actions:
-                if (state, action) not in self.offline_learner.Q_table:
+            if state not in self.offline_learner.Q_table:
+                self.offline_learner.Q_table[state] = {}
+            
+            for action in all_qtable_actions:
+                if action not in self.offline_learner.Q_table[state]:
                     # Initialize with a default value of 0.0
-                    self.offline_learner.Q_table[(state, action)] = 0.0
+                    self.offline_learner.Q_table[state][action] = QTableQValue(q_value=0.0)
 
         self.logger.info(
-            "Q-table initialized with %d entries.",
-            len(self.offline_learner.Q_table)
+            "Q-table initialized with %d states and %d total entries.",
+            len(self.offline_learner.Q_table),
+            sum(len(actions) for actions in self.offline_learner.Q_table.values())
         )
 
         save_success = self.offline_learner.save_q_table(prefix_version="pre_run")
@@ -301,7 +352,8 @@ class PreRunPipeline:
         if not save_success:
             self.logger.warning("Failed to save Q-table to %s", self.q_table_path)
 
-        return self.offline_learner.Q_table
+        # Return a dictionary representation for backward compatibility
+        return self.offline_learner.get_q_table_dict()
 
     def run_prompt_analysis(self) -> Dict:
         """
@@ -389,7 +441,7 @@ class PreRunPipeline:
             self.run_hypothetical_representation()
             self.run_simulation()
             self.run_prompt_analysis()
-            q_table = self.run_qtable_initialization()
+            self.run_qtable_initialization()
             new_prompt = self.run_prompt_estimation()
 
             # Compile results
@@ -397,7 +449,7 @@ class PreRunPipeline:
                 "parsed_steps": [step.model_dump() for step in self.parsed_steps],
                 "hypothetical_states": [state.model_dump() for state in self.hypothetical_states],
                 "simulated_scenarios": [sim.model_dump() for sim in self.simulated_scenarios],
-                "q_table_size": len(q_table),
+                "q_table_size": len(self.offline_learner.Q_table) if self.offline_learner else 0,
                 "prompt_analysis": self.prompt_analysis.model_dump(),
                 "new_prompt": new_prompt,
             }
@@ -451,7 +503,7 @@ class PreRunPipeline:
                 completed=self.offline_learner is not None
                 and len(self.offline_learner.Q_table) > 0,
                 q_entries=(
-                    len(self.offline_learner.Q_table)
+                    sum(len(actions) for actions in self.offline_learner.Q_table.values())
                     if self.offline_learner
                     else 0
                 ),
@@ -470,4 +522,3 @@ class PreRunPipeline:
                 ),
             ),
         )
-

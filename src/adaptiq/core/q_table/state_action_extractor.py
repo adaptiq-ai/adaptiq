@@ -1,5 +1,6 @@
 import json
 import re
+from typing import Dict
 
 from langchain_core.prompts import  PromptTemplate
 from langchain_openai import ChatOpenAI
@@ -22,7 +23,7 @@ class StateActionExtractor(BaseStateActionExtractor):
                 f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
             )
 
-    def _create_prompt_template(self):
+    def _create_prompt_template(self) -> PromptTemplate:
         """Create the prompt template for state-action extraction."""
         return PromptTemplate(
             input_variables=["input_data"],
@@ -68,7 +69,7 @@ class StateActionExtractor(BaseStateActionExtractor):
         try:
             # If input is a string, try to parse it as JSON
             if isinstance(input_data, str):
-                input_data = json.loads(input_data)
+                input_data:Dict = json.loads(input_data)
 
             # Extract state and action from the input data
             state_dict = input_data.get("key", {}).get("state", {})

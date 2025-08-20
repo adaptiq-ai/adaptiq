@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-
+from langchain_core.prompts import  PromptTemplate
 class BaseStateActionExtractor(ABC):
     """
     Abstract base class for extracting state and action information from execution data
@@ -32,7 +32,7 @@ class BaseStateActionExtractor(ABC):
         pass
 
     @abstractmethod
-    def _create_prompt_template(self):
+    def _create_prompt_template(self) -> PromptTemplate:
         """
         Create the prompt template for state-action extraction.
         

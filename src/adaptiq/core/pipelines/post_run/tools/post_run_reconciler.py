@@ -53,36 +53,21 @@ class PostRunReconciler:
         self.report_path = Path(report_path) if report_path else None
 
         self.feedback = feedback
-
         self.api_key = api_key
+
         if not self.api_key:
             raise ValueError("API key must be provided for the reconciliation pipeline")
         
         self.model_name = model_name
         self.provider = provider
+        self.alpha = 0.8
+        self.gamma = 0.8
+        self.similarity_threshold = 0.7
 
         # Validate file existence
         self._validate_files()
 
-        # Store parameters for component initialization
-        self.extractor_params = {
-            "model": self.model_name,
-            "api_key": self.api_key,
-            "provider": self.provider,
-        }
-        self.mapper_params = {
-            "llm_model_name_for_reconciliation": self.model_name,
-            "llm_api_key": self.api_key,
-            "provider": self.provider,
-        }
-        self.post_run_updater_params = {
-            "api_key": self.api_key,
-            "model": self.embedding_model,
-            "provider": self.provider,
-            "alpha": 0.8,
-            "gamma": 0.8,
-            "similarity_threshold": 0.7,
-        }
+
 
         # Initialize components (will be done lazily)
         self.extractor = None
@@ -125,9 +110,9 @@ class PostRunReconciler:
         """Initialize the StateActionExtractor if not already done."""
         if self.extractor is None:
             self.extractor = StateActionExtractor(
-                provider=self.extractor_params["provider"],
-                model=self.extractor_params["model"],
-                api_key=self.extractor_params["api_key"],
+                provider=self.provider,
+                model=self.model_name,
+                api_key=self.api_key,
             )
             logger.info("StateActionExtractor initialized")
 
@@ -136,11 +121,9 @@ class PostRunReconciler:
         if self.mapper is None:
             self.mapper = StateMapper(
                 warmed_qtable_data=warmed_qtable_data,
-                provider=self.mapper_params["provider"],
-                llm_model_name_for_reconciliation=self.mapper_params[
-                    "llm_model_name_for_reconciliation"
-                ],
-                llm_api_key=self.mapper_params["llm_api_key"],
+                provider=self.provider,
+                llm_model_name_for_reconciliation=self.model_name,
+                llm_api_key=self.api_key,
             )
             logger.info("StateMapper initialized")
 
@@ -148,12 +131,12 @@ class PostRunReconciler:
         """Initialize the PostRunUpdater if not already done."""
         if self.post_run_updater is None:
             self.post_run_updater = PostRunUpdater(
-                provider=self.post_run_updater_params["provider"],
-                api_key=self.post_run_updater_params["api_key"],
-                model=self.post_run_updater_params["model"],
-                alpha=self.post_run_updater_params["alpha"],
-                gamma=self.post_run_updater_params["gamma"],
-                similarity_threshold=self.post_run_updater_params["similarity_threshold"],
+                provider=self.provider,
+                api_key=self.api_key,
+                model=self.model_name,
+                alpha=self.alpha,
+                gamma=self.gamma,
+                similarity_threshold=self.similarity_threshold,
             )
             logger.info("PostRunUpdater initialized")
 
@@ -214,18 +197,17 @@ class PostRunReconciler:
             # Step 4: Update Q-table based on classifications and rewards
             logger.info("Step 4: Updating Q-table")
             self._initialize_post_run_updater()
-            updated_qtable = self.post_run_updater.process_data(
+            updated_qtable, q_insights = self.post_run_updater.process_data(
                 state_classifications_data=state_classifications,
                 reward_execs_data=reward_execs_data,
                 q_table_data=warmed_qtable_data,
             )
             logger.info("Q-table updated successfully")
-
             # Step 5: Generate prompt engineering report
             logger.info("Step 5: Generating prompt engineering report")
             self._initialize_prompt_engineer()
             report_content = self.prompt_engineer.generate_and_save_report(
-                q_table_output=updated_qtable,
+                q_insights=q_insights,
             )
             logger.info("Prompt engineering report generated and saved")
 
