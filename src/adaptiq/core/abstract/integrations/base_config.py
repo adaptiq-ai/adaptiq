@@ -330,31 +330,49 @@ class BaseConfig(ABC):
     def get_llm_instance(self) -> BaseChatModel:
         """
         Get the LLM instance based on the configuration.
-        
+
         Returns:
-            Any: The LLM instance configured for the project.
+            BaseChatModel: The LLM instance configured for the project.
+        Raises:
+            ValueError: If provider is unsupported.
+            Exception: For any runtime errors during initialization.
         """
-        llm_config = self.config.llm_config
-        model = llm_config.model_name.value
-        api_key = llm_config.api_key
-        
-        if llm_config.provider == ProviderEnum.openai:
-            return ChatOpenAI(model=model, api_key=api_key)
-        else:
+        try:
+            llm_config = self.config.llm_config
+            model = llm_config.model_name.value
+            api_key = llm_config.api_key
+
+            if llm_config.provider == ProviderEnum.openai:
+                return ChatOpenAI(model=model, api_key=api_key)
+
             raise ValueError(f"Unsupported LLM provider: {llm_config.provider}")
+
+        except Exception as e:
+            logger.error(f"Failed to create LLM instance: {e}", exc_info=True)
+            raise
 
     def get_embeddings_instance(self) -> Embeddings:
         """
-        Get the LLM instance based on the configuration.
-        
+        Get the Embeddings instance based on the configuration.
+
         Returns:
-            Any: The LLM instance configured for the project.
+            Embeddings: The Embeddings instance configured for the project.
+        Raises:
+            ValueError: If provider is unsupported.
+            Exception: For any runtime errors during initialization.
         """
-        llm_config = self.config.llm_config
-        model = llm_config.model_name.value
-        api_key = llm_config.api_key
-        
-        if llm_config.provider == ProviderEnum.openai:
-            return OpenAIEmbeddings(model="text-embedding-3-small", api_key=api_key)
-        else:
+        try:
+            llm_config = self.config.llm_config
+            api_key = llm_config.api_key
+
+            if llm_config.provider == ProviderEnum.openai:
+                return OpenAIEmbeddings(
+                    model="text-embedding-3-small",
+                    api_key=api_key
+                )
+
             raise ValueError(f"Unsupported Embeddings provider: {llm_config.provider}")
+
+        except Exception as e:
+            logger.error(f"Failed to create Embeddings instance: {e}", exc_info=True)
+            raise
