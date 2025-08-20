@@ -113,7 +113,7 @@ class PostRunReconciler:
         if self.mapper is None:
             self.mapper = StateMapper(
                 warmed_qtable_data=warmed_qtable_data,
-                
+                llm=self.llm,
             )
             logger.info("StateMapper initialized")
 
