@@ -162,12 +162,13 @@ class HypotheticalStateGenerator:
                         'expected_outcome': self._get_xml_text(source_step_elem, 'expected_outcome'),
                         'reasoning': self._get_xml_text(source_step_elem, 'reasoning')
                     }
-                
+
                 pairs.append({
                     'state': state_tuple,
                     'action': action,
                     'details': source_details
                 })
+                
             
             return pairs
             

@@ -1,3 +1,4 @@
+import ast
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 from typing import Literal, Tuple, Dict, Any
@@ -34,6 +35,17 @@ class ScenarioModel(BaseModel):
     )
     key_context_changes: Dict[str, Any]
     source_details: Dict[str, str]
+
+
+    def original_state_to_tuple(self) -> tuple[str, str, str, str]:
+        try:
+            # Try normal eval first
+            parsed = ast.literal_eval(self.original_state)
+            # Ensure it's always a 4-tuple of strings
+            return tuple(str(x) if x is not None else "unknown" for x in parsed)
+        except Exception:
+            # If parsing fails, return fallback
+            return ("unknown", "unknown", "unknown", "unknown")
 
 ########################################################-----########################################################
 

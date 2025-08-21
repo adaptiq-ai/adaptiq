@@ -1,3 +1,4 @@
+import ast
 import json
 import logging
 import os
@@ -179,6 +180,7 @@ class PreRunPipeline:
             self.simulated_scenarios = (
                 self.scenario_simulator.generate_simulated_scenarios()
             )
+            
 
             self.logger.info(
                 "Scenario Simulation complete. Generated %d scenarios.",
@@ -202,19 +204,31 @@ class PreRunPipeline:
         """
         # Extract state components from scenario
         # Assuming scenario has attributes we can use to construct the state
-        current_subtask = str(scenario.original_state) if scenario.original_state else "unknown"
         
+        def safe_eval_tuple(val: str) -> tuple[str, str, str, str]:
+            try:
+                # Try normal eval first
+                parsed = ast.literal_eval(val)
+                # Ensure it's always a 4-tuple of strings
+                return tuple(str(x) if x is not None else "unknown" for x in parsed)
+            except Exception:
+                # If parsing fails, return fallback
+                return ("unknown", "unknown", "unknown", "unknown")
+
+        current_subtask = scenario.original_state if scenario.original_state else "('unknown','unknown','unknown','unknown')"
+        values = safe_eval_tuple(current_subtask)
+
         # For hypothetical states, we may not have complete information
         # so we'll use reasonable defaults
-        last_action_taken = getattr(scenario, 'previous_action', 'none')
-        last_outcome = getattr(scenario, 'previous_outcome', 'unknown')
-        key_context = getattr(scenario, 'context', str(scenario.simulated_action)[:50] if scenario.simulated_action else 'none')
+        # last_action_taken = getattr(scenario, 'previous_action', 'none')
+        # last_outcome = getattr(scenario, 'previous_outcome', 'unknown')
+        # key_context = getattr(scenario, 'context', str(scenario.simulated_action)[:50] if scenario.simulated_action else 'none')
         
         return QTableState(
-            current_subtask=current_subtask,
-            last_action_taken=last_action_taken,
-            last_outcome=last_outcome,
-            key_context=key_context
+            current_subtask=values[0] if len(values) > 0 else "unknown",
+            last_action_taken=values[1] if len(values) > 1 else "none",
+            last_outcome=values[2] if len(values) > 2 else "unknown",
+            key_context=values[3] if len(values) > 3 else "none"
         )
 
     def _create_next_qtable_state_from_scenario(self, scenario: ScenarioModel) -> QTableState:
@@ -227,16 +241,12 @@ class PreRunPipeline:
         Returns:
             QTableState: Properly structured next state object
         """
-        current_subtask = str(scenario.next_state) if scenario.next_state else "terminal"
-        last_action_taken = str(scenario.simulated_action) if scenario.simulated_action else "none"
-        last_outcome = "success" if scenario.reward_sim > 0 else "failure" if scenario.reward_sim < 0 else "neutral"
-        key_context = getattr(scenario, 'outcome_context', str(scenario.next_state)[:50] if scenario.next_state else 'terminal')
-        
+
         return QTableState(
-            current_subtask=current_subtask,
-            last_action_taken=last_action_taken,
-            last_outcome=last_outcome,
-            key_context=key_context
+            current_subtask=scenario.next_state[0],
+            last_action_taken=scenario.next_state[1],
+            last_outcome=scenario.next_state[2],
+            key_context=scenario.next_state[3]
         )
 
     def run_qtable_initialization(self, alpha: float = 0.8, gamma: float = 0.8) -> Dict:
@@ -293,11 +303,11 @@ class PreRunPipeline:
 
                 # Find possible actions from scenarios with matching next_state
                 actions_prime = []
-                next_state_str = str(next_state.current_subtask)
+                next_state_str = next_state.current_subtask
                 
                 for other_scenario in self.simulated_scenarios:
                     if (other_scenario.original_state and 
-                        str(other_scenario.original_state) == next_state_str and 
+                        other_scenario.original_state_to_tuple() == next_state.to_tuple() and 
                         other_scenario.simulated_action):
                         actions_prime.append(QTableAction(action=other_scenario.simulated_action))
 

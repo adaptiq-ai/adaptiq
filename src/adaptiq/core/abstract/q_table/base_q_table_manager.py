@@ -1,3 +1,4 @@
+import ast
 import uuid
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple, Dict
@@ -37,8 +38,8 @@ class BaseQTableManager(ABC):
             serialized_q_table: Dict[str, Dict[str, QTableQValue]] = {}
             
             for state, actions_dict in self.Q_table.items():
-                # Serialize state as "||" joined tuple elements
-                state_key = "||".join(state.to_tuple())
+                # FIX: Use the string representation of the tuple directly as the key.
+                state_key = f"{state.to_tuple()}"  # No more ast.literal_eval
                 serialized_q_table[state_key] = {}
                 
                 for action, q_value in actions_dict.items():
@@ -46,7 +47,7 @@ class BaseQTableManager(ABC):
 
             # Serialize seen states
             serialized_seen_states = [
-                "||".join(state.to_tuple()) for state in self.seen_states
+                f"{state.to_tuple()}" for state in self.seen_states
             ]
 
             payload = QTablePayload(
@@ -77,10 +78,11 @@ class BaseQTableManager(ABC):
 
             # Load Q-values
             for state_str, actions_dict in payload.Q_table.items():
-                # Deserialize state from "||" joined string
-                state_parts = state_str.split("||")
-                if len(state_parts) == 4:
-                    state = QTableState.from_tuple(tuple(state_parts))
+                # FIX: Parse the string key from JSON back into a tuple.
+                state_tuple = ast.literal_eval(state_str)
+                
+                if len(state_tuple) == 4:
+                    state = QTableState.from_tuple(state_tuple)
                     self.Q_table[state] = {}
                     
                     for action_str, q_value in actions_dict.items():
@@ -93,9 +95,10 @@ class BaseQTableManager(ABC):
 
             # Load seen states
             for state_str in payload.seen_states:
-                state_parts = state_str.split("||")
-                if len(state_parts) == 4:
-                    state = QTableState.from_tuple(tuple(state_parts))
+                # FIX: Parse the string representation back into a tuple.
+                state_tuple = ast.literal_eval(state_str)
+                if len(state_tuple) == 4:
+                    state = QTableState.from_tuple(state_tuple)
                     self.seen_states.add(state)
 
             print(f"[INFO] Q-table loaded successfully from: {self.file_path}")
@@ -104,7 +107,6 @@ class BaseQTableManager(ABC):
         except Exception as e:
             print(f"[ERROR] Failed to load Q-table: {e}")
             return False
-
     def Q(self, s: QTableState, a: QTableAction) -> float:
         """Get Q-value for state-action pair"""
         if s not in self.Q_table:
@@ -145,7 +147,7 @@ class BaseQTableManager(ABC):
         actions = []
         for q_state in self.Q_table.keys():
             # Compare serialized state strings
-            if "||".join(q_state.to_tuple()) == state:
+            if q_state.to_tuple() == state:
                 # Get all actions for this state
                 for action in self.Q_table[q_state].keys():
                     actions.append(action.action)
@@ -218,8 +220,8 @@ class BaseQTableManager(ABC):
         """
         output_q_table = {}
         for state, actions_dict in self.Q_table.items():
-            # Convert QTableState to string using the "||" separator format
-            state_key_str = "||".join(state.to_tuple())
+            # FIX: Use the string representation directly.
+            state_key_str = f"{state.to_tuple()}"
             
             if state_key_str not in output_q_table:
                 output_q_table[state_key_str] = {}
@@ -229,8 +231,8 @@ class BaseQTableManager(ABC):
                 action_str = action.to_str()
                 output_q_table[state_key_str][action_str] = q_value
 
-        # Convert seen states to string format using "||" separator
-        seen_states_output = ["||".join(s.to_tuple()) for s in self.seen_states]
+        # This seems to have a bug as well, it should just be state.to_tuple()
+        seen_states_output = [f"{s.to_tuple()}" for s in self.seen_states]
 
         # Create and return QTablePayload object
         return QTablePayload(
