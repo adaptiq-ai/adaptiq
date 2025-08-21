@@ -3,6 +3,9 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.language_models.chat_models import BaseChatModel
+
+from adaptiq.core.entities import ProcessedLogs
+from adaptiq.core.entities.adaptiq_parsers import LogItem, RewardAssessment, ValidatedEntry, ValidationResults, ValidationSummary
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +20,7 @@ class PostRunValidator:
     def __init__(
         self,
         raw_logs: List[Dict[str, Any]],
-        parsed_logs: List[Dict[str, Any]],
+        parsed_logs: ProcessedLogs,
         llm:BaseChatModel
     ):
         """
@@ -31,9 +34,8 @@ class PostRunValidator:
         self.parsed_logs = parsed_logs
         self.llm = llm
 
-
     def _create_validation_prompt(
-        self, raw_log_entry: Dict[str, Any], parsed_log_entry: Dict[str, Any]
+        self, raw_log_entry: Dict[str, Any], parsed_log_entry: LogItem
     ) -> List[Dict[str, str]]:
         """
         Create a prompt for the LLM to validate a specific log entry, focusing on reward values.
@@ -93,7 +95,7 @@ class PostRunValidator:
             
             Parsed Log Entry:
             ```json
-            {json.dumps(parsed_log_entry, indent=2)}
+            {json.dumps(parsed_log_entry.model_dump(), indent=2)}
             ```
             
             Please validate the reward value in this parsing and provide your assessment:
@@ -106,7 +108,7 @@ class PostRunValidator:
 
     def validate_single_entry(
         self, raw_log_idx: int, parsed_log_idx: int
-    ) -> Dict[str, Any]:
+    ) -> ValidatedEntry:
         """
         Validate a single log entry pair, focusing on reward validation.
 
@@ -115,57 +117,70 @@ class PostRunValidator:
             parsed_log_idx: Index of the parsed log entry
 
         Returns:
-            Validation results with any reward corrections
+            ValidatedEntry: Validation results with any reward corrections
         """
-        if raw_log_idx >= len(self.raw_logs) or parsed_log_idx >= len(self.parsed_logs):
+        if raw_log_idx >= len(self.raw_logs) or parsed_log_idx >= len(self.parsed_logs.processed_logs):
             raise IndexError("Log index out of range")
 
         raw_entry = self.raw_logs[raw_log_idx]
-        parsed_entry = self.parsed_logs[parsed_log_idx]
+        parsed_entry: LogItem = self.parsed_logs.processed_logs[parsed_log_idx]
 
+        # Ask LLM for validation
         messages = self._create_validation_prompt(raw_entry, parsed_entry)
         response = self.llm.invoke(messages)
+
+        parsed_response = None
 
         try:
             parsed_response = json.loads(response.content)
         except (json.JSONDecodeError, AttributeError):
-            # Try to extract JSON from the response if it's not already in JSON format
             import re
-
             json_match = re.search(
                 r"```json\s*(.*?)\s*```",
-                response.content if hasattr(response, "content") else response,
+                response.content if hasattr(response, "content") else str(response),
                 re.DOTALL,
             )
             if json_match:
                 try:
                     parsed_response = json.loads(json_match.group(1))
                 except json.JSONDecodeError:
-                    # If extraction fails, return a basic structure to avoid breaking the pipeline
-                    parsed_response = {
-                        "reward_assessment": {
-                            "original": parsed_entry.get("reward", 0.0),
-                            "is_appropriate": True,
-                            "adjusted": parsed_entry.get("reward", 0.0),
-                            "reason": "Failed to parse LLM response, keeping original reward",
-                        },
-                        "corrected_entry": parsed_entry,
-                    }
-            else:
-                # If no JSON found, return a basic structure
-                parsed_response = {
-                    "reward_assessment": {
-                        "original": parsed_entry.get("reward", 0.0),
-                        "is_appropriate": True,
-                        "adjusted": parsed_entry.get("reward", 0.0),
-                        "reason": "Failed to parse LLM response, keeping original reward",
-                    },
-                    "corrected_entry": parsed_entry,
-                }
+                    pass
 
-        return parsed_response
+        # Fallback if parsing fails
+        if not parsed_response:
+            parsed_response = {
+                "reward_assessment": {
+                    "original": parsed_entry.reward_exec,
+                    "is_appropriate": True,
+                    "adjusted": parsed_entry.reward_exec,
+                    "reason": "Failed to parse LLM response, keeping original reward",
+                },
+                "corrected_entry": parsed_entry.model_dump(),
+            }
 
-    def validate_all_entries(self) -> List[Dict[str, Any]]:
+        # Ensure we return a ValidatedEntry model
+        try:
+            validated_entry = ValidatedEntry(
+                reward_assessment=RewardAssessment(**parsed_response["reward_assessment"]),
+                corrected_entry=LogItem.model_validate(
+                    parsed_response["corrected_entry"]
+                ),
+            )
+        except Exception:
+            # As a last resort, construct from the parsed_entry directly
+            validated_entry = ValidatedEntry(
+                reward_assessment=RewardAssessment(
+                    original=parsed_entry.reward_exec,
+                    is_appropriate=True,
+                    adjusted=parsed_entry.reward_exec,
+                    reason="Validation fallback due to schema mismatch",
+                ),
+                corrected_entry=parsed_entry,
+            )
+
+        return validated_entry
+
+    def validate_all_entries(self) -> List[ValidatedEntry]:
         """
         Validate all log entries and return validation results.
         Only entries with reward_exec in range (-0.25, 0.25) are validated.
@@ -173,32 +188,31 @@ class PostRunValidator:
         Returns:
             List of validation results for all entries
         """
-        results = []
-        min_length = min(len(self.raw_logs), len(self.parsed_logs))
+        results: List[ValidatedEntry] = []
+        min_length = min(len(self.raw_logs), len(self.parsed_logs.processed_logs))
 
         for i in range(min_length):
-            parsed_entry = self.parsed_logs[i]
-            reward = parsed_entry.get(
-                "reward_exec", parsed_entry.get("reward", 0.0)
-            )  # fallback to "reward" if "reward_exec" missing
+            parsed_entry = self.parsed_logs.processed_logs[i]
+            reward = parsed_entry.reward_exec 
+            # fallback to "reward" if "reward_exec" missing
             if -0.25 < reward < 0.25:
-                validation = self.validate_single_entry(i, i)
+                validated_entry = self.validate_single_entry(i, i)
             else:
                 # Skip validation, return as appropriate without changes
-                validation = {
-                    "reward_assessment": {
-                        "original": reward,
-                        "is_appropriate": True,
-                        "adjusted": reward,
-                        "reason": "Skipped validation due to reward outside (-0.25, 0.25) range",
-                    },
-                    "corrected_entry": self.parsed_logs[i],
-                }
-            results.append(validation)
+                validated_entry = ValidatedEntry(
+                    reward_assessment=RewardAssessment(
+                        original=reward,
+                        is_appropriate=True,
+                        adjusted=reward,
+                        reason="Skipped validation due to reward outside (-0.25, 0.25) range",
+                    ),
+                    corrected_entry=self.parsed_logs.processed_logs[i]
+                )
+            results.append(validated_entry)
 
         return results
 
-    def get_corrected_logs(self) -> List[Dict[str, Any]]:
+    def get_corrected_logs(self) -> List[LogItem]:
         """
         Get the corrected version of all parsed logs after validation.
 
@@ -210,57 +224,52 @@ class PostRunValidator:
 
         for validation in validations:
             # Make sure to update the reward value in the corrected entry
-            corrected_entry = validation["corrected_entry"]
-            if validation["reward_assessment"]["is_appropriate"] is False:
-                corrected_entry["reward"] = validation["reward_assessment"]["adjusted"]
+            corrected_entry = validation.corrected_entry
+            if validation.reward_assessment.is_appropriate is False:
+                corrected_entry.reward_exec = validation.reward_assessment.adjusted
 
             corrected_logs.append(corrected_entry)
 
         return corrected_logs
 
     def summarize_validations(
-        self, validations: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
+        self, validations: List[ValidatedEntry]
+    ) -> ValidationSummary:
         """
         Generate a summary of reward validation results.
 
         Args:
-            validations: List of validation results (if None, will run validate_all_entries)
+            validations: List of validation results
 
         Returns:
-            Summary statistics about the reward validations
+            ValidationSummary: Summary statistics about the reward validations
         """
-        if validations is None:
-            validations = self.validate_all_entries()
-
-        total = len(validations)
+        total = len(validations) if validations else 0
         appropriate_rewards = sum(
-            1 for v in validations if v["reward_assessment"]["is_appropriate"]
+            1 for v in (validations or []) if v.reward_assessment.is_appropriate
         )
-        reward_adjustments = sum(
-            1 for v in validations if not v["reward_assessment"]["is_appropriate"]
-        )
+        reward_adjustments = total - appropriate_rewards
 
         # Calculate average magnitude of adjustments
-        adjustments = []
-        for v in validations:
-            if not v["reward_assessment"]["is_appropriate"]:
-                original = v["reward_assessment"]["original"]
-                adjusted = v["reward_assessment"]["adjusted"]
+        adjustments: List[float] = []
+        for v in (validations or []):
+            if not v.reward_assessment.is_appropriate:
+                original = v.reward_assessment.original
+                adjusted = v.reward_assessment.adjusted
                 adjustments.append(abs(adjusted - original))
 
         avg_adjustment = sum(adjustments) / len(adjustments) if adjustments else 0
 
-        return {
-            "total_entries": total,
-            "entries_with_appropriate_rewards": appropriate_rewards,
-            "entries_with_reward_adjustments": reward_adjustments,
-            "appropriate_reward_rate": appropriate_rewards / total if total > 0 else 0,
-            "reward_adjustment_rate": reward_adjustments / total if total > 0 else 0,
-            "average_adjustment_magnitude": avg_adjustment,
-        }
+        return ValidationSummary(
+            total_entries=total,
+            entries_with_appropriate_rewards=appropriate_rewards,
+            entries_with_reward_adjustments=reward_adjustments,
+            appropriate_reward_rate=appropriate_rewards / total if total > 0 else 0,
+            reward_adjustment_rate=reward_adjustments / total if total > 0 else 0,
+            average_adjustment_magnitude=avg_adjustment,
+        )
 
-    def run_validation_pipeline(self) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    def run_validation_pipeline(self) -> Tuple[List[LogItem], ValidationResults]:
         """
         Run the complete validation pipeline and return both the corrected logs and validation results.
 
@@ -274,7 +283,7 @@ class PostRunValidator:
         summary = self.summarize_validations(validations)
 
         # Create the validation results output
-        validation_results = {"validations": validations, "summary": summary}
+        validation_results = ValidationResults(validated_entries=validations, summary=summary)
 
         return corrected_logs, validation_results
 

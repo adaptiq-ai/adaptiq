@@ -1,13 +1,13 @@
 import json
 import logging
 import tiktoken
-from typing import Dict, List, Optional
-
+from typing import Dict, List
 from adaptiq.core.entities import AdaptiQConfig
+from adaptiq.core.entities import ValidationResults
 
 
 class MetricsCalculator:
-    """
+    """&²
     Handles all metrics calculations including token counting, cost computations,
     performance scoring, and statistical aggregations.
     """
@@ -70,7 +70,7 @@ class MetricsCalculator:
 
     def calculate_avg_reward(
         self,
-        validation_summary_path: str = None,
+        validation_results: ValidationResults= None,
         simulated_scenarios: List = None,
         reward_type: str = "execution",
     ) -> float:
@@ -99,14 +99,11 @@ class MetricsCalculator:
                 self._reward_sum += avg_this_run
                 return self._reward_sum / self._run_count
 
-            elif reward_type == "execution" and validation_summary_path is not None:
-                with open(validation_summary_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+            elif reward_type == "execution" and validation_results is not None:
+
                 rewards = [
-                    entry["corrected_entry"]["reward_exec"]
-                    for entry in data.get("validations", [])
-                    if "corrected_entry" in entry
-                    and "reward_exec" in entry["corrected_entry"]
+                    entry.corrected_entry.reward_exec
+                    for entry in validation_results.validated_entries
                 ]
                 if not rewards or self._run_count == 0:
                     return 0.0

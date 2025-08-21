@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 import ast
-import json
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
+from adaptiq.core.entities import StateActionMapping, ClassificationResponse, ClassicationEntry
 
 class BaseStateMapper(ABC):
     """
@@ -40,16 +40,6 @@ class BaseStateMapper(ABC):
         # Create classification prompt template
         self.classification_prompt_template = self._create_classification_prompt()
 
-    @abstractmethod
-    def _create_classification_prompt(self) -> ChatPromptTemplate:
-        """
-        Create the prompt template for state classification.
-        
-        Returns:
-            ChatPromptTemplate instance
-        """
-        pass
-
     def _parse_known_states(self) -> List[Tuple[str, List]]:
         """
         Parse known states into a more comparable format.
@@ -77,23 +67,19 @@ class BaseStateMapper(ABC):
                 parsed_states.append((state_str, [state_str]))
 
         return parsed_states
-
-    def _extract_state_from_input(self, input_data: Union[str, List, Dict]) -> Union[List, str]:
+    
+    @abstractmethod
+    def _create_classification_prompt(self) -> ChatPromptTemplate:
         """
-        Extract the state from input data.
-
-        Args:
-            input_data: Input data (string, list, or dictionary)
-
+        Create the prompt template for state classification.
+        
         Returns:
-            Extracted state (list or string)
+            ChatPromptTemplate instance
         """
-        if isinstance(input_data, dict) and "state" in input_data:
-            return input_data["state"]
-        return input_data
+        pass
 
     @abstractmethod
-    def _invoke_llm_for_classification(self, input_state: Union[str, List, Dict]) -> Dict:
+    def _invoke_llm_for_classification(self, input_state: StateActionMapping) -> ClassificationResponse:
         """
         Invoke the LLM to classify a state.
 
@@ -105,7 +91,7 @@ class BaseStateMapper(ABC):
         """
         pass
 
-    def _validate_classification(self, classification_output: Dict) -> Dict:
+    def _validate_classification(self, classification_output: ClassificationResponse) -> ClassificationResponse:
         """
         Validate the classification output from the LLM.
 
@@ -115,24 +101,24 @@ class BaseStateMapper(ABC):
         Returns:
             Validated classification output
         """
-        classification = classification_output.get("classification", {})
+        classification = classification_output.classification
 
         # If LLM says it's a known state, verify the matched state is actually in our known states
-        if classification.get("is_known_state", False):
-            matched_state = classification.get("matched_state")
+        if classification.is_known_state:
+            matched_state = classification.matched_state
 
             if matched_state not in self.known_states:
                 # If matched state not in known states, invalidate the classification
-                classification["is_known_state"] = False
-                classification["matched_state"] = None
-                classification["reasoning"] = (
+                classification.is_known_state = False
+                classification.matched_state = None
+                classification.reasoning = (
                     "State validation: matched state not found in known states"
                 )
 
-        classification_output["classification"] = classification
+        classification_output.classification = classification
         return classification_output
 
-    def classify_states(self, input_states: List[Union[str, List, Dict]]) -> List[Dict]:
+    def classify_states(self, input_states: List[StateActionMapping]) -> List[ClassicationEntry]:
         """
         Classify input states against the known states.
 
@@ -142,7 +128,7 @@ class BaseStateMapper(ABC):
         Returns:
             List of classification results
         """
-        classification_results = []
+        classification_results: List[ClassicationEntry] = []
 
         for index, input_state in enumerate(input_states):
             # Invoke the LLM for classification
@@ -152,65 +138,12 @@ class BaseStateMapper(ABC):
             validated_output = self._validate_classification(classification_output)
 
             # Create the classification entry
-            classification_entry = {
-                "index": index,
-                "input_state": input_state,
-                "classification": validated_output.get("classification", {}),
-            }
+            classification_entry = ClassicationEntry(
+                index=index,
+                input_state=input_state,
+                classification=validated_output.classification,
+            )
 
             classification_results.append(classification_entry)
 
         return classification_results
-
-    def classify_single_state(self, input_state: Union[str, List, Dict]) -> Dict:
-        """
-        Classify a single input state against known states.
-
-        Args:
-            input_state: State to classify
-
-        Returns:
-            Classification result for the input state
-        """
-        results = self.classify_states([input_state])
-        if results:
-            return results[0]
-        return {
-            "index": 0,
-            "input_state": input_state,
-            "classification": {
-                "is_known_state": False,
-                "matched_state": None,
-                "reasoning": "Classification failed",
-            },
-        }
-
-    def save_classification_json(self, classification_results: List[Dict], output_path: str) -> None:
-        """
-        Save the classification results to a JSON file.
-
-        Args:
-            classification_results: Classification results to save
-            output_path: Path to save the JSON file
-        """
-        with open(output_path, "w") as f:
-            json.dump(classification_results, f, indent=2)
-
-    @classmethod
-    @abstractmethod
-    def from_qtable_file(
-        cls, qtable_file_path: str, llm_model_name: str, llm_api_key: str, provider: str
-    ) -> "BaseStateMapper":
-        """
-        Create a StateMapper instance from a Q-table file.
-
-        Args:
-            qtable_file_path: Path to the Q-table JSON file
-            llm_model_name: Model name to use for reconciliation
-            llm_api_key: API key for the provider
-            provider: Provider for the LLM
-
-        Returns:
-            StateMapper instance
-        """
-        pass

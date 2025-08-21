@@ -4,6 +4,8 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Union
 
+from adaptiq.core.entities import LogItem, LogKey, LogState, ProcessedLogs
+
 
 class BaseLogParser(ABC):
     """
@@ -174,119 +176,75 @@ class BaseLogParser(ABC):
         """
         return "Unknown Agent"
 
-    def create_log_item(self, 
-                       current_thought: str,
-                       previous_action: str,
-                       previous_outcome: Any,
-                       agent_name: str,
-                       current_action: str,
-                       reward: float) -> Dict[str, Any]:
-        """
-        Create a standardized log item structure.
-
-        Args:
-            current_thought (str): Current thought or description.
-            previous_action (str): Previous action taken.
-            previous_outcome (Any): Previous action outcome.
-            agent_name (str): Name of the agent.
-            current_action (str): Current action being taken.
-            reward (float): Calculated reward value.
-
-        Returns:
-            Dict[str, Any]: Standardized log item structure.
-        """
-        return {
-            "key": {
-                "state": {
-                    "current_sub_task_or_thought": str(current_thought).strip(),
-                    "last_action_taken": previous_action,
-                    "last_outcome": previous_outcome,
-                    "agent_context": agent_name,
-                },
-                "agent_action": current_action,
-            },
-            "reward_exec": self.normalize_reward(reward),
-        }
-
+    def create_log_item(
+        self,
+        current_thought: str,
+        previous_action: str,
+        previous_outcome: Any,
+        agent_name: str,
+        current_action: str,
+        reward: float
+    ) -> LogItem:
+        return LogItem(
+            key=LogKey(
+                state=LogState(
+                    current_sub_task_or_thought=str(current_thought).strip(),
+                    last_action_taken=previous_action,
+                    last_outcome=previous_outcome,
+                    agent_context=agent_name,
+                ),
+                agent_action=current_action,
+            ),
+            reward_exec=self.normalize_reward(reward),
+        )
         
-    def save_processed_logs(self, processed_logs: List[Dict[str, Any]]) -> None:
-        """
-        Save processed logs to the output file.
-        Raises RuntimeError with original error if writing fails.
-        """
+    def save_processed_logs(self, processed_logs: List[LogItem]) -> None:
         if self.output_path and self.parsed_file_name:
             try:
-                # Join the output path with the parsed file name
                 full_path = os.path.join(self.output_path, self.parsed_file_name)
-
-                # Ensure the parent directory exists
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                
-                # Write the logs
+
+                # Serialize using Pydantic `.model_dump()`
                 with open(full_path, "w", encoding="utf-8") as f:
-                    json.dump(processed_logs, f, indent=2, ensure_ascii=False)
-            
+                    json.dump([log.model_dump() for log in processed_logs], f, indent=2, ensure_ascii=False)
+
             except Exception as e:
                 raise RuntimeError(f"Failed to save logs to {full_path}: {e}") from e
             
-    def parse_logs(self) -> Dict[str, List[Dict]]:
-        """
-        Main method to transform raw logs into state-action-reward mapping.
+    def parse_logs(self) -> ProcessedLogs:
+        logs: List[Dict[str, Any]] = self.load_json_data()
+        
+        if not logs:
+            return ProcessedLogs(processed_logs=[])
 
-        This method orchestrates the parsing process by loading data, processing each entry,
-        and saving results. The specific processing logic is delegated to abstract methods
-        that must be implemented by subclasses.
+        processed_logs: List[LogItem] = []
+        agent_name = self.extract_agent_name(logs)
+        supported_types = self.get_supported_entry_types()
 
-        Returns:
-            Dict[str, List[Dict]]: A processed log data structure with chronological steps and rewards.
-        """
-        try:
-            logs: List[Dict[str, Any]] = self.load_json_data()
+        previous_action = "None"
+        previous_outcome = "None"
 
-            if not logs:
-                return {}
+        for log_entry in logs:
+            entry_type = log_entry.get("type")
+            if entry_type not in supported_types:
+                continue
 
-            processed_logs = []
-            agent_name = self.extract_agent_name(logs)
-            supported_types = self.get_supported_entry_types()
+            current_thought = self.extract_thought_or_description(log_entry, entry_type)
+            current_action, current_outcome = self.extract_action_and_outcome(log_entry, entry_type)
+            reward = self.calculate_reward(log_entry, entry_type)
 
-            # Initialize state for chronological processing
-            previous_action = "None"
-            previous_outcome = "None"
-            previous_thought = "None"
+            log_item = self.create_log_item(
+                current_thought=current_thought,
+                previous_action=previous_action,
+                previous_outcome=previous_outcome,
+                agent_name=agent_name,
+                current_action=current_action,
+                reward=reward
+            )
+            processed_logs.append(log_item)
 
-            for i, log_entry in enumerate(logs):
-                entry_type = log_entry.get("type")
-                
-                # Skip unsupported entry types
-                if entry_type not in supported_types:
-                    continue
+            previous_action = current_action
+            previous_outcome = current_outcome if current_outcome is not None else "NoOutcome"
 
-                # Extract components using abstract methods
-                current_thought = self.extract_thought_or_description(log_entry, entry_type)
-                current_action, current_outcome = self.extract_action_and_outcome(log_entry, entry_type)
-                reward = self.calculate_reward(log_entry, entry_type)
-
-                # Create standardized log item
-                log_item = self.create_log_item(
-                    current_thought=current_thought,
-                    previous_action=previous_action,
-                    previous_outcome=previous_outcome,
-                    agent_name=agent_name,
-                    current_action=current_action,
-                    reward=reward
-                )
-
-                processed_logs.append(log_item)
-
-                # Update state for next iteration
-                previous_action = current_action
-                previous_outcome = current_outcome if current_outcome is not None else "NoOutcome"
-                previous_thought = current_thought
-
-            # Save results
-            self.save_processed_logs(processed_logs)
-
-            return {"processed_logs": processed_logs}
-        except Exception as e:
-            raise
+        self.save_processed_logs(processed_logs)
+        return ProcessedLogs(processed_logs=processed_logs)

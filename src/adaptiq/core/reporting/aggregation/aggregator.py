@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, List
 
+from adaptiq.core.entities import ReconciliationResults, ValidationResults
 from adaptiq.core.reporting.aggregation.helpers import DataProcessor, MetricsCalculator, ReportBuilder
 from adaptiq.core.reporting.monitoring import AdaptiqLogger
 from adaptiq.core.entities import AdaptiQConfig
@@ -67,7 +68,7 @@ class Aggregator:
 
     def calculate_avg_reward(
         self,
-        validation_summary_path: str = None,
+        validation_results: ValidationResults,
         simulated_scenarios: List = None,
         reward_type: str = "execution",
     ) -> float:
@@ -83,7 +84,7 @@ class Aggregator:
             float: The running average reward value, or 0.0 if none found.
         """
         return self.metrics_calculator.calculate_avg_reward(
-            validation_summary_path, simulated_scenarios, reward_type
+            validation_results, simulated_scenarios, reward_type
         )
 
     def update_avg_run_tokens(
@@ -559,8 +560,9 @@ class Aggregator:
     def aggregate_results(
     self, 
     agent_metrics: List[Dict] = None, 
-    validation_summary_path: str = None,
-    reconciliation_results: Dict = None,
+    validation_results: ValidationResults = None,
+    reconciliation_results: ReconciliationResults
+ = None,
     should_send_report: bool = False,
     ) -> bool:
         """
@@ -568,7 +570,7 @@ class Aggregator:
         
         Args:
             agent_metrics (List[Dict], optional): List of agent execution metrics
-            validation_summary_path (str, optional): Path to validation summary file
+            validation_results (ValidationResults, optional): Results from validation pipeline
             reconciliation_results (Dict, optional): Results from reconciliation pipeline
             should_send_report (bool): Whether to send the report to endpoint
             run_number (int, optional): Run number for logging prefix
@@ -620,11 +622,11 @@ class Aggregator:
 
             # Calculate average reward
             avg_reward = self.calculate_avg_reward(
-                validation_summary_path=validation_summary_path, 
+                validation_results=validation_results, 
                 reward_type="execution"
             )
-            
-            new_prompt = reconciliation_results.get("summary", {}).get("new_prompt", "") if reconciliation_results else ""
+
+            new_prompt = reconciliation_results.summary.new_prompt if reconciliation_results else ""
 
             # Process each crew metrics entry and add to aggregator
             if agent_metrics:

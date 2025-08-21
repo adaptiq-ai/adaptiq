@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 from langchain_core.embeddings import Embeddings
+from adaptiq.core.entities.adaptiq_parsers import ClassicationEntry, LogItem
 from adaptiq.core.entities.q_table import QTableAction, QTableState, QTableQValue
 from adaptiq.core.q_table.q_table_manager import QTableManager
 
@@ -244,7 +245,8 @@ class PostRunUpdater:
             }
 
     def update_q_table(
-        self, state_classifications: List[Dict], reward_execs: List[Dict]
+        self, state_classifications: List[ClassicationEntry],
+        reward_execs: List[LogItem]
     ):
         """
         Update the Q-table based on state classifications and reward executions.
@@ -265,8 +267,8 @@ class PostRunUpdater:
 
             reward_exec = reward_execs[i]
 
-            if classification["classification"]["is_known_state"]:
-                matched_state_repr = classification["classification"]["matched_state"]
+            if classification.classification.is_known_state:
+                matched_state_repr = classification.classification.matched_state
                 # Parse the matched state representation to QTableState
                 matched_state = self._parse_state_to_qtable_state(matched_state_repr)
                 
@@ -274,8 +276,8 @@ class PostRunUpdater:
                     logger.warning(f"Could not parse matched state: {matched_state_repr}")
                     continue
 
-                input_action = classification["input_state"]["action"]
-                reward = reward_exec["reward_exec"]
+                input_action = classification.input_state.action
+                reward = reward_exec.reward_exec
 
                 available_actions = self.learner.get_actions_for_state(matched_state)
 
@@ -299,13 +301,10 @@ class PostRunUpdater:
                         next_actions_for_next_state = []
                         if (
                             i + 1 < len(state_classifications)
-                            and state_classifications[i + 1]["classification"][
-                                "is_known_state"
-                            ]
+                            and state_classifications[i + 1].classification.is_known_state
                         ):
-                            next_state_repr = state_classifications[i + 1][
-                                "classification"
-                            ]["matched_state"]
+                            next_state_repr = state_classifications[i + 1].classification.matched_state
+                            
                             next_state_parsed = self._parse_state_to_qtable_state(next_state_repr)
                             if next_state_parsed:
                                 next_actions_for_next_state = self.learner.get_actions_for_state(
@@ -351,13 +350,9 @@ class PostRunUpdater:
                             next_actions_for_next_state = []
                             if (
                                 i + 1 < len(state_classifications)
-                                and state_classifications[i + 1]["classification"][
-                                    "is_known_state"
-                                ]
+                                and state_classifications[i + 1].classification.is_known_state
                             ):
-                                next_state_repr = state_classifications[i + 1][
-                                    "classification"
-                                ]["matched_state"]
+                                next_state_repr = state_classifications[i + 1].classification.matched_state
                                 next_state_parsed = self._parse_state_to_qtable_state(
                                     next_state_repr
                                 )
@@ -390,8 +385,8 @@ class PostRunUpdater:
 
     def  process_data(
         self,
-        state_classifications_data: List[Dict],
-        reward_execs_data: List[Dict],
+        state_classifications_data: List[ClassicationEntry],
+        reward_execs_data: List[LogItem],
         q_table_data: Dict,
     ) -> Tuple[Dict, str]:
         """

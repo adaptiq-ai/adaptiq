@@ -3,6 +3,8 @@ import re
 from typing import Dict, Tuple
 from langchain_core.prompts import  PromptTemplate
 from adaptiq.core.abstract.q_table.base_state_action_extractor import BaseStateActionExtractor
+from adaptiq.core.entities import ProcessedLogs, LogItem, LogState
+from adaptiq.core.entities.adaptiq_parsers import StateActionMapping
 
 
 class StateActionExtractor(BaseStateActionExtractor):
@@ -44,30 +46,28 @@ class StateActionExtractor(BaseStateActionExtractor):
             """,
         )
 
-    def _extract_raw_state_and_action(self, input_data) -> Tuple[Dict, str]:
+    def _extract_raw_state_and_action(self, log_data: LogItem) -> Tuple[LogState, str]:
         """
         Extract raw state and action from the input data.
 
         Args:
-            input_data (dict): The input data containing state and action information.
+            log_data (dict): The input data containing state and action information.
 
         Returns:
             tuple: (state_dict, action_str)
         """
         try:
-            # If input is a string, try to parse it as JSON
-            if isinstance(input_data, str):
-                input_data:Dict = json.loads(input_data)
 
             # Extract state and action from the input data
-            state_dict = input_data.get("key", {}).get("state", {})
-            action_str = input_data.get("key", {}).get("agent_action", "")
+            state_dict = log_data.key.state
+            action_str = log_data.key.agent_action
 
             return state_dict, action_str
+        
         except Exception as e:
             raise ValueError(f"Failed to extract state and action: {str(e)}")
 
-    def _transform_with_llm(self, state_dict, action_str):
+    def _transform_with_llm(self, state_dict: LogState, action_str: str) -> StateActionMapping:
         """
         Use LangChain and OpenAI to transform the extracted state and action.
 
@@ -78,7 +78,7 @@ class StateActionExtractor(BaseStateActionExtractor):
         Returns:
             dict: Transformed state and action.
         """
-        input_for_llm = {"state": state_dict, "action": action_str}
+        input_for_llm = {"state": state_dict.model_dump(), "action": action_str}
 
         chain = self.prompt_template | self.llm
         result = chain.invoke({"input_data": json.dumps(input_for_llm)})
@@ -90,8 +90,8 @@ class StateActionExtractor(BaseStateActionExtractor):
             json_match = re.search(r"({.*})", content, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
-                return json.loads(json_str)
+                return StateActionMapping(**json.loads(json_str))
             else:
-                return json.loads(content)
+                return StateActionMapping(**json.loads(content))
         except Exception as e:
             raise ValueError(f"Failed to parse LLM response: {str(e)}")

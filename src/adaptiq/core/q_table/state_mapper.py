@@ -1,8 +1,7 @@
 import json
-from typing import Dict, List,  Union
-
 from langchain_core.prompts import ChatPromptTemplate
 from adaptiq.core.abstract.q_table.base_state_mapper import BaseStateMapper
+from adaptiq.core.entities import StateActionMapping, ClassificationResponse, Classification
 
 
 class StateMapper(BaseStateMapper):
@@ -66,7 +65,7 @@ class StateMapper(BaseStateMapper):
 
         return ChatPromptTemplate.from_template(classification_template)
 
-    def _invoke_llm_for_classification(self, input_state: Union[str, List, Dict]) -> Dict:
+    def _invoke_llm_for_classification(self, input_state: StateActionMapping) -> ClassificationResponse:
         """
         Invoke the LLM to classify a state.
 
@@ -76,14 +75,7 @@ class StateMapper(BaseStateMapper):
         Returns:
             Dict containing the LLM's classification output
         """
-        # Extract just the state part if input is a dict with state key
-        state_to_classify = self._extract_state_from_input(input_state)
 
-        # Convert to string for LLM input
-        if not isinstance(state_to_classify, str):
-            state_str = json.dumps(state_to_classify)
-        else:
-            state_str = state_to_classify
 
         # Create formatted known states for better comparison
         formatted_known_states = []
@@ -92,7 +84,7 @@ class StateMapper(BaseStateMapper):
 
         # Create inputs for the LLM
         inputs = {
-            "input_state": state_str,
+            "input_state": input_state.state,
             "known_states": json.dumps(formatted_known_states, indent=2),
         }
 
@@ -112,36 +104,14 @@ class StateMapper(BaseStateMapper):
             if start_idx >= 0 and end_idx > start_idx:
                 json_content = content[start_idx:end_idx]
                 try:
-                    return json.loads(json_content)
+                    return ClassificationResponse(**json.loads(json_content))
                 except json.JSONDecodeError:
                     pass
-
-            # If we can't parse JSON, return a default structure
-            return {
-                "classification": {
-                    "is_known_state": False,
-                    "matched_state": None,
-                    "reasoning": "Error parsing LLM output",
-                }
-            }
-
-    @classmethod
-    def from_qtable_file(
-        cls, qtable_file_path: str, llm_model_name: str, llm_api_key: str, provider: str
-    ) -> "StateMapper":
-        """
-        Create an AdaptiqStateMapper instance from a Q-table file.
-
-        Args:
-            qtable_file_path: Path to the Q-table JSON file
-            llm_model_name: OpenAI model name to use for reconciliation
-            llm_api_key: API key for OpenAI
-            provider: Provider for the LLM (currently only "openai" is supported)
-
-        Returns:
-            AdaptiqStateMapper instance
-        """
-        with open(qtable_file_path, "r") as f:
-            qtable_data = json.load(f)
-
-        return cls(qtable_data, provider, llm_model_name, llm_api_key)
+        
+            return ClassificationResponse(
+                classification= Classification(
+                    is_known_state=False,
+                    matched_state=None,
+                    reasoning="Error parsing LLM output",
+                )
+            )

@@ -5,6 +5,7 @@ import logging
 import os
 from typing import Any, Dict, Optional, List
 from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser, BaseLogParser
+from adaptiq.core.entities import PostRunResults, PreRunResults
 from adaptiq.core.pipelines import PreRunPipeline
 from adaptiq.core.pipelines import PostRunPipeline
 from adaptiq.core.reporting.aggregation import Aggregator
@@ -81,12 +82,12 @@ class AdaptiqRun:
         self.aggerator = None
 
         # Results storage
-        self.pre_run_results = None
-        self.post_run_results = None
+        self.pre_run_results: PreRunResults = None
+        self.post_run_results : PostRunResults = None
 
         self.logger.info("RunPipeline initialized successfully")
 
-    def start_pre_run(self) -> Dict[str, Any]:
+    def start_pre_run(self) -> PreRunResults:
         """
         Execute the complete pre-run pipeline to prepare the agent for execution.
         
@@ -131,10 +132,10 @@ class AdaptiqRun:
             self.logger.info(
                 "Pre-run results: %d parsed steps, %d hypothetical states, "
                 "%d simulated scenarios, Q-table size: %d",
-                len(self.pre_run_results.get("parsed_steps", [])),
-                len(self.pre_run_results.get("hypothetical_states", [])),
-                len(self.pre_run_results.get("simulated_scenarios", [])),
-                self.pre_run_results.get("q_table_size", 0)
+                len(self.pre_run_results.parsed_steps),
+                len(self.pre_run_results.hypothetical_states),
+                len(self.pre_run_results.simulated_scenarios),
+                self.pre_run_results.q_table_size
             )
 
             return self.pre_run_results
@@ -143,7 +144,7 @@ class AdaptiqRun:
             self.logger.error("init_run failed: %s", str(e))
             raise
 
-    def start_post_run(self) -> Dict[str, Any]:
+    def start_post_run(self) -> PostRunResults:
         """
         Execute the complete post-run pipeline to analyze agent execution results.
         
@@ -204,17 +205,11 @@ class AdaptiqRun:
             original_prompt=self.base_config.get_prompt(get_newest=True),
         )
 
-        validation_summary_path = self.post_run_results.get(
-            "validation_results", {}
-        ).get("outputs", {}).get("validation_summary_path")
-
-        reconciliation_results = self.post_run_results.get(
-            "reconciliation_results", {}
-        )
+        reconciliation_results = self.post_run_results.reconciliation_results
 
         aggregated_results_status = self.aggerator.aggregate_results(
             agent_metrics=agent_metrics,
-            validation_summary_path=validation_summary_path,
+            validation_results=self.post_run_results.validation_data.stats.validation_results,
             reconciliation_results=reconciliation_results,
             should_send_report=should_send_report,
         )
@@ -316,7 +311,7 @@ class AdaptiqRun:
         except Exception as e:
             raise RuntimeError(f"Run execution failed: {e}") from e
 
-    def get_pre_run_results(self) -> Optional[Dict[str, Any]]:
+    def get_pre_run_results(self) -> Optional[PreRunResults]:
         """
         Get the results from the pre-run pipeline execution.
 
@@ -325,12 +320,12 @@ class AdaptiqRun:
         """
         return self.pre_run_results
 
-    def get_post_run_results(self) -> Optional[Dict[str, Any]]:
+    def get_post_run_results(self) -> Optional[PostRunResults]:
         """
         Get the results from the post-run pipeline execution.
 
         Returns:
-            Dictionary with post-run results or None if start_run hasn't been called yet
+            PostRunResults object or None if start_run hasn't been called yet
         """
         return self.post_run_results
 
@@ -341,8 +336,8 @@ class AdaptiqRun:
         Returns:
             The optimized prompt string or None if init_run hasn't been executed
         """
-        if self.pre_run_results and "new_prompt" in self.pre_run_results:
-            return self.pre_run_results["new_prompt"]
+        if self.pre_run_results:
+            return self.pre_run_results.new_prompt
         return None
     
     def get_post_run_prompt(self) -> Optional[str]:
@@ -352,33 +347,32 @@ class AdaptiqRun:
         Returns:
             The prompt string used in post-run or None if start_run hasn't been executed
         """
-        if self.post_run_results and "reconciliation_results" in self.post_run_results:
-            reconciliation_results = self.post_run_results["reconciliation_results"]
-            return reconciliation_results.get("summary", {}).get("new_prompt", "") if reconciliation_results else ""
+        if self.post_run_results:
+            return self.post_run_results.reconciliation_results.summary.new_prompt
         return None
 
-    def get_pipeline_status(self) -> Dict[str, Any]:
-        """
-        Get the current status of both pipeline components.
+    # def get_pipeline_status(self) -> Dict[str, Any]:
+    #     """
+    #     Get the current status of both pipeline components.
 
-        Returns:
-            Dictionary with status information for both pipelines
-        """
-        status = {
-            "pre_run_pipeline": {
-                "initialized": self.pre_run_pipeline is not None,
-                "completed": self.pre_run_results is not None,
-                "results_available": bool(self.pre_run_results)
-            },
-            "post_run_pipeline": {
-                "initialized": self.post_run_pipeline is not None,
-                "completed": self.post_run_results is not None,
-                "results_available": bool(self.post_run_results)
-            }
-        }
+    #     Returns:
+    #         Dictionary with status information for both pipelines
+    #     """
+    #     status = {
+    #         "pre_run_pipeline": {
+    #             "initialized": self.pre_run_pipeline is not None,
+    #             "completed": self.pre_run_results is not None,
+    #             "results_available": bool(self.pre_run_results)
+    #         },
+    #         "post_run_pipeline": {
+    #             "initialized": self.post_run_pipeline is not None,
+    #             "completed": self.post_run_results is not None,
+    #             "results_available": bool(self.post_run_results)
+    #         }
+    #     }
 
-        # Add detailed status from pre-run pipeline if available
-        if self.pre_run_pipeline:
-            status["pre_run_details"] = self.pre_run_pipeline.get_status_summary()
+    #     # Add detailed status from pre-run pipeline if available
+    #     if self.pre_run_pipeline:
+    #         status["pre_run_details"] = self.pre_run_pipeline.get_status_summary()
 
-        return status
+    #     return status

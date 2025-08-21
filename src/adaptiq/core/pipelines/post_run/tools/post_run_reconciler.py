@@ -4,10 +4,9 @@ from pathlib import Path
 from typing import Any, Dict
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
-from adaptiq.core.q_table.state_mapper import StateMapper
-from adaptiq.core.q_table.state_action_extractor import StateActionExtractor
-from adaptiq.core.pipelines.post_run.tools.post_run_updater import PostRunUpdater
-from adaptiq.core.pipelines.post_run.tools.prompt_engineer import PromptEngineer
+from adaptiq.core.entities import ProcessedLogs, ReconciliationResults, ReconciliationSummary
+from adaptiq.core.q_table import StateMapper, StateActionExtractor
+from adaptiq.core.pipelines.post_run.tools import PostRunUpdater, PromptEngineer
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +23,8 @@ class PostRunReconciler:
 
     def __init__(
         self,
-        execution_data_file: str,
+        parsed_logs: ProcessedLogs,
         warmed_qtable_file: str,
-        reward_execs_file: str,
         llm: BaseChatModel,
         embeddings: Embeddings,
         old_prompt: str = None,
@@ -38,15 +36,13 @@ class PostRunReconciler:
         Initialize the orchestrator with file paths and configuration.
 
         Args:
-            execution_data_file: Path to JSON file containing execution data for extraction
+            parsed_logs: Path to JSON file containing execution data for extraction
             warmed_qtable_file: Path to JSON file containing the warmed Q-table
-            reward_execs_file: Path to JSON file containing reward execution data
             config_file: Path to YAML config file for AdaptiqPromptEngineer
             feedback: Human feedback for prompt evaluation
         """
-        self.execution_data_file = Path(execution_data_file)
+        self.parsed_logs = parsed_logs
         self.warmed_qtable_file = Path(warmed_qtable_file)
-        self.reward_execs_file = Path(reward_execs_file)
         self.embedding_model = "text-embedding-3-small"
         self.old_prompt = old_prompt
         self.agent_name = agent_name
@@ -75,9 +71,7 @@ class PostRunReconciler:
     def _validate_files(self):
         """Validate that all required files exist."""
         files_to_check = [
-            (self.execution_data_file, "Execution data file"),
             (self.warmed_qtable_file, "Warmed Q-table file"),
-            (self.reward_execs_file, "Reward executions file")
         ]
 
         for file_path, description in files_to_check:
@@ -113,7 +107,7 @@ class PostRunReconciler:
         if self.mapper is None:
             self.mapper = StateMapper(
                 warmed_qtable_data=warmed_qtable_data,
-                
+                llm=self.llm,
             )
             logger.info("StateMapper initialized")
 
@@ -140,7 +134,7 @@ class PostRunReconciler:
             )
             logger.info("AdaptiqPromptEngineer initialized")
 
-    def run_process(self) -> Dict[str, Any]:
+    def run_process(self) -> ReconciliationResults:
         """
         Run the complete reconciliation pipeline.
 
@@ -152,14 +146,13 @@ class PostRunReconciler:
         try:
             # Step 1: Load all required data
             logger.info("Step 1: Loading input data files")
-            execution_data = self._load_json_file(self.execution_data_file)
+
             warmed_qtable_data = self._load_json_file(self.warmed_qtable_file)
-            reward_execs_data = self._load_json_file(self.reward_execs_file)
 
             # Step 2: Extract state-action pairs from execution data
             logger.info("Step 2: Extracting state-action pairs")
             self._initialize_extractor()
-            extracted_data = self.extractor.process_batch(execution_data)
+            extracted_data = self.extractor.process_batch(self.parsed_logs)
             logger.info("Extracted %d state-action pairs", len(extracted_data))
 
             # Step 3: Map states to Q-table states
@@ -172,7 +165,7 @@ class PostRunReconciler:
             known_states_count = sum(
                 1
                 for c in state_classifications
-                if c["classification"]["is_known_state"]
+                if c.classification.is_known_state
             )
             logger.info(
                 "Found %d known states out of %d total",
@@ -185,7 +178,7 @@ class PostRunReconciler:
             self._initialize_post_run_updater()
             updated_qtable, q_insights = self.post_run_updater.process_data(
                 state_classifications_data=state_classifications,
-                reward_execs_data=reward_execs_data,
+                reward_execs_data=self.parsed_logs.processed_logs,
                 q_table_data=warmed_qtable_data,
             )
             logger.info("Q-table updated successfully")
@@ -198,35 +191,34 @@ class PostRunReconciler:
             logger.info("Prompt engineering report generated and saved")
 
             # Compile results
-            results = {
-                "pipeline_status": "completed",
-                "extracted_data": extracted_data,
-                "state_classifications": state_classifications,
-                "updated_qtable": updated_qtable,
-                "report_content": report_content,
-                "summary": {
-                    "total_extracted_pairs": len(extracted_data),
-                    "total_classified_states": len(state_classifications),
-                    "known_states_found": known_states_count,
-                    "unknown_states_found": len(state_classifications)
-                    - known_states_count,
-                    "task_key": self.prompt_engineer.task_name,
-                    "new_prompt": self.prompt_engineer.new_prompt,
-                },
-            }
+            results = ReconciliationResults(
+                pipeline_status="completed",
+                extracted_data=extracted_data,
+                state_classifications=state_classifications,
+                updated_qtable=updated_qtable,
+                report_content=report_content,
+                summary=ReconciliationSummary(
+                    total_extracted_pairs=len(extracted_data),
+                    total_classified_states=len(state_classifications),
+                    known_states_found=known_states_count,
+                    unknown_states_found=len(state_classifications) - known_states_count,
+                    task_key=self.prompt_engineer.task_name,
+                    new_prompt=self.prompt_engineer.new_prompt,
+                ),
+            )
 
             logger.info("Pipeline completed successfully")
             return results
 
         except Exception as e:
             logger.error("Pipeline failed with error: %s", e)
-            return {
-                "pipeline_status": "failed",
-                "error": str(e),
-                "error_type": type(e).__name__,
-            }
+            return ReconciliationResults(
+                pipeline_status="failed",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
 
-    def save_results(self, results: Dict[str, Any], output_file: str):
+    def save_results(self, results: ReconciliationResults, output_file: str):
         """
         Save pipeline results to a JSON file.
 
@@ -239,7 +231,7 @@ class PostRunReconciler:
 
         try:
             with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(results, f, indent=2, ensure_ascii=False)
+                json.dump(results.model_dump(), f, indent=2, ensure_ascii=False)
             logger.info("Results saved to: %s", output_path)
         except Exception as e:
             logger.error("Error saving results to %s: %s", output_path, e)

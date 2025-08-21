@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 from langchain_core.prompts import  PromptTemplate
 from langchain_core.language_models.chat_models import BaseChatModel
+from adaptiq.core.entities import ProcessedLogs, LogItem, LogState, StateActionMapping
 
 class BaseStateActionExtractor(ABC):
     """
@@ -21,7 +22,6 @@ class BaseStateActionExtractor(ABC):
         self.llm = llm
         self.prompt_template = self._create_prompt_template()
 
-
     @abstractmethod
     def _create_prompt_template(self) -> PromptTemplate:
         """
@@ -33,7 +33,7 @@ class BaseStateActionExtractor(ABC):
         pass
 
     @abstractmethod
-    def _extract_raw_state_and_action(self, input_data)-> Tuple[Dict, str]:
+    def _extract_raw_state_and_action(self, log_data: LogItem)-> Tuple[Dict, str]:
         """
         Extract raw state and action from the input data.
 
@@ -46,7 +46,7 @@ class BaseStateActionExtractor(ABC):
         pass
 
     @abstractmethod
-    def _transform_with_llm(self, state_dict, action_str):
+    def _transform_with_llm(self, state_dict: LogState, action_str: str) -> StateActionMapping:
         """
         Use LLM to transform the extracted state and action.
 
@@ -59,7 +59,7 @@ class BaseStateActionExtractor(ABC):
         """
         pass
 
-    def extract(self, input_data):
+    def extract(self, input_data: LogItem)-> StateActionMapping:
         """
         Extract and transform state and action from the input data.
 
@@ -73,7 +73,7 @@ class BaseStateActionExtractor(ABC):
         transformed_data = self._transform_with_llm(state_dict, action_str)
         return transformed_data
 
-    def process_batch(self, input_data_list):
+    def process_batch(self, parsed_logs: ProcessedLogs) -> List[StateActionMapping]:
         """
         Process a batch of input data.
 
@@ -83,10 +83,10 @@ class BaseStateActionExtractor(ABC):
         Returns:
             list: List of transformed state and action dictionaries
         """
-        results = []
-        for input_data in input_data_list:
+        results: List[StateActionMapping] = []
+        for log_data in parsed_logs.processed_logs:
             try:
-                result = self.extract(input_data)
+                result = self.extract(log_data)
                 results.append(result)
             except Exception as e:
                 print(f"Error processing input: {str(e)}")

@@ -3,9 +3,8 @@ import logging
 import os
 from typing import Dict, List
 
-
 from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser
-from adaptiq.core.entities import TaskIntent, ScenarioModel, HypotheticalStateRepresentation, StatusSummary, PromptParsingStatus, HypotheticalRepresentationStatus, ScenarioSimulationStatus, QTableInitializationStatus,PromptAnalysisStatus, FormattedAnalysis, QTableState, QTableAction, QTableQValue
+from adaptiq.core.entities import TaskIntent, ScenarioModel, HypotheticalStateRepresentation, StatusSummary, PromptParsingStatus, HypotheticalRepresentationStatus, ScenarioSimulationStatus, QTableInitializationStatus,PromptAnalysisStatus, FormattedAnalysis, QTableState, QTableAction, QTableQValue, PreRunResults
 from adaptiq.core.q_table import QTableManager
 from adaptiq.core.pipelines.pre_run.tools import HypotheticalStateGenerator, PromptConsulting, ScenarioSimulator, PromptEstimator
 
@@ -413,7 +412,7 @@ class PreRunPipeline:
             self.logger.error("Prompt Estimation failed: %s", str(e))
             raise
 
-    def execute_pre_run_pipeline(self, save_results: bool = True) -> Dict:
+    def execute_pre_run_pipeline(self, save_results: bool = True) -> PreRunResults:
         """
         Execute the complete pre-run pipeline: parsing, hypothetical representation,
         scenario simulation, Q-table initialization, and prompt analysis.
@@ -435,15 +434,17 @@ class PreRunPipeline:
             self.run_qtable_initialization()
             new_prompt = self.run_prompt_estimation()
 
+
+
             # Compile results
-            results = {
-                "parsed_steps": [step.model_dump() for step in self.parsed_steps],
-                "hypothetical_states": [state.model_dump() for state in self.hypothetical_states],
-                "simulated_scenarios": [sim.model_dump() for sim in self.simulated_scenarios],
-                "q_table_size": len(self.offline_learner.Q_table) if self.offline_learner else 0,
-                "prompt_analysis": self.prompt_analysis.model_dump(),
-                "new_prompt": new_prompt,
-            }
+            results = PreRunResults(
+                parsed_steps=self.parsed_steps,
+                hypothetical_states=self.hypothetical_states,
+                simulated_scenarios=self.simulated_scenarios,
+                q_table_size=len(self.offline_learner.Q_table) if self.offline_learner else 0,
+                prompt_analysis=self.prompt_analysis,
+                new_prompt=new_prompt,
+            )
 
             # Save results if requested
             if save_results:
@@ -451,7 +452,7 @@ class PreRunPipeline:
                 results_path = os.path.join(output_dir, "adaptiq_results.json")
                 try:
                     with open(results_path, "w", encoding="utf-8") as f:
-                        json.dump(results, f, indent=2)
+                        json.dump(results.model_dump(), f, indent=2)
                     self.logger.info("Results saved to %s", results_path)
                 except (OSError, TypeError, json.JSONDecodeError) as e:
                     self.logger.error("Failed to save results: %s", str(e))
