@@ -174,7 +174,7 @@ class Classification(BaseModel):
 class ClassificationResponse(BaseModel):
     classification: Classification
 
-class ClassicationEntry(BaseModel):
+class ClassificationEntry(BaseModel):
     index: int
     input_state: StateActionMapping
     classification: Classification
@@ -192,7 +192,7 @@ class ReconciliationSummary(BaseModel):
 class ReconciliationResults(BaseModel):
     pipeline_status: str = None
     extracted_data: List[StateActionMapping] = None
-    state_classifications: List[ClassicationEntry] = None
+    state_classifications: List[ClassificationEntry] = None
     updated_qtable: Dict = None
     report_content: str = None
     summary: ReconciliationSummary = None

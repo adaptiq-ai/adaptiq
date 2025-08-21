@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 from langchain_core.embeddings import Embeddings
-from adaptiq.core.entities.adaptiq_parsers import ClassicationEntry, LogItem
+from adaptiq.core.entities.adaptiq_parsers import ClassificationEntry, LogItem
 from adaptiq.core.entities.q_table import QTableAction, QTableState, QTableQValue
 from adaptiq.core.q_table.q_table_manager import QTableManager
 
@@ -245,7 +245,7 @@ class PostRunUpdater:
             }
 
     def update_q_table(
-        self, state_classifications: List[ClassicationEntry],
+        self, state_classifications: List[ClassificationEntry],
         reward_execs: List[LogItem]
     ):
         """
@@ -385,7 +385,7 @@ class PostRunUpdater:
 
     def  process_data(
         self,
-        state_classifications_data: List[ClassicationEntry],
+        state_classifications_data: List[ClassificationEntry],
         reward_execs_data: List[LogItem],
         q_table_data: Dict,
     ) -> Tuple[Dict, str]:

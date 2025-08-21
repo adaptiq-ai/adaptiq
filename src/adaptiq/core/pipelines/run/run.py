@@ -41,8 +41,6 @@ class AdaptiqRun:
         prompt_auto_update: bool = False,
         save_results: bool = True,
         allow_pipeline: bool = True,
-        
-
     ):
         """
         Initialize the unified RunPipeline with all required components.
@@ -307,7 +305,8 @@ class AdaptiqRun:
                 # order here matters ecause the aggregation need the old prompt
                 self.start_post_run()
                 self.aggregate_run(agent_metrics=agent_metrics)
-                self.update_prompt(new_prompt=self.get_post_run_prompt(), type="post-run")     
+                self.update_prompt(new_prompt=self.get_post_run_prompt(), type="post-run")
+                self.find_and_clear_log_files()
         except Exception as e:
             raise RuntimeError(f"Run execution failed: {e}") from e
 
@@ -351,28 +350,35 @@ class AdaptiqRun:
             return self.post_run_results.reconciliation_results.summary.new_prompt
         return None
 
-    # def get_pipeline_status(self) -> Dict[str, Any]:
-    #     """
-    #     Get the current status of both pipeline components.
+    def find_and_clear_log_files(
+    self, 
+    search_directory=".", 
+    log_filename="log.txt", 
+    json_filename="log.json"
+    ) -> None:
+        """
+        Search for log files in the directory and clear their content.
 
-    #     Returns:
-    #         Dictionary with status information for both pipelines
-    #     """
-    #     status = {
-    #         "pre_run_pipeline": {
-    #             "initialized": self.pre_run_pipeline is not None,
-    #             "completed": self.pre_run_results is not None,
-    #             "results_available": bool(self.pre_run_results)
-    #         },
-    #         "post_run_pipeline": {
-    #             "initialized": self.post_run_pipeline is not None,
-    #             "completed": self.post_run_results is not None,
-    #             "results_available": bool(self.post_run_results)
-    #         }
-    #     }
+        Args:
+            search_directory: Directory to search for log files (default: current directory)
+            log_filename: Name of the text log file to search for
+            json_filename: Name of the JSON log file to search for
+        """
+        # Search for files in the directory
+        for root, dirs, files in os.walk(search_directory):
+            for file in files:
+                file_path = os.path.join(root, file)
 
-    #     # Add detailed status from pre-run pipeline if available
-    #     if self.pre_run_pipeline:
-    #         status["pre_run_details"] = self.pre_run_pipeline.get_status_summary()
+                # Check if it's a text log file
+                if file == log_filename:
+                    print(f"Found text log file: {file_path}")
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write("")
+                    print(f"Cleared content from: {file_path}")
 
-    #     return status
+                # Check if it's a JSON log file
+                elif file == json_filename:
+                    print(f"Found JSON log file: {file_path}")
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        json.dump([], f, ensure_ascii=False, indent=2)
+                    print(f"Cleared content from: {file_path}")

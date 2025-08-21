@@ -3,7 +3,7 @@ import ast
 from typing import Any, Dict, List, Tuple
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
-from adaptiq.core.entities import StateActionMapping, ClassificationResponse, ClassicationEntry
+from adaptiq.core.entities import StateActionMapping, ClassificationResponse, ClassificationEntry
 
 class BaseStateMapper(ABC):
     """
@@ -118,7 +118,7 @@ class BaseStateMapper(ABC):
         classification_output.classification = classification
         return classification_output
 
-    def classify_states(self, input_states: List[StateActionMapping]) -> List[ClassicationEntry]:
+    def classify_states(self, input_states: List[StateActionMapping]) -> List[ClassificationEntry]:
         """
         Classify input states against the known states.
 
@@ -128,7 +128,7 @@ class BaseStateMapper(ABC):
         Returns:
             List of classification results
         """
-        classification_results: List[ClassicationEntry] = []
+        classification_results: List[ClassificationEntry] = []
 
         for index, input_state in enumerate(input_states):
             # Invoke the LLM for classification
@@ -138,7 +138,7 @@ class BaseStateMapper(ABC):
             validated_output = self._validate_classification(classification_output)
 
             # Create the classification entry
-            classification_entry = ClassicationEntry(
+            classification_entry = ClassificationEntry(
                 index=index,
                 input_state=input_state,
                 classification=validated_output.classification,
