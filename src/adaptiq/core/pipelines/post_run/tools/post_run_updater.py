@@ -378,10 +378,10 @@ class PostRunUpdater:
                             )
                             # FIX: Use keyword argument `action=`
                             self.learner.set_q_value(matched_state, QTableAction(action=input_action), reward)
-            else:
-                logger.info(
-                    f"Skipping unknown state at index {i}: {classification['input_state']}"
-                )
+            # else:
+            #     logger.info(
+            #         f"Skipping unknown state at index {i}: {classification.input_state.model_dump()}"
+            #     )
 
     def  process_data(
         self,
