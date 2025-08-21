@@ -3,103 +3,11 @@ import logging
 import sys
 import logging
 
-from adaptiq.core.reporting import Aggregator, get_logger
-from adaptiq.core.pipelines import PreRunPipeline, PostRunPipeline
-from adaptiq.agents.crew_ai import CrewConfig, CrewPromptParser, CrewLogParser
+from adaptiq.core.reporting import get_logger
+from adaptiq.agents.crew_ai import CrewConfig
 
 get_logger()
 
-def execute_pre_run_only(args):
-    """Execute only the pre_run pipeline."""
-
-    config_path = args.config_path
-    template = args.template
-    base_config = None
-    base_prompt_parser = None
-    
-    if template == "crew-ai":
-        base_config = CrewConfig(config_path=config_path, preload=True)
-        base_prompt_parser = CrewPromptParser(config_data=config_path)
-
-    try:
-        logging.info("STEP : Executing pre_run pipeline...")
-        
-        # Execute pre_run pipeline
-        pipeline = PreRunPipeline(base_config = base_config , base_prompt_parser =base_prompt_parser, output_path="./results")
-        simulation_results = pipeline.execute_pre_run_pipeline()
-
-        logging.info("[SUCCESS] Pre-run pipeline completed successfully")
-
-        return True
-
-    except Exception as e:
-        logging.error(f"Error during pre-run pipeline execution: {str(e)}")
-        logging.error("Pre-run pipeline execution stopped due to error.")
-        return False
-
-def execute_post_run_only(
-    config_path: str, output_path: str, feedback: str, template: str, logs_path: str, run_number=None, agent_metrics=None, should_send_report=True
-):
-    """Execute post_run only."""
-    run_prefix = "[RUN %s] " % run_number if run_number is not None else ""
-
-    base_config = None
-    base_log_parser = None
-    if template == "crew-ai":
-        base_config = CrewConfig(config_path=config_path, preload=True)
-        base_log_parser = CrewLogParser(logs_path=logs_path, output_path=output_path)
-        base_prompt_parser = CrewPromptParser(config_data=config_path)
-    
-    # Initialize the aggregator
-    logging.info("agent_metrics: %s", agent_metrics)
-    aggregator = Aggregator(config_data=base_config.get_config(), original_prompt=base_config.get_prompt())
-    aggregator._default_run_mode = False
-
-    try:
-        # Step 1: Execute post_run pipeline
-        logging.info("%sSTEP 1: Executing post_run pipeline...", run_prefix)
-
-        post_run = PostRunPipeline(
-            base_config=base_config,
-            base_log_parser=base_log_parser,
-            output_dir=output_path,
-            feedback=feedback
-        )
-        post_run_results = post_run.execute_post_run_pipeline()
-
-        logging.info("%s[SUCCESS] Post-run pipeline completed successfully", run_prefix)
-
-        validation_summary_path = post_run_results.get(
-            "validation_results", {}
-        ).get("outputs", {}).get("validation_summary_path")
-        reconciliation_results = post_run_results.get(
-            "reconciliation_results", {}
-        )
-
-        # Use aggregator to handle all metrics processing and reporting
-        success = aggregator.aggregate_results(
-            agent_metrics=agent_metrics,
-            validation_summary_path=validation_summary_path,
-            reconciliation_results=reconciliation_results,
-            should_send_report=should_send_report,
-        )
-
-        find_and_clear_log_files()
-        return success
-
-    except Exception as e:
-        logging.error("%sError during pipeline execution: %s", run_prefix, str(e))
-        logging.error("%sPipeline execution stopped due to error.", run_prefix)
-
-        # Use aggregator to handle error reporting
-        success = aggregator.aggregate_results(
-            agent_metrics=agent_metrics,
-            validation_summary_path=None,
-            reconciliation_results=None,
-            should_send_report=should_send_report,
-        )
-        
-        return False
 
 def handle_init_command(args):
     """Handles the logic for the 'init' command - initializes a new Adaptiq project."""
