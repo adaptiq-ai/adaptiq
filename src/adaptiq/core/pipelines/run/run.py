@@ -184,7 +184,7 @@ class AdaptiqRun:
     def aggregate_run(
         self,
         agent_metrics: List[Dict] = None, 
-        should_send_report: bool = False,
+        should_send_report: bool = True,
         ) -> Dict[str, Any]:
         """
         Aggregate results from post-run pipeline.
