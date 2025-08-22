@@ -6,8 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "adaptiq"
 
 
-version = "0.12.3" # Increment this for new releases
-
+version = "0.12.4" # Increment this for new releases
 
 
 description = "An offline Q-learning framework for AI agent prompt optimization."
@@ -58,6 +57,12 @@ package-dir = {"" = "src"} # Tells setuptools your package 'adaptiq' is in the '
 [tool.setuptools.packages.find]
 where = ["src"] # Location to find packages
 namespaces = false # Usually false unless you are using PEP 420 namespace packages
+
+[tool.setuptools.package-data]
+adaptiq = [
+    "templates/*",
+    "templates/**/*",  # Include all files in templates subdirectories
+]
 
 [tool.black]
 line-length = 88
