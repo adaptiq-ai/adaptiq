@@ -75,6 +75,8 @@ class CrewConfig(BaseConfig):
         """
         try:
             current_dir = os.getcwd()
+            config_data = self.config.model_dump()
+   
             # Check required top-level keys
             required_keys = [
                 "project_name",
@@ -86,7 +88,7 @@ class CrewConfig(BaseConfig):
                 "alert_mode",
             ]
 
-            missing_keys = [key for key in required_keys if key not in self.config]
+            missing_keys = [key for key in required_keys if key not in config_data]
             if missing_keys:
                 return False, f"❌ Missing required configuration keys: {', '.join(missing_keys)}"
 
@@ -95,7 +97,7 @@ class CrewConfig(BaseConfig):
             llm_missing = [
                 key
                 for key in llm_required
-                if key not in self.config.get("llm_config", {})
+                if key not in config_data.get("llm_config", {})
             ]
             if llm_missing:
                 return False, f"❌ Missing required llm_config keys: {', '.join(llm_missing)}"
@@ -105,7 +107,7 @@ class CrewConfig(BaseConfig):
             framework_missing = [
                 key
                 for key in framework_required
-                if key not in self.config.get("framework_adapter", {})
+                if key not in config_data.get("framework_adapter", {})
             ]
             if framework_missing:
                 return False, f"❌ Missing required framework_adapter keys: {', '.join(framework_missing)}"
@@ -119,7 +121,7 @@ class CrewConfig(BaseConfig):
             agent_config_missing = [
                 key
                 for key in agent_config_required
-                if key not in self.config.get("agent_modifiable_config", {})
+                if key not in config_data.get("agent_modifiable_config", {})
             ]
             if agent_config_missing:
                 return  False, f"❌ Missing required agent_modifiable_config keys: {', '.join(agent_config_missing)}"
@@ -128,13 +130,13 @@ class CrewConfig(BaseConfig):
             report_missing = [
                 key
                 for key in report_required
-                if key not in self.config.get("report_config", {})
+                if key not in config_data.get("report_config", {})
             ]
             if report_missing:
                 return False, f"❌ Missing required report_config keys: {', '.join(report_missing)}"
 
             # --- Alert Mode Checks ---
-            alert_mode = self.config.get("alert_mode")
+            alert_mode = config_data.get("alert_mode")
             if not alert_mode:
                 return False, "❌ Missing required section: alert_mode"
 
@@ -168,7 +170,7 @@ class CrewConfig(BaseConfig):
 
             # Check if file paths exist (with relative path support)
             paths_to_check = []
-            agent_config = self.config.get("agent_modifiable_config", {})
+            agent_config = config_data.get("agent_modifiable_config", {})
             if "prompt_configuration_file_path" in agent_config:
                 path_value = agent_config["prompt_configuration_file_path"]
                 resolved_path = resolve_path(path_value)
@@ -208,7 +210,6 @@ class CrewConfig(BaseConfig):
                 "path/to/your/config/tasks.yml",
                 "path/to/your/config/agents.yml",
                 "reports/your_agent_name.md",
-                "reports/prompts.json",
             ]
 
             # Recursively check all string values in config_data for placeholders
@@ -229,7 +230,7 @@ class CrewConfig(BaseConfig):
                             return ph
                 return False
 
-            found_placeholder = contains_placeholder(self.config)
+            found_placeholder = contains_placeholder(config_data)
             if found_placeholder:
                 return False,f"❌ Placeholder value '{found_placeholder}' found in your config. Please update all example/template values with your actual project information."
 

@@ -558,9 +558,8 @@ class Aggregator:
     self, 
     agent_metrics: List[Dict] = None, 
     validation_results: ValidationResults = None,
-    reconciliation_results: ReconciliationResults
- = None,
-    should_send_report: bool = False,
+    reconciliation_results: ReconciliationResults = None,
+    should_send_report: bool = True,
     ) -> bool:
         """
         Aggregate results from agent metrics and build comprehensive reports.
