@@ -1,6 +1,6 @@
 # src/adaptiq/__init__.py
 
-__version__ = "0.12.2"
+__version__ = "0.12.3"
 
 try:
     from .agents import *
