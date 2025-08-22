@@ -257,7 +257,7 @@ Given target synthetic images, agents must reproduce them with maximum fidelity 
 
 ### 🔧 Technical Implementation
 
-- **Models**: OpenAI GPT-4.1 (reasoning) + FLUX-1.1-pro (image generation)
+- **Models**: OpenAI GPT-4.1 + FLUX-1.1-pro (image generation)
 - **Quality Metric**: CLIP ViT-B/32 similarity scoring
 - **Test Images**: Curated dataset from Pinterest (research use)
 - **RL Architecture**: Q-learning with state-action optimization
