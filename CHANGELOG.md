@@ -6,7 +6,7 @@
 - Refactor/scale adaptiq
 
 ### Changed
-- Updated from PR #33
+- Updated from PR #32
 
 
 ## [v0.12.2] - 2025-07-21
