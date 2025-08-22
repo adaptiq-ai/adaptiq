@@ -27,13 +27,14 @@ AdaptIQ uses reinforcement learning to automatically optimize your AI agents. Po
 4. [🧠 How It Works (RL + Q-table)](#-how-it-works-rl--q-table)
 5. [🏗️ Architecture](#️-architecture)
 6. [📊 Reporting Mode](#-reporting-mode)
-7. [🔮 What's Next](#-whats-next)
-8. [🏆 Leaderboard (agents)](#-leaderboard-agents)
-9. [🎯 Bench my agent](#-bench-my-agent)
-10. [☁️ Upgrade Path → AdaptiQ FinOps Cloud](#️-upgrade-path--adaptiq-finops-cloud)
-11. [🗺️ Roadmap](#️-roadmap)
-12. [🤝 Community & Contributing](#-community--contributing)
-13. [📄 License](#-license)
+7. [🏆 Leaderboard (agents)](#-leaderboard-agents)
+8. [🎯 Bench my agent](#-bench-my-agent)
+9. [🖼️ AdaptIQ Image Generation Benchmark](#️-adaptiq-image-generation-benchmark)
+10. [🔮 What's Next](#-whats-next)
+11. [☁️ Upgrade Path → AdaptiQ FinOps Cloud](#️-upgrade-path--adaptiq-finops-cloud)
+12. [🗺️ Roadmap](#️-roadmap)
+13. [🤝 Community & Contributing](#-community--contributing)
+14. [📄 License](#-license)
 
 ---
 
@@ -213,25 +214,6 @@ AdaptIQ offers flexible reporting options:
 
 ---
 
-## 🔮 What's Next
-
-### 🎯 Upcoming Features
-
-- **🔄 Support for More Models and Providers**: Expanding compatibility beyond OpenAI to include other LLM providers and models
-- **🔄 Context Engineering Optimization**: Advanced prompt and context management through Q-learning
-  - **📝 Prompt Optimization Workflow**: Implementing external rewards data type and tool tracking and evaluation
-  - **📚 Q-Table Strategy for RAG Systems**: Learn which effective chunks reduce cost and increase speed
-  - **🧠 Memory Layer Integration**: Q-table learns optimal context retention patterns - storing frequently accessed information states and reducing redundant retrievals through intelligent caching strategies
-  - **📊 Knowledge Graph Integration**: Dynamic relationship mapping between entities and concepts for contextually-aware agent decisions
-  - **🔌 External Context Integration APIs**: Seamless integration with CRM, databases, and third-party tools for enriched contextual understanding
-  - **🛡️ Governance & Constraints**: 
-    - **🚧 Guardrails**: Q-learning enforced safety boundaries and compliance rules
-    - **🔐 Access Control**: Context-aware permission management
-    - **📋 Policy Enforcement**: Automated adherence to organizational guidelines and industry standards
-- **📱 Q-Table for Edge Devices**: Optimizing AI models performance to work better on resource-constrained devices
-
----
-
 ## 🏆 Leaderboard (agents) - Coming Soon
 
 A comprehensive evaluation system to benchmark your agents based on specific KPIs (Health Learning Index HLI). Agents working on the same tasks can anonymously compare their performance, fostering continuous improvement and healthy competition in the AI agent community. This system helps maintain agent quality in production environments through continuous monitoring and benchmarking.
@@ -253,7 +235,64 @@ A comprehensive evaluation system to benchmark your agents based on specific KPI
 
 ![Live demo: carrousel, live-feed et tri du leaderboard](./docs/assets/leaderboard.gif)
 
+---
+
+## 🖼️ AdaptIQ Image Generation Benchmark
+
+The **AdaptIQ Image Generation Benchmark** is a comprehensive evaluation suite designed to measure and optimize image generation agents using reinforcement learning. This benchmark demonstrates AdaptIQ's effectiveness in reducing costs while maintaining quality across creative AI tasks.
+
+### 🎯 Benchmark Overview
+
+Given target synthetic images, agents must reproduce them with maximum fidelity at minimum cost. Our benchmark uses a paired design comparing baseline CrewAI + GPT-4.1 agents against AdaptIQ-optimized versions using the same technology stack enhanced with runtime RL optimization.
+
+### 📊 Current Results
+
+| Metric | Baseline | AdaptIQ | Improvement | p-value |
+|--------|----------|---------|-------------|---------|
+| **Latency (s)** | 13.94 | 11.85 | **-15.0%** | < 0.001 |
+| **Cost (USD/img)** | 0.0099 | 0.0086 | **-13.6%** | < 0.001 |
+| **Tokens (count)** | 8347 | 7459 | **-10.6%** | 0.366 (ns) |
+| **Quality (CLIP)** | 91.18 | 91.01 | -0.17 | target ≥ 0 |
+| **Efficiency Score** | 658.87 | 895.44 | **+35.9%** | - |
+
+### 🔧 Technical Implementation
+
+- **Models**: OpenAI GPT-4.1 (reasoning) + FLUX-1.1-pro (image generation)
+- **Quality Metric**: CLIP ViT-B/32 similarity scoring
+- **Test Images**: Curated dataset from Pinterest (research use)
+- **RL Architecture**: Q-learning with state-action optimization
+
+### 📈 Key Achievements
+
+- **Cost Reduction**: 13.6% savings per image generation
+- **Speed Improvement**: 15% faster execution with 2.09s average reduction
+- **Stability**: 2.8× lower token usage variance for predictable performance
+- **Quality Preservation**: Near-parity quality with minimal CLIP score difference
+
 **Check out our benchmark repository:** [https://github.com/adaptiq-ai/adaptiq-benchmark](https://github.com/adaptiq-ai/adaptiq-benchmark)
+
+> 📝 **Note**: Additional benchmarks for RAG systems, coding agents, knowledge graphs, and other optimization capabilities will be added as new features are implemented.
+
+---
+
+## 🔮 What's Next
+
+### 🎯 Upcoming Features
+
+- **🔄 Support for More Models and Providers**: Expanding compatibility beyond OpenAI to include other LLM providers and models
+- **🔄 Context Engineering Optimization**: Advanced prompt and context management through Q-learning
+  - **📝 Prompt Optimization Workflow**: Implementing external rewards data type and tool tracking and evaluation
+  - **📚 Q-Table Strategy for RAG Systems**: Learn which effective chunks reduce cost and increase speed
+  - **💻 Coding Agent Enhancement**: Enhancing coding capabilities by using Q-learning for code generation patterns, debugging workflows, and repository context management
+  - **🧠 Memory Layer Integration**: Q-table learns optimal context retention patterns - storing frequently accessed information states and reducing redundant retrievals through intelligent caching strategies
+  - **📊 Knowledge Graph Integration**: Dynamic relationship mapping between entities and concepts for contextually-aware agent decisions
+  - **🔌 External Context Integration APIs**: Seamless integration with CRM, databases, and third-party tools for enriched contextual understanding
+  - **🛡️ Governance & Constraints**: 
+    - **🚧 Guardrails**: Q-learning enforced safety boundaries and compliance rules
+    - **🔐 Access Control**: Context-aware permission management
+    - **📋 Policy Enforcement**: Automated adherence to organizational guidelines and industry standards
+- **📱 Q-Table for Edge Devices**: Optimizing AI models performance to work better on resource-constrained devices
+- **📊 Additional Benchmarks**: Expanding evaluation coverage with new benchmark suites for text generation, code generation, data analysis, and multi-modal tasks
 
 ---
 
