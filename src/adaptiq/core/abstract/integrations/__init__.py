@@ -6,7 +6,7 @@ from adaptiq.core.abstract.integrations.base_prompt_parser import BasePromptPars
 
 
 __all__ = [
-    "BaseInstrumentals"
+    "BaseInstrumental",
     "BaseAgentLogger", 
     "BaseConfig", 
     "BaseLogParser", 

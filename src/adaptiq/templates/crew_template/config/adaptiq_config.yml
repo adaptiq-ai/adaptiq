@@ -54,7 +54,7 @@ report_config:
 
 # --- Alert Mode Configuration ---
 # Configure when AdaptiQ should generate reports
-alert_mode:
+alert_mode: ²   ²+
     # On-demand mode: Generate a report after a specified number of runs (useful when the crew is in loop mode or wrapped within an endpoint).
     on_demand:
         enabled: false                        # Enable on-demand reporting
