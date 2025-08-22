@@ -11,12 +11,13 @@
 
 ---
 
+
 ## 🚀 Quick Overview
 
 AdaptIQ uses reinforcement learning to automatically optimize your AI agents. Point it at your agent's logs, and it learns which actions work best in different situations, reducing costs by 30% while improving performance.
 
 **Key Benefits:** Lower costs, better performance, data-driven optimization  
-**Current Support:** CrewAI + OpenAI (more coming soon)
+**Current Support:** CrewAI (only supported framework) + OpenAI (more coming soon)
 
 ---
 
@@ -27,13 +28,14 @@ AdaptIQ uses reinforcement learning to automatically optimize your AI agents. Po
 4. [🧠 How It Works (RL + Q-table)](#-how-it-works-rl--q-table)
 5. [🏗️ Architecture](#️-architecture)
 6. [📊 Reporting Mode](#-reporting-mode)
-7. [🔮 What's Next](#-whats-next)
-8. [🏆 Leaderboard (agents)](#-leaderboard-agents)
-9. [🎯 Bench my agent](#-bench-my-agent)
-10. [☁️ Upgrade Path → AdaptiQ FinOps Cloud](#️-upgrade-path--adaptiq-finops-cloud)
-11. [🗺️ Roadmap](#️-roadmap)
-12. [🤝 Community & Contributing](#-community--contributing)
-13. [📄 License](#-license)
+7. [🏆 Leaderboard (agents)](#-leaderboard-agents)
+8. [🎯 Bench my agent](#-bench-my-agent)
+9. [🖼️ AdaptIQ Image Generation Benchmark](#️-adaptiq-image-generation-benchmark)
+10. [🔮 What's Next](#-whats-next)
+11. [☁️ Upgrade Path → AdaptiQ FinOps Cloud](#️-upgrade-path--adaptiq-finops-cloud)
+12. [🗺️ Roadmap](#️-roadmap)
+13. [🤝 Community & Contributing](#-community--contributing)
+14. [📄 License](#-license)
 
 ---
 
@@ -50,14 +52,6 @@ AdaptIQ addresses the critical challenge of optimizing AI agent performance thro
 
 ---
 
-## 🎬 Demo Video
-
-[![Demo Video](https://img.youtube.com/vi/ymNvLe73EhI/maxresdefault.jpg)](https://www.youtube.com/watch?v=ymNvLe73EhI)
-
-*Click the image above to watch the demo video*
-
----
-
 ## ⚡ Quick Start
 
 ### 📋 Prerequisites
@@ -65,7 +59,7 @@ AdaptIQ addresses the critical challenge of optimizing AI agent performance thro
 Before installing AdaptIQ, ensure you have:
 
 - **Python 3.12+** - Required for AdaptIQ framework
-- **CrewAI framework** - Set up and configured for your agents
+- **CrewAI framework** - Set up and configured for your agents (only supported framework)
 - **OpenAI API key** - For LLM provider access
 - **Windows OS** - Linux and Mac support not tested yet
 
@@ -93,30 +87,28 @@ uv pip install -e .
 
 ### 🪄 Quick Setup
 
-**Non-interactive mode (recommended for first-time users):**
+**Initialize a new project:**
 
 ```bash
-adaptiq wizard-headless --llm_provider openai --api_key your_api_key --prompt "wizard init <name_of_project>"
+adaptiq init --name name_project --template framework_template --path ./my_project
 ```
 
-> 📝 **Note**: Only OpenAI provider is supported for the wizard assistant currently.
+> 📝 **Note**: Only **CrewAI** is supported as the framework template currently.
 
 This will initialize a project with `adaptiq_config.yml` that you should configure.
 
+### 🔧 Configuration Validation
+
+**Validate your configuration:**
+```bash
+adaptiq validate --config_path adaptiq_yml_path --template framework_template
+```
+
 ### 🎮 Running AdaptIQ
 
-**Interactive mode (DEV Environment):**
-```bash
-wizard validate config <path_of_config>
-wizard start  # For first optimization
-```
+AdaptIQ will run the optimization process automatically once the agent is in execution.
 
-**Non-interactive mode (PROD Environment):**
-```bash
-adaptiq wizard-headless --llm_provider openai --api_key your_api_key --prompt "wizard execute <path_config>"
-```
-
-> 📝 **Important**: AdaptIQ currently supports only **CrewAI** as the agentic framework, **OpenAI** as the provider, and **GPT-4.1-mini** as the LLM for the workflow. Other models and frameworks have not been tested yet.
+> 📝 **Important**: AdaptIQ currently supports only **CrewAI** as the agentic framework, **OpenAI** as the provider, and **GPT-4.1** and **GPT-4.1-mini** as the LLMs for the workflow. Other models and frameworks have not been tested yet.
 
 ---
 
@@ -124,7 +116,7 @@ adaptiq wizard-headless --llm_provider openai --api_key your_api_key --prompt "w
 
 | Category | Free | Cloud (SaaS) |
 |----------|------|--------------|
-| 🧙 YAML wizard & validation | ✅ | ✅ |
+| 🧙 YAML validation | ✅ | ✅ |
 | 🔍 Prompt & agent lint rules | ✅ | ✅ |
 | 💰 **Pre‑run cost** | ✅ | ✅ |
 | 🤖 RL‑powered optimisation suggestions | ✅ | ✅ |
@@ -138,7 +130,7 @@ adaptiq wizard-headless --llm_provider openai --api_key your_api_key --prompt "w
 
 ### 🎯 ADAPTIQ - Agent Development & Prompt Tuning Iteratively with Q-Learning
 
-ADAPTIQ is a framework designed for the iterative improvement of AI agent performance through offline Reinforcement Learning (RL). Its primary goal is to systematically enhance an agent's guiding Configuration, focusing mainly on its Task Description (Prompt), by learning from the agent's past execution behaviors and incorporating user validation through an interactive "Wizard" process. It provides a structured, data-driven alternative to purely manual prompt engineering.
+ADAPTIQ is a framework designed for the iterative improvement of AI agent performance through offline Reinforcement Learning (RL). Its primary goal is to systematically enhance an agent's guiding Configuration, focusing mainly on its Task Description (Prompt), by learning from the agent's past execution behaviors and incorporating user validation. It provides a structured, data-driven alternative to purely manual prompt engineering.
 
 ### 🚀 Vision and Goal
 
@@ -149,7 +141,7 @@ Adaptiq's mission is to optimize agent behavior by refining its core instruction
 #### 🧩 State (s)
 Represents the agent's situation at a specific step, defined by features like:
 
-- **Current_SubTask**: The immediate objective (validated via Wizard)
+- **Current_SubTask**: The immediate objective
 - **Last_Action_Taken**: The previous validated ARIC strategic action
 - **Last_Outcome**: The validated result of the previous action
 - **Key_Context**: Accumulated relevant information (validated flags/data)
@@ -163,7 +155,7 @@ A selection from a predefined menu of discrete, strategic actions (e.g., Use_Too
 The core knowledge base: `Q(state_representation, action) → value`. It stores the learned long-term value of taking an action in a specific state, refined through the Adaptiq loop.
 
 #### 🏆 Reward (R)
-Calculated offline during/after trace reconciliation, guided by the Wizard and predefined rules. It incorporates:
+Calculated offline during/after trace reconciliation. It incorporates:
 
 - **Plan Adherence**: How well the actual execution matched the intended plan from prompt parsing
 - **Execution Success (R_execution/internal)**: Based on tool outcomes, task progress, constraint adherence, and output quality from the logs
@@ -173,13 +165,13 @@ Calculated offline during/after trace reconciliation, guided by the Wizard and p
 
 Adaptiq employs a multi-stage approach:
 
-1. **Prompt Parsing (default-run)**: An LLM-powered module analyzes the agent's task description to extract the intended sequence of sub-tasks and actions
+1. **Prompt Parsing**: An LLM-powered module analyzes the agent's task description to extract the intended sequence of sub-tasks and actions
 
-2. **Hypothetical State Generation (default-run)**: Uses the prompt parser's output to define idealized states and actions for heuristic Q-table initialization
+2. **Hypothetical State Generation**: Uses the prompt parser's output to define idealized states and actions for heuristic Q-table initialization
 
-3. **Log Parsing (first step of the run)**: Module parses raw execution logs to identify actual agent thoughts, tool calls, and outcomes
+3. **Log Parsing**: Module parses raw execution logs to identify actual agent thoughts, tool calls, and outcomes
 
-4. **Reconciliation (second step of the run)**: A central facilitates the alignment of the intended plan with actual execution. It allows the user to:
+4. **Reconciliation**: A central facilitates the alignment of the intended plan with actual execution. It allows the user to:
    - Validate/correct inferred states and actions
    - Confirm/override calculated rewards
    - Refine the understanding of the agent's behavior
@@ -223,25 +215,6 @@ AdaptIQ offers flexible reporting options:
 
 ---
 
-## 🔮 What's Next
-
-### 🎯 Upcoming Features
-
-- **🔄 Support for More Models and Providers**: Expanding compatibility beyond OpenAI to include other LLM providers and models
-- **🔄 Context Engineering Optimization**: Advanced prompt and context management through Q-learning
-  - **📝 Prompt Optimization Workflow**: Implementing external rewards data type and tool tracking and evaluation
-  - **📚 Q-Table Strategy for RAG Systems**: Learn which effective chunks reduce cost and increase speed
-  - **🧠 Memory Layer Integration**: Q-table learns optimal context retention patterns - storing frequently accessed information states and reducing redundant retrievals through intelligent caching strategies
-  - **📊 Knowledge Graph Integration**: Dynamic relationship mapping between entities and concepts for contextually-aware agent decisions
-  - **🔌 External Context Integration APIs**: Seamless integration with CRM, databases, and third-party tools for enriched contextual understanding
-  - **🛡️ Governance & Constraints**: 
-    - **🚧 Guardrails**: Q-learning enforced safety boundaries and compliance rules
-    - **🔐 Access Control**: Context-aware permission management
-    - **📋 Policy Enforcement**: Automated adherence to organizational guidelines and industry standards
-- **📱 Q-Table for Edge Devices**: Optimizing AI models performance to work better on resource-constrained devices
-
----
-
 ## 🏆 Leaderboard (agents) - Coming Soon
 
 A comprehensive evaluation system to benchmark your agents based on specific KPIs (Health Learning Index HLI). Agents working on the same tasks can anonymously compare their performance, fostering continuous improvement and healthy competition in the AI agent community. This system helps maintain agent quality in production environments through continuous monitoring and benchmarking.
@@ -262,6 +235,65 @@ A comprehensive evaluation system to benchmark your agents based on specific KPI
 ### 🎬 See the leaderboard in action
 
 ![Live demo: carrousel, live-feed et tri du leaderboard](./docs/assets/leaderboard.gif)
+
+---
+
+## 🖼️ AdaptIQ Image Generation Benchmark
+
+The **AdaptIQ Image Generation Benchmark** is a comprehensive evaluation suite designed to measure and optimize image generation agents using reinforcement learning. This benchmark demonstrates AdaptIQ's effectiveness in reducing costs while maintaining quality across creative AI tasks.
+
+### 🎯 Benchmark Overview
+
+Given target synthetic images, agents must reproduce them with maximum fidelity at minimum cost. Our benchmark uses a paired design comparing baseline CrewAI + GPT-4.1 agents against AdaptIQ-optimized versions using the same technology stack enhanced with runtime RL optimization.
+
+### 📊 Current Results
+
+| Metric | Baseline | AdaptIQ | Improvement | p-value |
+|--------|----------|---------|-------------|---------|
+| **Latency (s)** | 13.94 | 11.85 | **-15.0%** | < 0.001 |
+| **Cost (USD/img)** | 0.0099 | 0.0086 | **-13.6%** | < 0.001 |
+| **Tokens (count)** | 8347 | 7459 | **-10.6%** | 0.366 (ns) |
+| **Quality (CLIP)** | 91.18 | 91.01 | -0.17 | target ≥ 0 |
+| **Efficiency Score** | 658.87 | 895.44 | **+35.9%** | - |
+
+### 🔧 Technical Implementation
+
+- **Models**: OpenAI GPT-4.1 + FLUX-1.1-pro (image generation)
+- **Quality Metric**: CLIP ViT-B/32 similarity scoring
+- **Test Images**: Curated dataset from Pinterest (research use)
+- **RL Architecture**: Q-learning with state-action optimization
+
+### 📈 Key Achievements
+
+- **Cost Reduction**: 13.6% savings per image generation
+- **Speed Improvement**: 15% faster execution with 2.09s average reduction
+- **Stability**: 2.8× lower token usage variance for predictable performance
+- **Quality Preservation**: Near-parity quality with minimal CLIP score difference
+
+**Check out our benchmark repository:** [https://github.com/adaptiq-ai/adaptiq-benchmark](https://github.com/adaptiq-ai/adaptiq-benchmark)
+
+> 📝 **Note**: Additional benchmarks for RAG systems, coding agents, knowledge graphs, and other optimization capabilities will be added as new features are implemented.
+
+---
+
+## 🔮 What's Next
+
+### 🎯 Upcoming Features
+
+- **🔄 Support for More Models and Providers**: Expanding compatibility beyond OpenAI to include other LLM providers and models
+- **🔄 Context Engineering Optimization**: Advanced prompt and context management through Q-learning
+  - **📝 Prompt Optimization Workflow**: Implementing external rewards data type and tool tracking and evaluation
+  - **📚 Q-Table Strategy for RAG Systems**: Learn which effective chunks reduce cost and increase speed
+  - **💻 Coding Agent Enhancement**: Enhancing coding capabilities by using Q-learning for code generation patterns, debugging workflows, and repository context management
+  - **🧠 Memory Layer Integration**: Q-table learns optimal context retention patterns - storing frequently accessed information states and reducing redundant retrievals through intelligent caching strategies
+  - **📊 Knowledge Graph Integration**: Dynamic relationship mapping between entities and concepts for contextually-aware agent decisions
+  - **🔌 External Context Integration APIs**: Seamless integration with CRM, databases, and third-party tools for enriched contextual understanding
+  - **🛡️ Governance & Constraints**: 
+    - **🚧 Guardrails**: Q-learning enforced safety boundaries and compliance rules
+    - **🔐 Access Control**: Context-aware permission management
+    - **📋 Policy Enforcement**: Automated adherence to organizational guidelines and industry standards
+- **📱 Q-Table for Edge Devices**: Optimizing AI models performance to work better on resource-constrained devices
+- **📊 Additional Benchmarks**: Expanding evaluation coverage with new benchmark suites for text generation, code generation, data analysis, and multi-modal tasks
 
 ---
 
