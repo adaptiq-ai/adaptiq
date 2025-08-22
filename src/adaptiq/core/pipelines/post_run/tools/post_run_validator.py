@@ -27,8 +27,9 @@ class PostRunValidator:
         Initialize the validator with raw and parsed logs.
 
         Args:
-            raw_logs: The original agent logs with timestamps, actions, thoughts, etc.
-            parsed_logs: The processed logs with state and reward information
+            raw_logs: List of raw log entries as dictionaries
+            parsed_logs: ProcessedLogs containing parsed log entries
+            llm: BaseChatModel instance for LLM interactions
         """
         self.raw_logs = raw_logs
         self.parsed_logs = parsed_logs

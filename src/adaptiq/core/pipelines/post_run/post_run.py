@@ -32,13 +32,10 @@ class PostRunPipeline:
         Initialize the AdaptiqPostRunOrchestrator.
 
         Args:
-            config_path (str): Path to the agent configuration file in YAML format.
-            output_dir (str): Directory for saving outputs (logs, parsed data, validation results).
-            validate_results (bool): Whether to perform validation after parsing.
-
-        Raises:
-            FileNotFoundError: If the configuration file does not exist.
-            ValueError: If the configuration file cannot be parsed.
+            base_config: BaseConfig instance containing configuration data.
+            base_log_parser: BaseLogParser instance for parsing logs.
+            output_dir: Directory where output files will be saved.
+            feedback: Optional human feedback to guide the post-run analysis.
         """
 
         # Configure logging
@@ -80,12 +77,8 @@ class PostRunPipeline:
         """
         Parse logs using AdaptiqLogParser.
 
-        Args:
-            raw_logs (Optional[str]): Raw logs as string. If None, will use logs from run_agent() if available,
-                                     or try to load from raw_logs_path.
-
         Returns:
-            Dict: The parsed log data with state-action-reward mappings.
+            ProcessedLogs: Parsed logs containing state-action-reward mappings
 
         Raises:
             FileNotFoundError: If raw logs are not provided and can't be loaded.
@@ -118,19 +111,13 @@ class PostRunPipeline:
         Validate the parsed logs using AdaptiqPostRunValidator.
 
         Args:
-            raw_logs (Optional[List[Dict]]): Raw logs as a list of dictionaries.
-                                            If None, will try to load from raw_logs_path.
-            parsed_logs (Optional[List[Dict]]): Parsed logs as a list of dictionaries.
-                                              If None, will try to load from parsed_logs_path.
+            raw_logs: List of raw log entries as dictionaries
+            parsed_logs: ProcessedLogs containing parsed log entries
 
         Returns:
             Tuple containing:
             - List of corrected logs with validated rewards
             - Dictionary with validation results and summary
-
-        Raises:
-            FileNotFoundError: If logs are not provided and can't be loaded.
-            ValueError: If API key is not provided and can't be found in environment.
         """
         self.logger.info("Starting validation of parsed logs...")
 
@@ -149,9 +136,12 @@ class PostRunPipeline:
     def reconciliate_logs(self, parsed_logs: ProcessedLogs) -> ReconciliationResults:
         """
         Reconciliate logs using PostRunReconciler.
+            
+        Args:
+            parsed_logs: ProcessedLogs containing parsed log entries
 
-        This method is a placeholder for future implementation of log reconciliation.
-        Currently, it does not perform any operations.
+        Returns:
+            ReconciliationResults: The results of the reconciliation process
         """
         # Ensure output directory exists
         output_dir = Path(self.output_dir)
@@ -201,7 +191,7 @@ class PostRunPipeline:
         Run the complete pipeline: agent execution, log parsing, and validation.
 
         Returns:
-            Dict containing paths to all output files and summary information.
+            PostRunResults: Results of the post-run pipeline including validation and reconciliation data.
         """
         self.logger.info("Starting full Adaptiq pipeline execution...")
 

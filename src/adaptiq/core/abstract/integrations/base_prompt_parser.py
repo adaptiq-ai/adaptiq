@@ -380,19 +380,3 @@ class BasePromptParser(ABC):
             String identifier for this parser
         """
         return "AdaptiqPromptParser"
-
-    def get_config_summary(self) -> Dict[str, Any]:
-        """
-        Return a summary of the current configuration.
-
-        Returns:
-            Dictionary containing key configuration information
-        """
-        return {
-            "parser_name": self.parser_name,
-            "supported_providers": self.supported_providers,
-            "config_path": self.config_data,
-            "llm_model": getattr(self, 'llm_model_name', 'Not configured'),
-            "provider": getattr(self, 'provider', 'Not configured'),
-            "agent_tools_count": len(getattr(self, 'agent_tools', [])),
-        }

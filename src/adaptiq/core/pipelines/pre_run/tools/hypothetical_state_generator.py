@@ -22,7 +22,8 @@ class HypotheticalStateGenerator:
         Initialize with a parsed plan.
 
         Args:
-            prompt_parsed_plan: List of dictionaries containing intended steps.
+            prompt_parsed_plan: List of TaskIntent objects representing the parsed plan
+            llm: BaseChatModel instance for LLM interactions
         """
         self.prompt_parsed_plan = prompt_parsed_plan
         self.llm = llm
@@ -76,7 +77,7 @@ class HypotheticalStateGenerator:
         Generate all hypothetical state-action pairs using XML output.
 
         Returns:
-            List of HypotheticalStateRepresentation objects.
+            List[HypotheticalStateRepresentation]: List of hypothetical state-action pairs.
         """
         # Prepare context for LLM
         context = {"parsed_plan": [plan.model_dump() for plan in self.prompt_parsed_plan]}

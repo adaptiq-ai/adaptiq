@@ -33,18 +33,16 @@ class PromptEstimator:
         Initialize the PromptPreEstimator.
         
         Args:
-            status: Status summary from pre-run pipeline components
-            old_prompt: The original agent prompt to be optimized
-            agent_id: Identifier for the agent
-            api_key: API key for the LLM provider
-            model_name: Name of the model to use for prompt generation
-            provider: LLM provider (e.g., 'openai')
-            parsed_steps: List of parsed steps from prompt parsing
-            hypothetical_states: List of hypothetical state-action pairs
-            offline_learner: Offline learner instance with Q-table
-            prompt_analysis: Analysis results including strengths, weaknesses, suggestions
-            agent_tools: List of available agent tools
-            output_path: Path where output files will be saved
+            status: StatusSummary object containing the status of pre-run components.
+            old_prompt: The original prompt to be optimized.
+            agent_id: Unique identifier for the agent.
+            llm: BaseChatModel instance for LLM interactions.
+            parsed_steps: List of TaskIntent objects representing parsed steps.
+            hypothetical_states: List of HypotheticalStateRepresentation objects.
+            offline_learner: QTableManager instance for Q-table management.
+            prompt_analysis: FormattedAnalysis object containing prompt analysis results.
+            agent_tools: List of AgentTool objects available to the agent.
+            output_path: Directory path to save the generated prompt report.
         """
         # Configure logging
         self.logger = logging.getLogger("PromptPreEstimator")

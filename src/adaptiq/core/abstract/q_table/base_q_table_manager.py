@@ -107,6 +107,7 @@ class BaseQTableManager(ABC):
         except Exception as e:
             print(f"[ERROR] Failed to load Q-table: {e}")
             return False
+    
     def Q(self, s: QTableState, a: QTableAction) -> float:
         """Get Q-value for state-action pair"""
         if s not in self.Q_table:
@@ -119,7 +120,7 @@ class BaseQTableManager(ABC):
         """Return copy of the Q-table"""
         return dict(self.Q_table)
     
-    def set_q_value(self, state: QTableState, action: QTableAction, value: float) -> None:
+    def set_q_value(self, state: QTableState, action: QTableAction, value: float):
         """
         Directly set Q-value for a state-action pair
         
@@ -206,7 +207,7 @@ class BaseQTableManager(ABC):
             actions: List of actions to get values for
             
         Returns:
-            List of (action, q_value) tuples sorted by Q-value descending
+            List of (action, q_value) sorted by Q-value descending
         """
         action_values = [(action, self.Q(state, action)) for action in actions]
         return sorted(action_values, key=lambda x: x[1], reverse=True)

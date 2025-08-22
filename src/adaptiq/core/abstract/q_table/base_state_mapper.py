@@ -84,10 +84,10 @@ class BaseStateMapper(ABC):
         Invoke the LLM to classify a state.
 
         Args:
-            input_state: State to classify (can be string, list, or dict)
+            input_state: State to classify
 
         Returns:
-            Dict containing the LLM's classification output
+            ClassificationResponse: The LLM's classification output
         """
         pass
 

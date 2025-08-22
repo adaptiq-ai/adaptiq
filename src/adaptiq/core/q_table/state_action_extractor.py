@@ -54,7 +54,7 @@ class StateActionExtractor(BaseStateActionExtractor):
             log_data (dict): The input data containing state and action information.
 
         Returns:
-            tuple: (state_dict, action_str)
+            Tuple[LogState, str]: A tuple containing the extracted state as a LogState object and the action as a string.
         """
         try:
 
@@ -76,7 +76,7 @@ class StateActionExtractor(BaseStateActionExtractor):
             action_str (str): The extracted action string.
 
         Returns:
-            dict: Transformed state and action.
+            StateActionMapping: The transformed state-action mapping.
         """
         input_for_llm = {"state": state_dict.model_dump(), "action": action_str}
 

@@ -34,8 +34,11 @@ class PromptEngineer:
         Initialize the PromptEngineerLLM.
 
         Args:
-            main_config_path: Path to the main YAML configuration file.
-            feedback: Human feedback for agent's evaluation.
+            llm: BaseChatModel instance for LLM interactions
+            report_path: Path to save the generated report
+            old_prompt: The original prompt to be analyzed and improved
+            agent_name: Optional name of the agent for report context
+            feedback: Optional human feedback to guide prompt improvements
         """
         self.llm = llm
         self.task_name = None

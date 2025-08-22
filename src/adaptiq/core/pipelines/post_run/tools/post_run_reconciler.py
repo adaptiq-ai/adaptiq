@@ -36,10 +36,14 @@ class PostRunReconciler:
         Initialize the orchestrator with file paths and configuration.
 
         Args:
-            parsed_logs: Path to JSON file containing execution data for extraction
+            parsed_logs: ProcessedLogs containing execution data for extraction
             warmed_qtable_file: Path to JSON file containing the warmed Q-table
-            config_file: Path to YAML config file for AdaptiqPromptEngineer
-            feedback: Human feedback for prompt evaluation
+            llm: BaseChatModel instance for language model interactions
+            embeddings: Embeddings instance for text embeddings
+            old_prompt: Optional prompt string for reference
+            agent_name: Optional name of the agent
+            feedback: Optional human feedback for prompt evaluation
+            report_path: Optional path to save the report
         """
         self.parsed_logs = parsed_logs
         self.warmed_qtable_file = Path(warmed_qtable_file)
@@ -139,7 +143,7 @@ class PostRunReconciler:
         Run the complete reconciliation pipeline.
 
         Returns:
-            Dict containing results from each stage of the pipeline
+            ReconciliationResults: Results of the reconciliation process
         """
         logger.info("Starting Adaptiq reconciliation pipeline")
 
@@ -223,7 +227,7 @@ class PostRunReconciler:
         Save pipeline results to a JSON file.
 
         Args:
-            results: Results dictionary from run_pipeline()
+            results: ReconciliationResults object containing the pipeline output
             output_file: Path to save the results
         """
         output_path = Path(output_file)

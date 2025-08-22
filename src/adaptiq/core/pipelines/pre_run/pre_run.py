@@ -105,9 +105,6 @@ class PreRunPipeline:
     def run_prompt_parsing(self):
         """
         Execute the prompt parsing step to analyze the agent's task and tools.
-
-        Returns:
-            List of dictionaries with parsed steps
         """
         self.logger.info("Starting Prompt Parsing...")
 
@@ -127,9 +124,6 @@ class PreRunPipeline:
     def run_hypothetical_representation(self):
         """
         Generate hypothetical state-action pairs based on parsed steps.
-
-        Returns:
-            List of state-action pairs
         """
         self.logger.info("Starting Hypothetical State Generation...")
 
@@ -156,9 +150,6 @@ class PreRunPipeline:
         """
         Run scenario simulation based on the generated hypothetical states.
         Generates multiple plausible scenarios for each state-action pair.
-
-        Returns:
-            List of simulated scenarios
         """
         self.logger.info("Starting Scenario Simulation...")
 
@@ -431,7 +422,8 @@ class PreRunPipeline:
             save_results: Whether to save the results to files
 
         Returns:
-            Dictionary with the results of all steps
+            PreRunResults: Results of the pre-run pipeline including parsed steps, hypothetical states,
+            simulated scenarios, Q-table size, and prompt analysis
         """
         try:
             self.logger.info("Starting ADAPTIQ Pre-Run Pipeline...")
@@ -474,7 +466,6 @@ class PreRunPipeline:
             self.logger.error("ADAPTIQ Pre-Run Pipeline failed: %s", str(e))
             return {"error": str(e),}
             
-
     def get_status_summary(self) -> StatusSummary:
         """
         Get a summary of the current status of each pre-run component.

@@ -15,9 +15,7 @@ class BaseStateActionExtractor(ABC):
         Initialize the extractor.
 
         Args:
-            provider (str): The LLM provider (e.g., "openai", "anthropic", etc.)
-            model (str): The model name to use
-            api_key (str, optional): API key for the provider
+            llm (BaseChatModel): The language model used for transformation.
         """
         self.llm = llm
         self.prompt_template = self._create_prompt_template()
@@ -55,7 +53,7 @@ class BaseStateActionExtractor(ABC):
             action_str: The extracted action string
 
         Returns:
-            dict: Transformed state and action
+            StateActionMapping: The transformed state and action mapping
         """
         pass
 
@@ -67,7 +65,7 @@ class BaseStateActionExtractor(ABC):
             input_data: The input data containing state and action information
 
         Returns:
-            dict: Transformed state and action
+            StateActionMapping: The transformed state and action mapping
         """
         state_dict, action_str = self._extract_raw_state_and_action(input_data)
         transformed_data = self._transform_with_llm(state_dict, action_str)
@@ -78,10 +76,10 @@ class BaseStateActionExtractor(ABC):
         Process a batch of input data.
 
         Args:
-            input_data_list (list): List of input data dictionaries or strings
+            parsed_logs: ProcessedLogs containing a list of log items
 
         Returns:
-            list: List of transformed state and action dictionaries
+            List[StateActionMapping]: List of transformed state-action mappings
         """
         results: List[StateActionMapping] = []
         for log_data in parsed_logs.processed_logs:

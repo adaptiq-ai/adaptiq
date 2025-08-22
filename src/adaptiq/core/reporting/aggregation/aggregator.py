@@ -20,8 +20,6 @@ class Aggregator:
 
     Designed for use in LLM evaluation, benchmarking, and reporting pipelines.
     """
-    # TODO: Unify the config to generic data model (from base config)
-    # TODO: Add Start Aggregation that process incoming results and manage all logic inside the aggregator
     def __init__(self, config_data: AdaptiQConfig, original_prompt: str):
         """Initialize the aggregator with pricing information for different models."""
         # Set up logging
@@ -40,7 +38,6 @@ class Aggregator:
         self._default_run_mode = True
         self.task_name = None
 
-        # TODO: Move it to independant file 
         # Define pricing information
         self.pricings = {
             "openai": {
@@ -76,9 +73,9 @@ class Aggregator:
         Calculate and update the running average reward across all runs.
 
         Args:
-            validation_summary_path (str, optional): Path to the validation_summary.json file (for execution rewards).
-            simulated_scenarios (list, optional): List of simulated scenario dicts (for simulation rewards).
-            reward_type (str): "execution" or "simulation" to select which reward to calculate.
+            validation_results (ValidationResults): Results from the validation pipeline.
+            simulated_scenarios (List, optional): List of simulated scenarios for additional context.
+            reward_type (str): Type of reward to calculate (default: "execution").
 
         Returns:
             float: The running average reward value, or 0.0 if none found.
@@ -569,11 +566,10 @@ class Aggregator:
         Aggregate results from agent metrics and build comprehensive reports.
         
         Args:
-            agent_metrics (List[Dict], optional): List of agent execution metrics
-            validation_results (ValidationResults, optional): Results from validation pipeline
-            reconciliation_results (Dict, optional): Results from reconciliation pipeline
-            should_send_report (bool): Whether to send the report to endpoint
-            run_number (int, optional): Run number for logging prefix
+            agent_metrics (List[Dict]): List of agent metrics dictionaries.
+            validation_results (ValidationResults): Results from the validation pipeline.
+            reconciliation_results (ReconciliationResults): Results from the reconciliation pipeline.
+            should_send_report (bool): Whether to send the report after aggregation.
             
         Returns:
             bool: True if successful, False if error occurred

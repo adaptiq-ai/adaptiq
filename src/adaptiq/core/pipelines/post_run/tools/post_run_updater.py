@@ -31,10 +31,10 @@ class PostRunUpdater:
         Initialize the AdaptiqQtableUpdate class.
 
         Args:
-            model: OpenAI embedding model name.
-            alpha: Learning rate for Q-learning updates (default 0.8)
-            gamma: Discount factor for Q-learning updates (default 0.8)
-            similarity_threshold: Threshold for action similarity matching (default 0.7)
+            embeddings: Embeddings instance for text embeddings
+            alpha: Learning rate for Q-table updates
+            gamma: Discount factor for future rewards
+            similarity_threshold: Threshold for action similarity matching
         """
         self.embeddings = embeddings
         self.learner = QTableManager(alpha=alpha, gamma=gamma, file_path="adaptiq_q_table.json")
@@ -42,7 +42,7 @@ class PostRunUpdater:
         
         
         
-    def load_q_table(self, q_table_data: Dict) -> None:
+    def load_q_table(self, q_table_data: Dict):
         """
         Load the Q-table from a dictionary.
 
@@ -255,8 +255,6 @@ class PostRunUpdater:
             state_classifications: List of state classification dictionaries
             reward_execs: List of reward execution dictionaries
 
-        Returns:
-            Dict: Updated Q-table data
         """
         for i, classification in enumerate(state_classifications):
             if i >= len(reward_execs):

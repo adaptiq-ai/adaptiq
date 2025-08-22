@@ -35,10 +35,9 @@ class ScenarioSimulator:
         Initialize the AdaptiqScenarioSimulator with the hypothetical states and OpenAI credentials.
 
         Args:
-            hypothetical_states: Output from AdaptiqHypotheticalStateGenerator
-            model_name: OpenAI model name to use (e.g., "gpt-4-turbo")
-            api_key: OpenAI API key
-            output_path: The save path of the results
+            hypothetical_states: List of HypotheticalStateRepresentation objects representing the hypothetical states
+            llm: BaseChatModel instance for LLM interactions
+            output_path: Path to save the generated scenarios
         """
         self.hypothetical_states = hypothetical_states
         self.output_path = output_path

@@ -19,6 +19,7 @@ class PromptConsulting:
 
         Args:
             agent_prompt: The prompt text to be analyzed.
+            llm: BaseChatModel instance for LLM interactions.
         """
         self.agent_prompt = agent_prompt
         self.llm = llm

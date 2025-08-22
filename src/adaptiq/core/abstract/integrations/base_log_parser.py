@@ -212,6 +212,10 @@ class BaseLogParser(ABC):
                 raise RuntimeError(f"Failed to save logs to {full_path}: {e}") from e
             
     def parse_logs(self) -> ProcessedLogs:
+        """
+        Parse the logs from the specified log file.
+        
+        """
         logs: List[Dict[str, Any]] = self.load_json_data()
         
         if not logs:
