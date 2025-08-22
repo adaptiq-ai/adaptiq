@@ -1,12 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from adaptiq.core.reporting import get_logger
-
 from .http_client import HTTPClient
-
-get_logger()
-
 
 class AdaptiqCloud:
     """
