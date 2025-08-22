@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.12.7] - 2025-08-22
+
+### Added
+- Fix/template include on deploy
+
+### Changed
+- Updated from PR #40
+
+
 ## [v0.12.6] - 2025-08-22
 
 ### Added
