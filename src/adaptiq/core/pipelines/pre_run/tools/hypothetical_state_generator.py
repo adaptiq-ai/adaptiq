@@ -5,7 +5,8 @@ from typing import Dict, List
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from adaptiq.core.entities import TaskIntent, HypotheticalStateRepresentation
+from adaptiq.core.entities import HypotheticalStateRepresentation, TaskIntent
+
 
 class HypotheticalStateGenerator:
     """
@@ -13,11 +14,7 @@ class HypotheticalStateGenerator:
     using XML output format for more reliable parsing.
     """
 
-    def __init__(
-        self,
-        prompt_parsed_plan: List[TaskIntent],
-        llm: BaseChatModel
-    ):
+    def __init__(self, prompt_parsed_plan: List[TaskIntent], llm: BaseChatModel):
         """
         Initialize with a parsed plan.
 
@@ -72,7 +69,9 @@ class HypotheticalStateGenerator:
         """
         )
 
-    def generate_hypothetical_state_action_pairs(self) -> List[HypotheticalStateRepresentation]:
+    def generate_hypothetical_state_action_pairs(
+        self,
+    ) -> List[HypotheticalStateRepresentation]:
         """
         Generate all hypothetical state-action pairs using XML output.
 
@@ -80,26 +79,28 @@ class HypotheticalStateGenerator:
             List[HypotheticalStateRepresentation]: List of hypothetical state-action pairs.
         """
         # Prepare context for LLM
-        context = {"parsed_plan": [plan.model_dump() for plan in self.prompt_parsed_plan]}
+        context = {
+            "parsed_plan": [plan.model_dump() for plan in self.prompt_parsed_plan]
+        }
 
         prompt = self.prompt_template.format_messages(**context)
         response = self.llm.invoke(prompt)
 
         # Extract XML content from response
         xml_content = self._extract_xml_content(response.content)
-        
+
         # Parse XML and extract state-action pairs
         pairs = self._parse_xml_response(xml_content)
-        
+
         return [HypotheticalStateRepresentation(**pair) for pair in pairs]
 
     def _extract_xml_content(self, content: str) -> str:
         """
         Extract XML content from LLM response, handling potential markdown wrapping.
-        
+
         Args:
             content: Raw LLM response content
-            
+
         Returns:
             Clean XML content
         """
@@ -117,7 +118,7 @@ class HypotheticalStateGenerator:
         # Look for XML content between <state_action_pairs> tags
         xml_pattern = r"<state_action_pairs>.*?</state_action_pairs>"
         xml_match = re.search(xml_pattern, content, re.DOTALL)
-        
+
         if xml_match:
             return xml_match.group(0)
         else:
@@ -127,10 +128,10 @@ class HypotheticalStateGenerator:
     def _parse_xml_response(self, xml_content: str) -> List[Dict]:
         """
         Parse XML response and extract state-action pair data.
-        
+
         Args:
             xml_content: XML string containing state-action pairs
-            
+
         Returns:
             List of dictionaries with parsed data
         """
@@ -138,41 +139,46 @@ class HypotheticalStateGenerator:
             # Parse XML
             root = ET.fromstring(xml_content)
             pairs = []
-            
-            for pair_elem in root.findall('pair'):
+
+            for pair_elem in root.findall("pair"):
                 # Extract state components
-                current_subtask = self._get_xml_text(pair_elem, 'current_subtask_category')
-                last_action = self._get_xml_text(pair_elem, 'last_action_taken')
-                last_outcome = self._get_xml_text(pair_elem, 'last_outcome_category')
-                key_context = self._get_xml_text(pair_elem, 'key_context')
-                
+                current_subtask = self._get_xml_text(
+                    pair_elem, "current_subtask_category"
+                )
+                last_action = self._get_xml_text(pair_elem, "last_action_taken")
+                last_outcome = self._get_xml_text(pair_elem, "last_outcome_category")
+                key_context = self._get_xml_text(pair_elem, "key_context")
+
                 # Create state tuple string
                 state_tuple = f"('{current_subtask}', '{last_action}', '{last_outcome}', '{key_context}')"
-                
+
                 # Extract action
-                action = self._get_xml_text(pair_elem, 'hypothetical_action')
-                
+                action = self._get_xml_text(pair_elem, "hypothetical_action")
+
                 # Extract source step details
-                source_step_elem = pair_elem.find('source_step')
+                source_step_elem = pair_elem.find("source_step")
                 source_details = {}
-                
+
                 if source_step_elem is not None:
                     source_details = {
-                        'step_number': self._get_xml_text(source_step_elem, 'step_number'),
-                        'intended_action': self._get_xml_text(source_step_elem, 'intended_action'),
-                        'expected_outcome': self._get_xml_text(source_step_elem, 'expected_outcome'),
-                        'reasoning': self._get_xml_text(source_step_elem, 'reasoning')
+                        "step_number": self._get_xml_text(
+                            source_step_elem, "step_number"
+                        ),
+                        "intended_action": self._get_xml_text(
+                            source_step_elem, "intended_action"
+                        ),
+                        "expected_outcome": self._get_xml_text(
+                            source_step_elem, "expected_outcome"
+                        ),
+                        "reasoning": self._get_xml_text(source_step_elem, "reasoning"),
                     }
 
-                pairs.append({
-                    'state': state_tuple,
-                    'action': action,
-                    'details': source_details
-                })
-                
-            
+                pairs.append(
+                    {"state": state_tuple, "action": action, "details": source_details}
+                )
+
             return pairs
-            
+
         except ET.ParseError as e:
             # If XML parsing fails, try regex fallback
             print(f"XML parsing error: {e}. Attempting regex fallback.")
@@ -181,11 +187,11 @@ class HypotheticalStateGenerator:
     def _get_xml_text(self, element: ET.Element, tag_name: str) -> str:
         """
         Safely extract text from XML element.
-        
+
         Args:
             element: XML element to search in
             tag_name: Tag name to find
-            
+
         Returns:
             Text content or empty string if not found
         """
@@ -195,61 +201,71 @@ class HypotheticalStateGenerator:
     def _parse_xml_with_regex(self, xml_content: str) -> List[Dict]:
         """
         Fallback regex-based XML parsing for malformed XML.
-        
+
         Args:
             xml_content: XML string to parse
-            
+
         Returns:
             List of dictionaries with extracted data
         """
         pairs = []
-        
+
         # Pattern to match each pair block
-        pair_pattern = r'<pair>(.*?)</pair>'
+        pair_pattern = r"<pair>(.*?)</pair>"
         pair_matches = re.findall(pair_pattern, xml_content, re.DOTALL)
-        
+
         for pair_content in pair_matches:
             # Extract individual components using regex
-            current_subtask = self._extract_tag_content(pair_content, 'current_subtask_category')
-            last_action = self._extract_tag_content(pair_content, 'last_action_taken')
-            last_outcome = self._extract_tag_content(pair_content, 'last_outcome_category')
-            key_context = self._extract_tag_content(pair_content, 'key_context')
-            action = self._extract_tag_content(pair_content, 'hypothetical_action')
-            
+            current_subtask = self._extract_tag_content(
+                pair_content, "current_subtask_category"
+            )
+            last_action = self._extract_tag_content(pair_content, "last_action_taken")
+            last_outcome = self._extract_tag_content(
+                pair_content, "last_outcome_category"
+            )
+            key_context = self._extract_tag_content(pair_content, "key_context")
+            action = self._extract_tag_content(pair_content, "hypothetical_action")
+
             # Create state tuple
             state_tuple = f"('{current_subtask}', '{last_action}', '{last_outcome}', '{key_context}')"
-            
+
             # Extract source step details
             source_details = {}
-            source_step_match = re.search(r'<source_step>(.*?)</source_step>', pair_content, re.DOTALL)
+            source_step_match = re.search(
+                r"<source_step>(.*?)</source_step>", pair_content, re.DOTALL
+            )
             if source_step_match:
                 source_content = source_step_match.group(1)
                 source_details = {
-                    'step_number': self._extract_tag_content(source_content, 'step_number'),
-                    'intended_action': self._extract_tag_content(source_content, 'intended_action'),
-                    'expected_outcome': self._extract_tag_content(source_content, 'expected_outcome'),
-                    'reasoning': self._extract_tag_content(source_content, 'reasoning')
+                    "step_number": self._extract_tag_content(
+                        source_content, "step_number"
+                    ),
+                    "intended_action": self._extract_tag_content(
+                        source_content, "intended_action"
+                    ),
+                    "expected_outcome": self._extract_tag_content(
+                        source_content, "expected_outcome"
+                    ),
+                    "reasoning": self._extract_tag_content(source_content, "reasoning"),
                 }
-            
-            pairs.append({
-                'state': state_tuple,
-                'action': action,
-                'details': source_details
-            })
-        
+
+            pairs.append(
+                {"state": state_tuple, "action": action, "details": source_details}
+            )
+
         return pairs
 
     def _extract_tag_content(self, xml_string: str, tag_name: str) -> str:
         """
         Extract content from a specific XML tag using regex.
-        
+
         Args:
             xml_string: XML string to search in
             tag_name: Name of the tag to extract
-            
+
         Returns:
             Content of the tag or empty string if not found
         """
-        pattern = f'<{tag_name}>(.*?)</{tag_name}>'
+        pattern = f"<{tag_name}>(.*?)</{tag_name}>"
         match = re.search(pattern, xml_string, re.DOTALL)
         return match.group(1).strip() if match else ""

@@ -6,17 +6,25 @@ import time
 import tracemalloc
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
-from adaptiq.core.abstract.integrations import BaseInstrumental
-from adaptiq.agents.crew_ai import CrewLogger, CrewConfig, CrewLogParser, CrewPromptParser
-from adaptiq.core.pipelines import AdaptiqRun
+
 import yaml
+
+from adaptiq.agents.crew_ai import (
+    CrewConfig,
+    CrewLogger,
+    CrewLogParser,
+    CrewPromptParser,
+)
+from adaptiq.core.abstract.integrations import BaseInstrumental
+from adaptiq.core.pipelines import AdaptiqRun
+
 
 class CrewInstrumental(BaseInstrumental):
     """
     A comprehensive instrumentation class for tracking and monitoring function execution,
     crew performance, and token usage with AdaptiQ pipeline integration.
     """
-    
+
     def __init__(self):
         """Initialize the Instrumental instance with fresh tracking data."""
         self._token_tracking: Dict[str, Any] = {}
@@ -40,8 +48,7 @@ class CrewInstrumental(BaseInstrumental):
                     metric.get("total_tokens", 0) for metric in crew_metrics
                 )
                 total_time = sum(
-                    metric.get("execution_time_seconds", 0)
-                    for metric in crew_metrics
+                    metric.get("execution_time_seconds", 0) for metric in crew_metrics
                 )
                 print(
                     f"[INSTRUMENT] Total tokens across all executions: {total_tokens:,}"
@@ -61,34 +68,48 @@ class CrewInstrumental(BaseInstrumental):
         except Exception as e:
             print(f"[INSTRUMENT] Warning: Error capturing crew metrics: {e}")
             crew_metrics = None
-    
-    def run(self, config_path: Optional[str] = None, enable_pipeline: bool = True, prompt_auto_update: bool = False, feedback: Optional[str] = None):
+
+    def run(
+        self,
+        config_path: Optional[str] = None,
+        enable_pipeline: bool = True,
+        prompt_auto_update: bool = False,
+        feedback: Optional[str] = None,
+    ):
         def decorator(func):
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
-            
+
                 base_config = CrewConfig(config_path=config_path, preload=True)
-                base_log_parser = CrewLogParser(logs_path=self.logs_path, output_path=os.path.join(self.current_dir, "results"))
-                base_prompt_parser = CrewPromptParser(config_data=base_config.get_config(), task=base_config.get_prompt(get_newest= True), tools=base_config.get_tools())
+                base_log_parser = CrewLogParser(
+                    logs_path=self.logs_path,
+                    output_path=os.path.join(self.current_dir, "results"),
+                )
+                base_prompt_parser = CrewPromptParser(
+                    config_data=base_config.get_config(),
+                    task=base_config.get_prompt(get_newest=True),
+                    tools=base_config.get_tools(),
+                )
 
                 adaptiq_run = AdaptiqRun(
-                    base_config=base_config, 
-                    base_log_parser=base_log_parser, 
-                    base_prompt_parser=base_prompt_parser, 
-                    feedback=feedback, 
-                    current_dir=self.current_dir, 
-                    template="crew-ai", 
+                    base_config=base_config,
+                    base_log_parser=base_log_parser,
+                    base_prompt_parser=base_prompt_parser,
+                    feedback=feedback,
+                    current_dir=self.current_dir,
+                    template="crew-ai",
                     prompt_auto_update=prompt_auto_update,
-                    allow_pipeline=enable_pipeline  
-                    )
-                
+                    allow_pipeline=enable_pipeline,
+                )
+
                 result = adaptiq_run.init_run(func=func, *args, **kwargs)
 
-                adaptiq_run.run(agent_metrics= self._agent_metrics)
+                adaptiq_run.run(agent_metrics=self._agent_metrics)
 
                 return {"original_result": result, "crew_metrics": self._agent_metrics}
 
             return wrapper
+
         return decorator
 
     def _get_alert_mode(self, config_path: str) -> Dict[str, Any]:
@@ -123,13 +144,14 @@ class CrewInstrumental(BaseInstrumental):
         Args:
             func (callable): The function that creates and returns an Agent.
         """
+
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):            
+        def wrapper(*args, **kwargs):
 
             # Create a step callback function that logs thoughts
             def step_callback(step_output):
                 """Callback to log agent steps/thoughts"""
-                
+
                 self.logger.log_thoughts(step_output)
 
             # Execute the original function to get the Agent
@@ -152,6 +174,7 @@ class CrewInstrumental(BaseInstrumental):
         Args:
             func (callable): The function that creates and returns a Task.
         """
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
 
@@ -185,6 +208,7 @@ class CrewInstrumental(BaseInstrumental):
             def run_crew(self):
                 return self.crew().kickoff(inputs={"topic": "AI"})
         """
+
         def decorator(func: Callable) -> Callable:
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -253,9 +277,15 @@ class CrewInstrumental(BaseInstrumental):
                 if token_usage:
                     metrics["total_tokens"] = getattr(token_usage, "total_tokens", 0)
                     metrics["prompt_tokens"] = getattr(token_usage, "prompt_tokens", 0)
-                    metrics["completion_tokens"] = getattr(token_usage, "completion_tokens", 0)
-                    metrics["cached_prompt_tokens"] = getattr(token_usage, "cached_prompt_tokens", 0)
-                    metrics["successful_requests"] = getattr(token_usage, "successful_requests", 0)
+                    metrics["completion_tokens"] = getattr(
+                        token_usage, "completion_tokens", 0
+                    )
+                    metrics["cached_prompt_tokens"] = getattr(
+                        token_usage, "cached_prompt_tokens", 0
+                    )
+                    metrics["successful_requests"] = getattr(
+                        token_usage, "successful_requests", 0
+                    )
 
                 # Store metrics in instance variable
                 self._agent_metrics.append(metrics)
@@ -265,13 +295,19 @@ class CrewInstrumental(BaseInstrumental):
                     print("\n" + "=" * 50)
                     print("🚀 CREW PERFORMANCE METRICS")
                     print("=" * 50)
-                    print(f"🔢 Execution #{current_execution} (Total: {self._crew_counter})")
-                    print(f"⏱️ Execution Time: {metrics['execution_time_seconds']}s ({metrics['execution_time_minutes']} min)")
+                    print(
+                        f"🔢 Execution #{current_execution} (Total: {self._crew_counter})"
+                    )
+                    print(
+                        f"⏱️ Execution Time: {metrics['execution_time_seconds']}s ({metrics['execution_time_minutes']} min)"
+                    )
                     print(f"🧠 Current Memory: {metrics['current_memory_mb']} MB")
                     print(f"📊 Peak Memory: {metrics['peak_memory_mb']} MB")
                     print(f"🔢 Total Tokens: {metrics['total_tokens']:,}")
                     print(f"📝 Prompt Tokens: {metrics['prompt_tokens']:,}")
-                    print(f"💾 Cached Prompt Tokens: {metrics['cached_prompt_tokens']:,}")
+                    print(
+                        f"💾 Cached Prompt Tokens: {metrics['cached_prompt_tokens']:,}"
+                    )
                     print(f"✅ Completion Tokens: {metrics['completion_tokens']:,}")
                     print(f"🔄 Successful Requests: {metrics['successful_requests']}")
 
@@ -279,7 +315,9 @@ class CrewInstrumental(BaseInstrumental):
                     if models_used:
                         print("🤖 Models Used:")
                         for model_info in models_used:
-                            print(f"   • {model_info['agent_role']}: {model_info['model']}")
+                            print(
+                                f"   • {model_info['agent_role']}: {model_info['model']}"
+                            )
                     else:
                         print("🤖 Models Used: Unable to detect")
 
@@ -288,6 +326,7 @@ class CrewInstrumental(BaseInstrumental):
                 return result
 
             return wrapper
+
         return decorator
 
     def get_token_stats(self, mode: Optional[str] = None) -> Dict[str, Any]:
@@ -358,7 +397,9 @@ class CrewInstrumental(BaseInstrumental):
         Returns:
             List[Dict[str, Any]]: List of all metrics collected from crew executions
         """
-        return self._agent_metrics.copy()  # Return a copy to prevent external modification
+        return (
+            self._agent_metrics.copy()
+        )  # Return a copy to prevent external modification
 
     def reset_crew_metrics(self) -> None:
         """
@@ -368,7 +409,9 @@ class CrewInstrumental(BaseInstrumental):
         self._agent_metrics = []
         print("🔄 Crew metrics and counter have been reset.")
 
-    def update_token_tracking(self, mode: str, input_tokens: int, output_tokens: int) -> None:
+    def update_token_tracking(
+        self, mode: str, input_tokens: int, output_tokens: int
+    ) -> None:
         """
         Update token tracking for a specific mode.
 
@@ -387,7 +430,7 @@ class CrewInstrumental(BaseInstrumental):
 
         self._token_tracking[mode]["total_input_tokens"] += input_tokens
         self._token_tracking[mode]["total_output_tokens"] += output_tokens
-        self._token_tracking[mode]["total_tokens"] += (input_tokens + output_tokens)
+        self._token_tracking[mode]["total_tokens"] += input_tokens + output_tokens
         self._token_tracking[mode]["total_calls"] += 1
 
 

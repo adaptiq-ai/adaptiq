@@ -1,4 +1,3 @@
-
 import datetime
 import json
 import os
@@ -6,21 +5,20 @@ import re
 from abc import ABC, abstractmethod
 
 
-
 class BaseAgentLogger(ABC):
     """
     Abstract base class for CrewAI agent logging implementations.
-    
+
     This base class defines the interface that all logger implementations must follow.
     It provides common initialization and utility methods while requiring subclasses
     to implement the core logging methods for agent thoughts and task summaries.
-    
+
     """
-    
+
     def __init__(self, log_file="log.txt", json_file="log.json"):
         """
         Initialize the base logger with file paths.
-        
+
         Args:
             log_file (str, optional): Path to the human‑readable plaintext log
                 file. Written in append mode. Defaults to "log.txt".
@@ -30,27 +28,27 @@ class BaseAgentLogger(ABC):
         self.log_file = log_file
         self.json_file = json_file
         self._initialize_files()
-    
+
     def _initialize_files(self):
         """
         Initialize log files if they don't exist.
-        
+
         This method can be overridden by subclasses to customize file initialization.
         """
         # Initialize JSON log file with array if not existing
         if not os.path.exists(self.json_file):
             with open(self.json_file, "w", encoding="utf-8") as f:
                 json.dump([], f, ensure_ascii=False, indent=2)
-    
+
     def _get_timestamp(self):
         """
         Get the current timestamp formatted for logging.
-        
+
         Returns:
             str: Formatted timestamp string
         """
         return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     def _append_to_json(self, log_data):
         """
         Append a structured log entry to the JSON log file.
@@ -78,7 +76,7 @@ class BaseAgentLogger(ABC):
             f.seek(0)
             json.dump(data, f, ensure_ascii=False, indent=2)
             f.truncate()
-    
+
     @abstractmethod
     def log_thoughts(self, formatted_answer):
         """
@@ -94,7 +92,7 @@ class BaseAgentLogger(ABC):
                 Object produced during agent execution.
         """
         pass
-    
+
     @abstractmethod
     def log_task(self, output):
         """

@@ -1,10 +1,18 @@
 import logging
 from typing import Any, Dict, List
 
-from adaptiq.core.entities import ReconciliationResults, ValidationResults
-from adaptiq.core.reporting.aggregation.helpers import DataProcessor, MetricsCalculator, ReportBuilder
+from adaptiq.core.entities import (
+    AdaptiQConfig,
+    ReconciliationResults,
+    ValidationResults,
+)
+from adaptiq.core.reporting.aggregation.helpers import (
+    DataProcessor,
+    MetricsCalculator,
+    ReportBuilder,
+)
 from adaptiq.core.reporting.monitoring import AdaptiqLogger
-from adaptiq.core.entities import AdaptiQConfig
+
 
 class Aggregator:
     """
@@ -20,6 +28,7 @@ class Aggregator:
 
     Designed for use in LLM evaluation, benchmarking, and reporting pipelines.
     """
+
     def __init__(self, config_data: AdaptiQConfig, original_prompt: str):
         """Initialize the aggregator with pricing information for different models."""
         # Set up logging
@@ -29,7 +38,7 @@ class Aggregator:
         )
         self.logger = logging.getLogger("ADAPTIQ-Aggregator")
         self.original_prompt = original_prompt
-        
+
         self.config_data = config_data
         self.email = self.config_data.email
 
@@ -49,8 +58,10 @@ class Aggregator:
 
         # Initialize metrics calculator and report builder
         self.data_processor = DataProcessor()
-        self.metrics_calculator = MetricsCalculator(config_data=self.config_data, pricings= self.pricings)
-        self.report_builder = ReportBuilder(config_data= self.config_data)
+        self.metrics_calculator = MetricsCalculator(
+            config_data=self.config_data, pricings=self.pricings
+        )
+        self.report_builder = ReportBuilder(config_data=self.config_data)
         self.tracer = AdaptiqLogger.setup()
 
     def increment_run_count(self) -> int:
@@ -108,8 +119,13 @@ class Aggregator:
         """
         self._default_run_mode = default_run_mode
         return self.metrics_calculator.update_avg_run_tokens(
-            pre_input, pre_output, post_input, post_output, 
-            recon_input, recon_output, default_run_mode
+            pre_input,
+            pre_output,
+            post_input,
+            post_output,
+            recon_input,
+            recon_output,
+            default_run_mode,
         )
 
     def get_avg_run_tokens(self) -> tuple:
@@ -192,7 +208,9 @@ class Aggregator:
         """
         return self.metrics_calculator.calculate_performance_score()
 
-    def parse_log_file(self, log_file_path: str, task_name: str) -> List[Dict[str, Any]]:
+    def parse_log_file(
+        self, log_file_path: str, task_name: str
+    ) -> List[Dict[str, Any]]:
         """
         Parse a JSON log file and extract tool usage information.
 
@@ -206,7 +224,7 @@ class Aggregator:
         return self.data_processor.parse_log_file(log_file_path, task_name)
 
     def estimate_prompt_tokens(
-        self,  suggested_prompt: str, model_name: str = "gpt-4"
+        self, suggested_prompt: str, model_name: str = "gpt-4"
     ) -> tuple:
         """
         Estimate token counts for original and suggested prompts.
@@ -231,17 +249,21 @@ class Aggregator:
         """
         # Get metrics for summary
         avg_reward = (
-            round(self.metrics_calculator.get_reward_sum() / self._run_count, 3) 
-            if self._run_count else 0.0
+            round(self.metrics_calculator.get_reward_sum() / self._run_count, 3)
+            if self._run_count
+            else 0.0
         )
         overall_avg_tokens, _, _ = self.get_avg_run_tokens()
         total_cost = (
             round(self.calculate_avg_cost() * self._run_count, 3)
-            if self._run_count else 0.0
+            if self._run_count
+            else 0.0
         )
         avg_time = round(self.get_avg_run_time(), 2)
         avg_errors = self.get_avg_errors()
-        error_rate = round((avg_errors / self._run_count) * 100, 1) if self._run_count else 0.0
+        error_rate = (
+            round((avg_errors / self._run_count) * 100, 1) if self._run_count else 0.0
+        )
 
         # Build summary metrics
         summary_metrics = self.report_builder.build_summary_metrics(
@@ -253,7 +275,9 @@ class Aggregator:
             error_rate=error_rate,
         )
 
-        return self.report_builder.build_project_result(self._run_count, summary_metrics)
+        return self.report_builder.build_project_result(
+            self._run_count, summary_metrics
+        )
 
     def build_run_summary(
         self,
@@ -277,7 +301,7 @@ class Aggregator:
         pre = self.metrics_calculator.run_tokens["pre_tokens"]
         post = self.metrics_calculator.run_tokens["post_tokens"]
         recon = self.metrics_calculator.run_tokens["recon_tokens"]
-        
+
         total_input_tokens = int(pre["input"] + post["input"] + recon["input"])
         total_output_tokens = int(pre["output"] + post["output"] + recon["output"])
         total_tokens = total_input_tokens + total_output_tokens
@@ -289,7 +313,9 @@ class Aggregator:
 
         # Calculate performance score and current run cost
         performance_score = self.calculate_performance_score()
-        current_run_cost = self.calculate_current_run_cost(total_input_tokens, total_output_tokens)
+        current_run_cost = self.calculate_current_run_cost(
+            total_input_tokens, total_output_tokens
+        )
 
         return self.report_builder.build_run_summary(
             run_number=self._run_count,
@@ -327,14 +353,14 @@ class Aggregator:
     ):
         """
         Build and add a run summary to the runs list.
-        """      
+        """
         task_name = "Under-Fixing (Dev msg)"
 
         # Calculate token totals from metrics calculator
         pre = self.metrics_calculator.run_tokens["pre_tokens"]
         post = self.metrics_calculator.run_tokens["post_tokens"]
         recon = self.metrics_calculator.run_tokens["recon_tokens"]
-        
+
         total_input_tokens = int(pre["input"] + post["input"] + recon["input"])
         total_output_tokens = int(pre["output"] + post["output"] + recon["output"])
         total_tokens = total_input_tokens + total_output_tokens
@@ -346,7 +372,9 @@ class Aggregator:
 
         # Calculate performance score and current run cost
         performance_score = self.calculate_performance_score()
-        current_run_cost = self.calculate_current_run_cost(total_input_tokens, total_output_tokens)
+        current_run_cost = self.calculate_current_run_cost(
+            total_input_tokens, total_output_tokens
+        )
 
         self.report_builder.add_run_summary(
             run_number=self._run_count,
@@ -432,16 +460,14 @@ class Aggregator:
         pre = self.metrics_calculator.run_tokens["pre_tokens"]
         post = self.metrics_calculator.run_tokens["post_tokens"]
         recon = self.metrics_calculator.run_tokens["recon_tokens"]
-        
+
         total_input_tokens = int(pre["input"] + post["input"] + recon["input"])
         total_output_tokens = int(pre["output"] + post["output"] + recon["output"])
 
         # Get log file path for tools (if not in default mode)
         log_file_path = None
         if not self._default_run_mode:
-            log_file_path = (
-                self.config_data.framework_adapter.settings.log_source.path
-            )
+            log_file_path = self.config_data.framework_adapter.settings.log_source.path
 
         # Parse tools if needed
         tools_used = []
@@ -543,7 +569,7 @@ class Aggregator:
     ):
         """
         Set the last run data for performance calculation.
-        
+
         Args:
             reward (float): Reward for the last run
             run_time_seconds (float): Execution time in seconds
@@ -555,26 +581,26 @@ class Aggregator:
         )
 
     def aggregate_results(
-    self, 
-    agent_metrics: List[Dict] = None, 
-    validation_results: ValidationResults = None,
-    reconciliation_results: ReconciliationResults = None,
-    should_send_report: bool = True,
+        self,
+        agent_metrics: List[Dict] = None,
+        validation_results: ValidationResults = None,
+        reconciliation_results: ReconciliationResults = None,
+        should_send_report: bool = True,
     ) -> bool:
         """
         Aggregate results from agent metrics and build comprehensive reports.
-        
+
         Args:
             agent_metrics (List[Dict]): List of agent metrics dictionaries.
             validation_results (ValidationResults): Results from the validation pipeline.
             reconciliation_results (ReconciliationResults): Results from the reconciliation pipeline.
             should_send_report (bool): Whether to send the report after aggregation.
-            
+
         Returns:
             bool: True if successful, False if error occurred
         """
         run_prefix = f"[RUN {self._run_count}] " if self._run_count is not None else ""
-        
+
         try:
             # Process agent metrics and calculate totals
             total_execution_time = 0
@@ -584,7 +610,11 @@ class Aggregator:
             total_successful_requests = 0
 
             if agent_metrics:
-                logging.info("%sProcessing %s crew metrics entries...", run_prefix, len(agent_metrics))
+                logging.info(
+                    "%sProcessing %s crew metrics entries...",
+                    run_prefix,
+                    len(agent_metrics),
+                )
 
                 for i, metrics in enumerate(agent_metrics):
                     execution_time_seconds = metrics.get("execution_time_seconds", 0)
@@ -602,26 +632,38 @@ class Aggregator:
 
                     logging.info(
                         "%sMetrics %s/%s: time=%.2fs, tokens=%s, requests=%s",
-                        run_prefix, i + 1, len(agent_metrics), execution_time_seconds,
-                        prompt_tokens + completion_tokens, successful_requests
+                        run_prefix,
+                        i + 1,
+                        len(agent_metrics),
+                        execution_time_seconds,
+                        prompt_tokens + completion_tokens,
+                        successful_requests,
                     )
 
             logging.info(
                 "%sAgent token stats: input=%s, output=%s, calls=%s",
-                run_prefix, total_prompt_tokens, total_completion_tokens, total_successful_requests
+                run_prefix,
+                total_prompt_tokens,
+                total_completion_tokens,
+                total_successful_requests,
             )
             logging.info(
                 "%sTotal execution time: %.2f seconds, Peak memory usage: %.2f MB",
-                run_prefix, total_execution_time, total_peak_memory
+                run_prefix,
+                total_execution_time,
+                total_peak_memory,
             )
 
             # Calculate average reward
             avg_reward = self.calculate_avg_reward(
-                validation_results=validation_results, 
-                reward_type="execution"
+                validation_results=validation_results, reward_type="execution"
             )
 
-            new_prompt = reconciliation_results.summary.new_prompt if reconciliation_results else ""
+            new_prompt = (
+                reconciliation_results.summary.new_prompt
+                if reconciliation_results
+                else ""
+            )
 
             # Process each crew metrics entry and add to aggregator
             if agent_metrics:
@@ -665,15 +707,27 @@ class Aggregator:
                         execution_logs=self.tracer.get_logs(),
                     )
 
-                    logging.info("%sAdded run summary for execution %s", run_prefix, execution_count)
+                    logging.info(
+                        "%sAdded run summary for execution %s",
+                        run_prefix,
+                        execution_count,
+                    )
             else:
                 # Handle case where no crew metrics provided - add single summary
-                logging.info("%sNo crew metrics provided, adding single run summary...", run_prefix)
+                logging.info(
+                    "%sNo crew metrics provided, adding single run summary...",
+                    run_prefix,
+                )
 
                 self.increment_run_count()
                 self.update_avg_run_tokens(
-                    pre_input=0, pre_output=0, post_input=0, post_output=0,
-                    recon_input=0, recon_output=0, default_run_mode=False,
+                    pre_input=0,
+                    pre_output=0,
+                    post_input=0,
+                    post_output=0,
+                    recon_input=0,
+                    recon_output=0,
+                    default_run_mode=False,
                 )
                 self.update_avg_run_time(0)
                 self.update_error_count(0)
@@ -693,7 +747,10 @@ class Aggregator:
 
             # Send results if requested
             if should_send_report:
-                logging.info("%sBuilding and sending comprehensive project results...", run_prefix)
+                logging.info(
+                    "%sBuilding and sending comprehensive project results...",
+                    run_prefix,
+                )
 
                 # Build project result JSON (now contains ALL runs)
                 project_result = self.build_project_result()
@@ -706,19 +763,28 @@ class Aggregator:
                 if self.email != "":
                     success = self.send_run_results(merged_result)
                     if success:
-                        logging.info("%sSuccessfully sent comprehensive run results to reporting endpoint", run_prefix)
+                        logging.info(
+                            "%sSuccessfully sent comprehensive run results to reporting endpoint",
+                            run_prefix,
+                        )
                     else:
-                        logging.warning("%sFailed to send run results to reporting endpoint", run_prefix)
+                        logging.warning(
+                            "%sFailed to send run results to reporting endpoint",
+                            run_prefix,
+                        )
                 else:
                     logging.info("%sResults are successfully saved locally", run_prefix)
             else:
-                logging.info("%sRun summaries added to aggregator - report will be sent when all runs complete", run_prefix)
+                logging.info(
+                    "%sRun summaries added to aggregator - report will be sent when all runs complete",
+                    run_prefix,
+                )
 
             return True
 
         except Exception as e:
             logging.error("%sError during aggregation: %s", run_prefix, str(e))
-            
+
             # Handle errors for all runs if agent_metrics provided
             if agent_metrics:
                 for i, metrics in enumerate(agent_metrics):
@@ -763,10 +829,16 @@ class Aggregator:
 
             # Send results even for failed runs if requested
             if should_send_report:
-                logging.info("%sBuilding and sending project results for failed run...", run_prefix)
+                logging.info(
+                    "%sBuilding and sending project results for failed run...",
+                    run_prefix,
+                )
                 project_result = self.build_project_result()
                 self.send_run_results(project_result)
             else:
-                logging.info("%sFailed run summary added to aggregator - report will be sent when all runs complete", run_prefix)
+                logging.info(
+                    "%sFailed run summary added to aggregator - report will be sent when all runs complete",
+                    run_prefix,
+                )
 
             return False

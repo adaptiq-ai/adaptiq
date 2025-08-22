@@ -1,21 +1,28 @@
 import logging
 import os
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from adaptiq.core.entities import TaskIntent, HypotheticalStateRepresentation, FormattedAnalysis, StatusSummary
+from adaptiq.core.entities import (
+    AgentTool,
+    FormattedAnalysis,
+    HypotheticalStateRepresentation,
+    StatusSummary,
+    TaskIntent,
+)
 from adaptiq.core.q_table.q_table_manager import QTableManager
-from adaptiq.core.entities import AgentTool
+
 
 class PromptEstimator:
     """
     PromptEstimator generates optimized system prompts for agents based on pre-run pipeline analysis results.
-    
+
     This class takes the results from various pre-run components (parsing, hypothetical states, Q-table, analysis)
     and uses an LLM to synthesize an improved system prompt that incorporates best practices and recommendations.
     """
-    
+
     def __init__(
         self,
         status: StatusSummary,
@@ -27,11 +34,11 @@ class PromptEstimator:
         offline_learner: Optional[QTableManager] = None,
         prompt_analysis: Optional[FormattedAnalysis] = None,
         agent_tools: Optional[List[AgentTool]] = None,
-        output_path: Optional[str] = None
+        output_path: Optional[str] = None,
     ):
         """
         Initialize the PromptPreEstimator.
-        
+
         Args:
             status: StatusSummary object containing the status of pre-run components.
             old_prompt: The original prompt to be optimized.
@@ -46,7 +53,7 @@ class PromptEstimator:
         """
         # Configure logging
         self.logger = logging.getLogger("PromptPreEstimator")
-        
+
         # Store core parameters
         self.status = status
         self.old_prompt = old_prompt
@@ -59,16 +66,14 @@ class PromptEstimator:
         self.prompt_analysis = prompt_analysis or {}
         self.agent_tools = agent_tools or []
         self.output_path = output_path
-        
+
         # Process agent tools into string format
         self.tool_strings = [
             f"{tool_dict.name}: {tool_dict.description}"
             for tool_dict in self.agent_tools
         ]
         self.tools_string = "\n".join(self.tool_strings)
-        
 
-    
     def generate_estimated_prompt(self) -> str:
         """
         Generate an optimized system prompt for the agent based on the pre-run pipeline results.
@@ -137,7 +142,7 @@ class PromptEstimator:
                 num_hypothetical_states=num_hypothetical_states,
                 q_table_size=q_table_size,
                 key_heuristics=key_heuristics,
-                prompt_analysis_summary=prompt_analysis_summary
+                prompt_analysis_summary=prompt_analysis_summary,
             )
 
             # Save the report if output path is provided
@@ -152,15 +157,17 @@ class PromptEstimator:
         except Exception as e:
             self.logger.error(f"Report generation failed: {str(e)}")
             return f"Failed to generate report: {str(e)}"
-    
+
     def _analyze_heuristics(self) -> Dict[str, int]:
         """Analyze Q-table heuristics and count their applications."""
         heuristic_counts = {}
-        
+
         if not self.offline_learner or not hasattr(self.offline_learner, "Q_table"):
             return heuristic_counts
-            
-        for i, hypothetical_step in enumerate(self.hypothetical_states[:20]):  # Sample from first 20 states
+
+        for i, hypothetical_step in enumerate(
+            self.hypothetical_states[:20]
+        ):  # Sample from first 20 states
             state_repr = hypothetical_step.state
             action = hypothetical_step.action
 
@@ -172,7 +179,9 @@ class PromptEstimator:
 
                 # Infer which heuristics might have been applied based on Q-value
                 if q_value < 0:
-                    if "undeclared_tool" in action.lower() or not any(tool.name in action for tool in self.agent_tools):
+                    if "undeclared_tool" in action.lower() or not any(
+                        tool.name in action for tool in self.agent_tools
+                    ):
                         heuristic_counts["undeclared_tool_penalty"] = (
                             heuristic_counts.get("undeclared_tool_penalty", 0) + 1
                         )
@@ -189,14 +198,15 @@ class PromptEstimator:
                             heuristic_counts["good_first_step_reward"] = (
                                 heuristic_counts.get("good_first_step_reward", 0) + 1
                             )
-        
+
         return heuristic_counts
-    
+
     def _parse_state_key(self, state_repr: Any) -> Any:
         """Parse state representation to appropriate format."""
         state_key = None
         try:
             import ast
+
             if (
                 isinstance(state_repr, str)
                 and state_repr.strip().startswith("(")
@@ -208,7 +218,7 @@ class PromptEstimator:
         except ValueError:
             state_key = state_repr
         return state_key
-    
+
     def _create_prompt_analysis_summary(self) -> str:
         """Create a formatted summary of prompt analysis results."""
         weaknesses = self.prompt_analysis.weaknesses
@@ -230,9 +240,9 @@ class PromptEstimator:
             prompt_analysis_summary += "\nSuggested Modifications:\n"
             for suggestion in suggestions[:3]:  # Limit to first 3 for brevity
                 prompt_analysis_summary += f"- {suggestion}\n"
-        
+
         return prompt_analysis_summary
-    
+
     def _generate_prompt_with_llm(
         self,
         num_parsed_steps: int,
@@ -240,7 +250,7 @@ class PromptEstimator:
         num_hypothetical_states: int,
         q_table_size: int,
         key_heuristics: List[str],
-        prompt_analysis_summary: str
+        prompt_analysis_summary: str,
     ) -> str:
         """Generate the optimized prompt using LLM."""
         # Create LLM report generation prompt
@@ -304,7 +314,7 @@ class PromptEstimator:
         - Additional commentary or analysis
         - Formatting beyond the prompt itself
         """
-        
+
         # Create the prompt
         prompt = ChatPromptTemplate.from_template(template)
 
@@ -316,7 +326,9 @@ class PromptEstimator:
             num_parsed_steps=num_parsed_steps,
             first_few_subtasks=", ".join(first_few_subtasks),
             num_hypothetical_states=num_hypothetical_states,
-            hypothetical_states_sample=[item.state for item in self.hypothetical_states],
+            hypothetical_states_sample=[
+                item.state for item in self.hypothetical_states
+            ],
             q_table_size=q_table_size,
             key_heuristics=(
                 ", ".join(key_heuristics) if key_heuristics else "None identified"
@@ -327,18 +339,18 @@ class PromptEstimator:
         # Generate the report
         response = self.llm.invoke(formatted_prompt)
         return response.content
-    
+
     def _save_report(self, report: str) -> None:
         """Save the generated report to file."""
         if not self.output_path:
             return
-            
+
         try:
             os.makedirs(self.output_path, exist_ok=True)
             report_path = os.path.join(
                 self.output_path, "adaptiq_analysis_pre_run_report.txt"
             )
-            
+
             with open(report_path, "w", encoding="utf-8") as f:
                 f.write(report)
             self.logger.info("Report saved to %s", report_path)

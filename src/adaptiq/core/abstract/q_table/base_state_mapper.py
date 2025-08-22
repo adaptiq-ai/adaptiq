@@ -1,20 +1,23 @@
-from abc import ABC, abstractmethod
 import ast
+from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
-from adaptiq.core.entities import StateActionMapping, ClassificationResponse, ClassificationEntry
+
+from adaptiq.core.entities import (
+    ClassificationEntry,
+    ClassificationResponse,
+    StateActionMapping,
+)
+
 
 class BaseStateMapper(ABC):
     """
     Abstract base class for matching execution trace states with Q-table states.
     """
 
-    def __init__(
-        self,
-        warmed_qtable_data: Dict[str, Any],
-        llm: BaseChatModel
-    ):
+    def __init__(self, warmed_qtable_data: Dict[str, Any], llm: BaseChatModel):
         """
         Initialize the StateMapper.
 
@@ -25,18 +28,18 @@ class BaseStateMapper(ABC):
         self.llm = llm
         # Store the Q-table data
         self.qtable = warmed_qtable_data.get("Q_table", {})
-        
+
         # Combine states from Q-table and seen_states, ensuring uniqueness
         self.known_states = set(self.qtable.keys())
         for state in warmed_qtable_data.get("seen_states", []):
             self.known_states.add(state)
-        
+
         # Convert to a list for easier processing
         self.known_states = list(self.known_states)
-        
+
         # Parse states for better matching
         self.parsed_states = self._parse_known_states()
-        
+
         # Create classification prompt template
         self.classification_prompt_template = self._create_classification_prompt()
 
@@ -67,19 +70,21 @@ class BaseStateMapper(ABC):
                 parsed_states.append((state_str, [state_str]))
 
         return parsed_states
-    
+
     @abstractmethod
     def _create_classification_prompt(self) -> ChatPromptTemplate:
         """
         Create the prompt template for state classification.
-        
+
         Returns:
             ChatPromptTemplate instance
         """
         pass
 
     @abstractmethod
-    def _invoke_llm_for_classification(self, input_state: StateActionMapping) -> ClassificationResponse:
+    def _invoke_llm_for_classification(
+        self, input_state: StateActionMapping
+    ) -> ClassificationResponse:
         """
         Invoke the LLM to classify a state.
 
@@ -91,7 +96,9 @@ class BaseStateMapper(ABC):
         """
         pass
 
-    def _validate_classification(self, classification_output: ClassificationResponse) -> ClassificationResponse:
+    def _validate_classification(
+        self, classification_output: ClassificationResponse
+    ) -> ClassificationResponse:
         """
         Validate the classification output from the LLM.
 
@@ -118,7 +125,9 @@ class BaseStateMapper(ABC):
         classification_output.classification = classification
         return classification_output
 
-    def classify_states(self, input_states: List[StateActionMapping]) -> List[ClassificationEntry]:
+    def classify_states(
+        self, input_states: List[StateActionMapping]
+    ) -> List[ClassificationEntry]:
         """
         Classify input states against the known states.
 

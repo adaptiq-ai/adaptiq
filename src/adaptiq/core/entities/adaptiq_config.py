@@ -1,5 +1,6 @@
-from typing import List, Optional
 from enum import Enum
+from typing import List, Optional
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -35,7 +36,6 @@ class LogSourceConfig(BaseModel):
 class FrameworkAdapterSettings(BaseModel):
     execution_mode: str = Field("prod", description="Execution mode: dev or prod")
     log_source: LogSourceConfig
-
 
 
 class FrameworkAdapter(BaseModel):

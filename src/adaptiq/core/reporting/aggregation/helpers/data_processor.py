@@ -14,13 +14,15 @@ class DataProcessor:
     Handles all file I/O operations, parsing, data extraction, and external communication
     for the ADAPTIQ aggregation system.
     """
+
     def __init__(self):
         """Initialize the data processor."""
         self.logger = logging.getLogger("ADAPTIQ-Aggregator-DataProcessor")
         self.adaptiq_cloud = AdaptiqCloud()
 
-
-    def parse_log_file(self, log_file_path: str, task_name: str) -> List[Dict[str, Any]]:
+    def parse_log_file(
+        self, log_file_path: str, task_name: str
+    ) -> List[Dict[str, Any]]:
         """
         Parse a JSON log file and extract tool usage information.
 
@@ -187,7 +189,9 @@ class DataProcessor:
 
             # Check if file exists
             if not os.path.exists(default_file_path):
-                print("No existing default_run.json found. Using new data as initial report.")
+                print(
+                    "No existing default_run.json found. Using new data as initial report."
+                )
                 return new_json_data
 
             # Load the existing default report

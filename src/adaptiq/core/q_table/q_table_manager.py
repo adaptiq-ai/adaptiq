@@ -11,7 +11,12 @@ import warnings
 from typing import Dict, List
 
 from adaptiq.core.abstract.q_table.base_q_table_manager import BaseQTableManager
-from adaptiq.core.entities.q_table import QTablePayload, QTableState, QTableAction, QTableQValue
+from adaptiq.core.entities.q_table import (
+    QTableAction,
+    QTablePayload,
+    QTableQValue,
+    QTableState,
+)
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -64,7 +69,7 @@ class QTableManager(BaseQTableManager):
         # Update the Q-table - ensure state exists in table
         if s not in self.Q_table:
             self.Q_table[s] = {}
-        
+
         # Update or create the Q-value
         self.Q_table[s][a] = QTableQValue(q_value=new_Q_sa)
 
@@ -72,13 +77,9 @@ class QTableManager(BaseQTableManager):
         self.seen_states.add(s)
 
         # Log
-        logger.debug(
-            f"State: {s.current_subtask}, Action: {a.action}"
-        )
+        logger.debug(f"State: {s.current_subtask}, Action: {a.action}")
         logger.debug(
             f"Formula: {Q_sa:.4f} + {self.alpha:.2f} * ({R:.2f} + {self.gamma:.2f} * {max_Q_s_prime:.4f} - {Q_sa:.4f}) = {new_Q_sa:.4f}"
         )
 
         return new_Q_sa
-
-    

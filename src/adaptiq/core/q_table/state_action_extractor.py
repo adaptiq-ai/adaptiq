@@ -1,9 +1,13 @@
 import json
 import re
 from typing import Dict, Tuple
-from langchain_core.prompts import  PromptTemplate
-from adaptiq.core.abstract.q_table.base_state_action_extractor import BaseStateActionExtractor
-from adaptiq.core.entities import ProcessedLogs, LogItem, LogState
+
+from langchain_core.prompts import PromptTemplate
+
+from adaptiq.core.abstract.q_table.base_state_action_extractor import (
+    BaseStateActionExtractor,
+)
+from adaptiq.core.entities import LogItem, LogState, ProcessedLogs
 from adaptiq.core.entities.adaptiq_parsers import StateActionMapping
 
 
@@ -63,11 +67,13 @@ class StateActionExtractor(BaseStateActionExtractor):
             action_str = log_data.key.agent_action
 
             return state_dict, action_str
-        
+
         except Exception as e:
             raise ValueError(f"Failed to extract state and action: {str(e)}")
 
-    def _transform_with_llm(self, state_dict: LogState, action_str: str) -> StateActionMapping:
+    def _transform_with_llm(
+        self, state_dict: LogState, action_str: str
+    ) -> StateActionMapping:
         """
         Use LangChain and OpenAI to transform the extracted state and action.
 

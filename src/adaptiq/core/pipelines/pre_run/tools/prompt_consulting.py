@@ -23,7 +23,7 @@ class PromptConsulting:
         """
         self.agent_prompt = agent_prompt
         self.llm = llm
-        
+
         self.analysis_template = ChatPromptTemplate.from_template(
             """
         You are an expert Prompt Consultant for AI Agents.
@@ -93,73 +93,81 @@ class PromptConsulting:
     def _parse_xml_response(self, xml_content: str) -> Dict:
         """
         Parse XML response from LLM into a dictionary.
-        
+
         Args:
             xml_content: XML string from LLM response
-            
+
         Returns:
             Dictionary with parsed analysis components
         """
         # Clean up the XML content - remove any extra text before/after XML
         xml_content = xml_content.strip()
-        
+
         # Find the XML content between <analysis> tags if it exists
-        start_tag = xml_content.find('<analysis>')
-        end_tag = xml_content.find('</analysis>') + len('</analysis>')
-        
+        start_tag = xml_content.find("<analysis>")
+        end_tag = xml_content.find("</analysis>") + len("</analysis>")
+
         if start_tag != -1 and end_tag != -1:
             xml_content = xml_content[start_tag:end_tag]
-        
+
         # Parse the XML
         root = ET.fromstring(xml_content)
-        
+
         # Extract data from XML structure
         result = {
             "summary": self._get_text_content(root, "summary"),
             "strengths": self._get_list_content(root, "strengths", "strength"),
             "weaknesses": self._get_list_content(root, "weaknesses", "weakness"),
-            "suggested_modifications": self._get_list_content(root, "suggested_modifications", "modification"),
-            "best_practices": self._get_list_content(root, "best_practices", "practice"),
-            "missing_components": self._get_list_content(root, "missing_components", "component")
+            "suggested_modifications": self._get_list_content(
+                root, "suggested_modifications", "modification"
+            ),
+            "best_practices": self._get_list_content(
+                root, "best_practices", "practice"
+            ),
+            "missing_components": self._get_list_content(
+                root, "missing_components", "component"
+            ),
         }
-        
+
         return result
 
     def _get_text_content(self, root: ET.Element, tag_name: str) -> str:
         """
         Extract text content from a single XML element.
-        
+
         Args:
             root: Root XML element
             tag_name: Name of the tag to extract text from
-            
+
         Returns:
             Text content of the element, or empty string if not found
         """
         element = root.find(tag_name)
         return element.text.strip() if element is not None and element.text else ""
 
-    def _get_list_content(self, root: ET.Element, parent_tag: str, child_tag: str) -> List[str]:
+    def _get_list_content(
+        self, root: ET.Element, parent_tag: str, child_tag: str
+    ) -> List[str]:
         """
         Extract list content from XML structure.
-        
+
         Args:
             root: Root XML element
             parent_tag: Name of the parent container tag
             child_tag: Name of the child item tags
-            
+
         Returns:
             List of text content from child elements
         """
         parent_element = root.find(parent_tag)
         if parent_element is None:
             return []
-        
+
         items = []
         for child in parent_element.findall(child_tag):
             if child.text:
                 items.append(child.text.strip())
-        
+
         return items
 
     def get_formatted_analysis(self, raw_analysis: Dict) -> FormattedAnalysis:
@@ -180,7 +188,7 @@ class PromptConsulting:
             weaknesses=raw_analysis.get("weaknesses", []),
             suggested_modifications=raw_analysis.get("suggested_modifications", []),
             best_practices=raw_analysis.get("best_practices", []),
-            missing_components=raw_analysis.get("missing_components", [])
+            missing_components=raw_analysis.get("missing_components", []),
         )
 
         return formatted_analysis

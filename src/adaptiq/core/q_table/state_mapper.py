@@ -1,9 +1,15 @@
+import logging
 import re
 import xml.etree.ElementTree as ET
-import logging
+
 from langchain_core.prompts import ChatPromptTemplate
+
 from adaptiq.core.abstract.q_table.base_state_mapper import BaseStateMapper
-from adaptiq.core.entities import StateActionMapping, ClassificationResponse, Classification
+from adaptiq.core.entities import (
+    Classification,
+    ClassificationResponse,
+    StateActionMapping,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +78,9 @@ class StateMapper(BaseStateMapper):
 
         return ChatPromptTemplate.from_template(classification_template)
 
-    def _invoke_llm_for_classification(self, input_state: StateActionMapping) -> ClassificationResponse:
+    def _invoke_llm_for_classification(
+        self, input_state: StateActionMapping
+    ) -> ClassificationResponse:
         """
         Invoke the LLM to classify a state using XML output format.
 
@@ -90,7 +98,9 @@ class StateMapper(BaseStateMapper):
         # Create inputs for the LLM
         inputs = {
             "input_state": input_state.state,
-            "known_states": self._format_known_states_for_display(formatted_known_states),
+            "known_states": self._format_known_states_for_display(
+                formatted_known_states
+            ),
         }
 
         # Create and invoke the prompt
@@ -99,10 +109,10 @@ class StateMapper(BaseStateMapper):
 
         # Extract XML content from response
         xml_content = self._extract_xml_content(response.content)
-        
+
         # Parse XML and extract classification data
         classification_data = self._parse_xml_response(xml_content)
-        
+
         return ClassificationResponse(
             classification=Classification(**classification_data)
         )
@@ -110,10 +120,10 @@ class StateMapper(BaseStateMapper):
     def _format_known_states_for_display(self, formatted_known_states: list) -> str:
         """
         Format known states for display in the prompt.
-        
+
         Args:
             formatted_known_states: List of state dictionaries
-            
+
         Returns:
             Formatted string representation of known states
         """
@@ -128,10 +138,10 @@ class StateMapper(BaseStateMapper):
     def _extract_xml_content(self, content: str) -> str:
         """
         Extract XML content from LLM response, handling potential markdown wrapping.
-        
+
         Args:
             content: Raw LLM response content
-            
+
         Returns:
             Clean XML content
         """
@@ -149,7 +159,7 @@ class StateMapper(BaseStateMapper):
         # Look for XML content between <classification_result> tags
         xml_pattern = r"<classification_result>.*?</classification_result>"
         xml_match = re.search(xml_pattern, content, re.DOTALL)
-        
+
         if xml_match:
             return xml_match.group(0)
         else:
@@ -159,35 +169,35 @@ class StateMapper(BaseStateMapper):
     def _parse_xml_response(self, xml_content: str) -> dict:
         """
         Parse XML response and extract classification data.
-        
+
         Args:
             xml_content: XML string containing classification result
-            
+
         Returns:
             Dictionary with parsed classification data
         """
         try:
             # Parse XML
             root = ET.fromstring(xml_content)
-            
+
             # Extract classification components
-            is_known_state_str = self._get_xml_text(root, 'is_known_state')
-            matched_state = self._get_xml_text(root, 'matched_state')
-            reasoning = self._get_xml_text(root, 'reasoning')
-            
+            is_known_state_str = self._get_xml_text(root, "is_known_state")
+            matched_state = self._get_xml_text(root, "matched_state")
+            reasoning = self._get_xml_text(root, "reasoning")
+
             # Convert string boolean to actual boolean
-            is_known_state = is_known_state_str.lower() == 'true'
-            
+            is_known_state = is_known_state_str.lower() == "true"
+
             # Handle null matched_state
-            if matched_state.lower() == 'null' or matched_state == '':
+            if matched_state.lower() == "null" or matched_state == "":
                 matched_state = None
-            
+
             return {
-                'is_known_state': is_known_state,
-                'matched_state': matched_state,
-                'reasoning': reasoning
+                "is_known_state": is_known_state,
+                "matched_state": matched_state,
+                "reasoning": reasoning,
             }
-            
+
         except ET.ParseError as e:
             # If XML parsing fails, try regex fallback
             logger.warning(f"XML parsing error: {e}. Attempting regex fallback.")
@@ -196,11 +206,11 @@ class StateMapper(BaseStateMapper):
     def _get_xml_text(self, element: ET.Element, tag_name: str) -> str:
         """
         Safely extract text from XML element.
-        
+
         Args:
             element: XML element to search in
             tag_name: Tag name to find
-            
+
         Returns:
             Text content or empty string if not found
         """
@@ -210,42 +220,44 @@ class StateMapper(BaseStateMapper):
     def _parse_xml_with_regex(self, xml_content: str) -> dict:
         """
         Fallback regex-based XML parsing for malformed XML.
-        
+
         Args:
             xml_content: XML string to parse
-            
+
         Returns:
             Dictionary with extracted classification data
         """
         # Extract individual components using regex
-        is_known_state_str = self._extract_tag_content(xml_content, 'is_known_state')
-        matched_state = self._extract_tag_content(xml_content, 'matched_state')
-        reasoning = self._extract_tag_content(xml_content, 'reasoning')
-        
+        is_known_state_str = self._extract_tag_content(xml_content, "is_known_state")
+        matched_state = self._extract_tag_content(xml_content, "matched_state")
+        reasoning = self._extract_tag_content(xml_content, "reasoning")
+
         # Convert string boolean to actual boolean
-        is_known_state = is_known_state_str.lower() == 'true' if is_known_state_str else False
-        
+        is_known_state = (
+            is_known_state_str.lower() == "true" if is_known_state_str else False
+        )
+
         # Handle null matched_state
-        if matched_state.lower() == 'null' or matched_state == '':
+        if matched_state.lower() == "null" or matched_state == "":
             matched_state = None
-        
+
         return {
-            'is_known_state': is_known_state,
-            'matched_state': matched_state,
-            'reasoning': reasoning or "Error parsing LLM output"
+            "is_known_state": is_known_state,
+            "matched_state": matched_state,
+            "reasoning": reasoning or "Error parsing LLM output",
         }
 
     def _extract_tag_content(self, xml_string: str, tag_name: str) -> str:
         """
         Extract content from a specific XML tag using regex.
-        
+
         Args:
             xml_string: XML string to search in
             tag_name: Name of the tag to extract
-            
+
         Returns:
             Content of the tag or empty string if not found
         """
-        pattern = f'<{tag_name}>(.*?)</{tag_name}>'
+        pattern = f"<{tag_name}>(.*?)</{tag_name}>"
         match = re.search(pattern, xml_string, re.DOTALL)
         return match.group(1).strip() if match else ""

@@ -12,6 +12,7 @@ class ReportBuilder:
     Handles all report generation, JSON structure building, and formatting
     for project summaries, run details, and performance analysis.
     """
+
     # TODO: Unify the config to generic data model (from base config)
     def __init__(self, config_data: AdaptiQConfig):
         """
@@ -24,14 +25,16 @@ class ReportBuilder:
         self.config_data = config_data
         self.runs = []
 
-    def build_project_result(self, total_runs: int, summary_metrics: List[Dict]) -> Dict:
+    def build_project_result(
+        self, total_runs: int, summary_metrics: List[Dict]
+    ) -> Dict:
         """
         Build a project overview JSON structure from the config and run count.
-        
+
         Args:
             total_runs (int): Total number of runs analyzed
             summary_metrics (List[Dict]): List of summary metrics
-            
+
         Returns:
             dict: The project overview.
         """
@@ -146,7 +149,7 @@ class ReportBuilder:
     ) -> Dict:
         """
         Build a summary JSON for a single run.
-        
+
         Args:
             run_number (int): Sequential run number
             run_name (str): Name of the run
@@ -166,7 +169,7 @@ class ReportBuilder:
             memory_usage (float, optional): Memory usage in MB
             run_time_seconds (float, optional): Execution time in seconds
             execution_logs (List, optional): List of execution logs
-            
+
         Returns:
             dict: Run summary dictionary
         """
@@ -181,7 +184,9 @@ class ReportBuilder:
             "performance_score": performance_score,
             "status": status,
             "timestamp": timestamp,
-            "prompt_snippet": original_prompt[:50] + "..." if original_prompt else "N/A",
+            "prompt_snippet": (
+                original_prompt[:50] + "..." if original_prompt else "N/A"
+            ),
             "issues": issues,
             "metrics": {
                 "time": {"value": round(run_time_seconds or 0, 2), "unit": "s"},
@@ -272,7 +277,9 @@ class ReportBuilder:
             if avg_previous_reward == 0:
                 reward_improvement = reward * 100
             else:
-                reward_improvement = ((reward - avg_previous_reward) / avg_previous_reward) * 100
+                reward_improvement = (
+                    (reward - avg_previous_reward) / avg_previous_reward
+                ) * 100
 
         # Error rate calculation (simplified for single run)
         error_rate = 100.0 if error else 0.0
@@ -338,10 +345,18 @@ class ReportBuilder:
             "prompt_analysis": {
                 "original_text": original_prompt,
                 "estimated_tokens": original_tokens,
-                "estimated_cost": round((original_tokens / 1000) * input_price, 4) if original_tokens else 0.0,
+                "estimated_cost": (
+                    round((original_tokens / 1000) * input_price, 4)
+                    if original_tokens
+                    else 0.0
+                ),
                 "suggestion_text": suggested_prompt,
                 "optimized_tokens": suggested_tokens,
-                "optimized_cost": round((suggested_tokens / 1000) * input_price, 4) if suggested_tokens else 0.0,
+                "optimized_cost": (
+                    round((suggested_tokens / 1000) * input_price, 4)
+                    if suggested_tokens
+                    else 0.0
+                ),
             },
             "execution_analysis": {
                 "summary_metrics": summary_metrics,
@@ -382,7 +397,7 @@ class ReportBuilder:
     ):
         """
         Build and add a run summary to the runs list.
-        
+
         Args:
             Same as build_run_summary
         """
@@ -412,7 +427,7 @@ class ReportBuilder:
     def get_runs_report(self) -> List[Dict]:
         """
         Get the report containing all runs.
-        
+
         Returns:
             List[Dict]: List of run summaries
         """
@@ -441,13 +456,17 @@ class ReportBuilder:
         if exception is None:
             return []
         else:
-            return [{
-                "error_type": error_type,
-                "severity": severity,
-                "timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-                "description": str(exception),
-                "stack_trace": traceback.format_exc() if include_stack_trace else None,
-            }]
+            return [
+                {
+                    "error_type": error_type,
+                    "severity": severity,
+                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+                    "description": str(exception),
+                    "stack_trace": (
+                        traceback.format_exc() if include_stack_trace else None
+                    ),
+                }
+            ]
 
     def clear_runs(self):
         """Clear all stored runs."""
@@ -460,7 +479,7 @@ class ReportBuilder:
     def get_latest_run(self) -> Optional[Dict]:
         """
         Get the most recently added run.
-        
+
         Returns:
             Optional[Dict]: Latest run summary or None if no runs exist
         """
@@ -469,7 +488,7 @@ class ReportBuilder:
     def update_run_status(self, run_id: str, new_status: str):
         """
         Update the status of a specific run.
-        
+
         Args:
             run_id (str): The run ID to update
             new_status (str): The new status to set
@@ -484,10 +503,10 @@ class ReportBuilder:
     def get_runs_by_status(self, status: str) -> List[Dict]:
         """
         Get all runs with a specific status.
-        
+
         Args:
             status (str): The status to filter by
-            
+
         Returns:
             List[Dict]: List of runs with the specified status
         """

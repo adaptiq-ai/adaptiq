@@ -1,13 +1,20 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from adaptiq.core.abstract.integrations import BaseConfig, BaseLogParser
-from adaptiq.core.entities import Outputs, PostRunResults, ProcessedLogs, ReconciliationResults, Stats, ValidationData, ValidationResults
+from adaptiq.core.entities import (
+    Outputs,
+    PostRunResults,
+    ProcessedLogs,
+    ReconciliationResults,
+    Stats,
+    ValidationData,
+    ValidationResults,
+)
 from adaptiq.core.pipelines.post_run.tools import PostRunReconciler, PostRunValidator
-
 
 
 class PostRunPipeline:
@@ -22,11 +29,11 @@ class PostRunPipeline:
     """
 
     def __init__(
-    self, 
-    base_config: BaseConfig,
-    base_log_parser: BaseLogParser,
-    output_dir: str,
-    feedback: Optional[str] = None
+        self,
+        base_config: BaseConfig,
+        base_log_parser: BaseLogParser,
+        output_dir: str,
+        feedback: Optional[str] = None,
     ):
         """
         Initialize the AdaptiqPostRunOrchestrator.
@@ -47,14 +54,14 @@ class PostRunPipeline:
 
         self.base_config = base_config
         self.configuration = base_config.get_config()
-        self.llm =self.base_config.get_llm_instance()
+        self.llm = self.base_config.get_llm_instance()
         self.embedding = self.base_config.get_embeddings_instance()
         self.output_dir = output_dir
         self.feedback = feedback
 
         self.agent_name = self.configuration.agent_modifiable_config.agent_name
-        self.report_path = self.configuration.report_config.output_path 
-    
+        self.report_path = self.configuration.report_config.output_path
+
         self.old_prompt = base_config.get_prompt(get_newest=True)
 
         # Ensure output directory exists
@@ -84,10 +91,9 @@ class PostRunPipeline:
             FileNotFoundError: If raw logs are not provided and can't be loaded.
         """
         self.logger.info("Starting log parsing...")
-        
 
         try:
-            
+
             # Initialize and run parser
             parsed_data = self.log_parser.parse_logs()
 
@@ -121,12 +127,9 @@ class PostRunPipeline:
         """
         self.logger.info("Starting validation of parsed logs...")
 
-
         # Initialize and run validator
         self.validator = PostRunValidator(
-            raw_logs=raw_logs,
-            parsed_logs=parsed_logs,
-            llm=self.llm
+            raw_logs=raw_logs, parsed_logs=parsed_logs, llm=self.llm
         )
 
         corrected_logs, validation_results = self.validator.run_validation_pipeline()
@@ -136,7 +139,7 @@ class PostRunPipeline:
     def reconciliate_logs(self, parsed_logs: ProcessedLogs) -> ReconciliationResults:
         """
         Reconciliate logs using PostRunReconciler.
-            
+
         Args:
             parsed_logs: ProcessedLogs containing parsed log entries
 
@@ -163,11 +166,9 @@ class PostRunPipeline:
         )
 
         result = self.reconciler.run_process()
-        
-        results_file = output_dir / "results.json"  
-        self.reconciler.save_results(
-            results=result, output_file=str(results_file)
-        )
+
+        results_file = output_dir / "results.json"
+        self.reconciler.save_results(results=result, output_file=str(results_file))
 
         return result
 
@@ -181,8 +182,8 @@ class PostRunPipeline:
         self.logger.info("Starting agent trace retrieval...")
 
         try:
-           raw_logs:Dict[str, Any] = json.loads(trace_output)
-           return raw_logs
+            raw_logs: Dict[str, Any] = json.loads(trace_output)
+            return raw_logs
         except Exception as e:
             self.logger.error(f"Failed to save raw logs to file: {e}")
 
@@ -201,36 +202,33 @@ class PostRunPipeline:
         # Parse logs
         parsed_logs: ProcessedLogs = self.parse_logs()
 
-        # Step 3: Validate parsed logs 
-        corrected_logs , validation_results = self.validate_parsed_logs(
+        # Step 3: Validate parsed logs
+        corrected_logs, validation_results = self.validate_parsed_logs(
             raw_logs, parsed_logs
         )
 
         # Step 4: Reconciliate logs
         reconciliated_data: ReconciliationResults = self.reconciliate_logs(parsed_logs)
 
-
-
         # Prepare pipeline results
         validation_output = ValidationData(
             outputs=Outputs(
                 parsed_logs_path=self.parsed_logs_path,
                 validated_logs_path=self.validated_logs_path,
-                validation_summary_path=self.validation_summary_path
+                validation_summary_path=self.validation_summary_path,
             ),
             stats=Stats(
-                parsed_entries_count=len(parsed_logs.processed_logs) if parsed_logs else 0,
-                validation_results=validation_results
-            )
-        )       
+                parsed_entries_count=(
+                    len(parsed_logs.processed_logs) if parsed_logs else 0
+                ),
+                validation_results=validation_results,
+            ),
+        )
 
         pipeline_results = PostRunResults(
-            validation_data=validation_output,
-            reconciliation_results=reconciliated_data
+            validation_data=validation_output, reconciliation_results=reconciliated_data
         )
 
         self.logger.info("Full pipeline execution completed successfully")
 
         return pipeline_results
-
-

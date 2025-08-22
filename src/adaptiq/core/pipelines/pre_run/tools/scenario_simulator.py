@@ -41,7 +41,7 @@ class ScenarioSimulator:
         """
         self.hypothetical_states = hypothetical_states
         self.output_path = output_path
-        self.scenario_generation_llm=llm
+        self.scenario_generation_llm = llm
 
         # XML-based prompt template
         self.scenario_generation_prompt_template = ChatPromptTemplate.from_template(
@@ -156,27 +156,27 @@ class ScenarioSimulator:
     def _parse_tuple_string(self, tuple_str: str) -> tuple:
         """
         Safely parse a string representation of a tuple into an actual tuple.
-        
+
         Args:
             tuple_str: String representation like "('a', 'b', 'c', 'd')"
-            
+
         Returns:
             Tuple with 4 string elements
         """
         try:
             # Remove outer parentheses and quotes, then split by commas
             clean_str = tuple_str.strip().strip("()")
-            
+
             # Handle quoted elements
             elements = []
             current_element = ""
             in_quotes = False
             quote_char = None
-            
+
             i = 0
             while i < len(clean_str):
                 char = clean_str[i]
-                
+
                 if not in_quotes and (char == "'" or char == '"'):
                     in_quotes = True
                     quote_char = char
@@ -188,27 +188,27 @@ class ScenarioSimulator:
                     else:
                         in_quotes = False
                         quote_char = None
-                elif not in_quotes and char == ',':
+                elif not in_quotes and char == ",":
                     elements.append(current_element.strip())
                     current_element = ""
                 else:
                     current_element += char
-                
+
                 i += 1
-            
+
             # Add the last element
             if current_element.strip():
                 elements.append(current_element.strip())
-            
+
             # Ensure we have exactly 4 elements
             while len(elements) < 4:
                 elements.append("Unknown")
-            
+
             # Truncate if more than 4 elements
             elements = elements[:4]
-            
+
             return tuple(elements)
-            
+
         except Exception as e:
             print(f"Error parsing tuple string '{tuple_str}': {e}")
             return ("Unknown", "Unknown", "Unknown", "Unknown")
@@ -216,10 +216,10 @@ class ScenarioSimulator:
     def _extract_xml_content(self, content: str) -> str:
         """
         Extract XML content from LLM response, handling potential markdown wrapping.
-        
+
         Args:
             content: Raw LLM response content
-            
+
         Returns:
             Clean XML content
         """
@@ -237,7 +237,7 @@ class ScenarioSimulator:
         # Look for XML content between <scenarios> tags
         xml_pattern = r"<scenarios>.*?</scenarios>"
         xml_match = re.search(xml_pattern, content, re.DOTALL)
-        
+
         if xml_match:
             return xml_match.group(0)
         else:
@@ -247,11 +247,11 @@ class ScenarioSimulator:
     def _get_xml_text(self, element: ET.Element, tag_name: str) -> str:
         """
         Safely extract text from XML element.
-        
+
         Args:
             element: XML element to search in
             tag_name: Tag name to find
-            
+
         Returns:
             Text content or empty string if not found
         """
@@ -261,10 +261,10 @@ class ScenarioSimulator:
     def _parse_xml_response(self, xml_content: str) -> List[Dict]:
         """
         Parse XML response and extract scenario data.
-        
+
         Args:
             xml_content: XML string containing scenarios
-            
+
         Returns:
             List of dictionaries with parsed scenario data
         """
@@ -272,42 +272,48 @@ class ScenarioSimulator:
             # Parse XML
             root = ET.fromstring(xml_content)
             scenarios = []
-            
-            for scenario_elem in root.findall('scenario'):
+
+            for scenario_elem in root.findall("scenario"):
                 # Extract basic scenario information
-                scenario_type = self._get_xml_text(scenario_elem, 'scenario_type')
-                simulated_action = self._get_xml_text(scenario_elem, 'simulated_action')
-                outcome_description = self._get_xml_text(scenario_elem, 'simulated_outcome_description')
-                reward_sim_str = self._get_xml_text(scenario_elem, 'reward_sim')
-                next_state_components = self._get_xml_text(scenario_elem, 'next_state_components')
-                
+                scenario_type = self._get_xml_text(scenario_elem, "scenario_type")
+                simulated_action = self._get_xml_text(scenario_elem, "simulated_action")
+                outcome_description = self._get_xml_text(
+                    scenario_elem, "simulated_outcome_description"
+                )
+                reward_sim_str = self._get_xml_text(scenario_elem, "reward_sim")
+                next_state_components = self._get_xml_text(
+                    scenario_elem, "next_state_components"
+                )
+
                 # Parse reward as float
                 try:
                     reward_sim = float(reward_sim_str) if reward_sim_str else 0.0
                 except (ValueError, TypeError):
                     reward_sim = 0.0
-                
+
                 # Parse key context changes
                 key_context_changes = {}
-                context_changes_elem = scenario_elem.find('key_context_changes')
+                context_changes_elem = scenario_elem.find("key_context_changes")
                 if context_changes_elem is not None:
-                    for change_elem in context_changes_elem.findall('change'):
-                        key = change_elem.get('key', '')
-                        value = change_elem.text.strip() if change_elem.text else ''
+                    for change_elem in context_changes_elem.findall("change"):
+                        key = change_elem.get("key", "")
+                        value = change_elem.text.strip() if change_elem.text else ""
                         if key:
                             key_context_changes[key] = value
-                
-                scenarios.append({
-                    'scenario_type': scenario_type,
-                    'simulated_action': simulated_action,
-                    'simulated_outcome_description': outcome_description,
-                    'reward_sim': reward_sim,
-                    'next_state_components': next_state_components,
-                    'key_context_changes': key_context_changes
-                })
-            
+
+                scenarios.append(
+                    {
+                        "scenario_type": scenario_type,
+                        "simulated_action": simulated_action,
+                        "simulated_outcome_description": outcome_description,
+                        "reward_sim": reward_sim,
+                        "next_state_components": next_state_components,
+                        "key_context_changes": key_context_changes,
+                    }
+                )
+
             return scenarios
-            
+
         except ET.ParseError as e:
             # If XML parsing fails, try regex fallback
             print(f"XML parsing error: {e}. Attempting regex fallback.")
@@ -316,112 +322,128 @@ class ScenarioSimulator:
     def _parse_xml_with_regex(self, xml_content: str) -> List[Dict]:
         """
         Fallback regex-based XML parsing for malformed XML.
-        
+
         Args:
             xml_content: XML string to parse
-            
+
         Returns:
             List of dictionaries with extracted scenario data
         """
         scenarios = []
-        
+
         # Pattern to match each scenario block
-        scenario_pattern = r'<scenario>(.*?)</scenario>'
+        scenario_pattern = r"<scenario>(.*?)</scenario>"
         scenario_matches = re.findall(scenario_pattern, xml_content, re.DOTALL)
-        
+
         for scenario_content in scenario_matches:
             # Extract individual components using regex
-            scenario_type = self._extract_tag_content(scenario_content, 'scenario_type')
-            simulated_action = self._extract_tag_content(scenario_content, 'simulated_action')
-            outcome_description = self._extract_tag_content(scenario_content, 'simulated_outcome_description')
-            reward_sim_str = self._extract_tag_content(scenario_content, 'reward_sim')
-            next_state_components = self._extract_tag_content(scenario_content, 'next_state_components')
-            
+            scenario_type = self._extract_tag_content(scenario_content, "scenario_type")
+            simulated_action = self._extract_tag_content(
+                scenario_content, "simulated_action"
+            )
+            outcome_description = self._extract_tag_content(
+                scenario_content, "simulated_outcome_description"
+            )
+            reward_sim_str = self._extract_tag_content(scenario_content, "reward_sim")
+            next_state_components = self._extract_tag_content(
+                scenario_content, "next_state_components"
+            )
+
             # Parse reward as float
             try:
                 reward_sim = float(reward_sim_str) if reward_sim_str else 0.0
             except (ValueError, TypeError):
                 reward_sim = 0.0
-            
+
             # Parse key context changes
             key_context_changes = {}
-            context_changes_match = re.search(r'<key_context_changes>(.*?)</key_context_changes>', scenario_content, re.DOTALL)
+            context_changes_match = re.search(
+                r"<key_context_changes>(.*?)</key_context_changes>",
+                scenario_content,
+                re.DOTALL,
+            )
             if context_changes_match:
                 changes_content = context_changes_match.group(1)
                 change_pattern = r'<change key="([^"]*)">(.*?)</change>'
                 change_matches = re.findall(change_pattern, changes_content, re.DOTALL)
                 for key, value in change_matches:
                     key_context_changes[key.strip()] = value.strip()
-            
-            scenarios.append({
-                'scenario_type': scenario_type,
-                'simulated_action': simulated_action,
-                'simulated_outcome_description': outcome_description,
-                'reward_sim': reward_sim,
-                'next_state_components': next_state_components,
-                'key_context_changes': key_context_changes
-            })
-        
+
+            scenarios.append(
+                {
+                    "scenario_type": scenario_type,
+                    "simulated_action": simulated_action,
+                    "simulated_outcome_description": outcome_description,
+                    "reward_sim": reward_sim,
+                    "next_state_components": next_state_components,
+                    "key_context_changes": key_context_changes,
+                }
+            )
+
         return scenarios
 
     def _extract_tag_content(self, xml_string: str, tag_name: str) -> str:
         """
         Extract content from a specific XML tag using regex.
-        
+
         Args:
             xml_string: XML string to search in
             tag_name: Name of the tag to extract
-            
+
         Returns:
             Content of the tag or empty string if not found
         """
-        pattern = f'<{tag_name}>(.*?)</{tag_name}>'
+        pattern = f"<{tag_name}>(.*?)</{tag_name}>"
         match = re.search(pattern, xml_string, re.DOTALL)
         return match.group(1).strip() if match else ""
 
-    def _validate_and_fix_scenario(self, scenario: Dict, intended_action: str, next_subtask: str, context: str) -> Dict:
+    def _validate_and_fix_scenario(
+        self, scenario: Dict, intended_action: str, next_subtask: str, context: str
+    ) -> Dict:
         """
         Validate and fix a scenario to ensure it meets the ScenarioModel requirements.
-        
+
         Args:
             scenario: The scenario dictionary from LLM
             intended_action: The original intended action
             next_subtask: The next subtask name
             context: The context string
-            
+
         Returns:
             Fixed scenario dictionary
         """
         # Ensure next_state_components is a string representation of a tuple
         next_state_components = scenario.get("next_state_components", "")
-        
+
         # If it's not a string or doesn't look like a tuple, reconstruct it
-        if not isinstance(next_state_components, str) or not next_state_components.startswith("("):
+        if not isinstance(
+            next_state_components, str
+        ) or not next_state_components.startswith("("):
             simulated_action = scenario.get("simulated_action", intended_action)
             scenario_type = scenario.get("scenario_type", "unknown")
-            
+
             # Map scenario type to outcome type
             outcome_type_map = {
                 "ideal_success": "Success",
-                "common_failure": "Failure", 
-                "partial_success": "PartialSuccess"
+                "common_failure": "Failure",
+                "partial_success": "PartialSuccess",
             }
             outcome_type = outcome_type_map.get(scenario_type, "Unknown")
-            
+
             # Ensure context is a simple string
             if isinstance(context, dict):
                 context = str(context)
-            
+
             next_state_components = f"('{next_subtask}', '{simulated_action}', '{outcome_type}', '{context}')"
             scenario["next_state_components"] = next_state_components
-        
+
         # Ensure all required fields exist with defaults
         scenario.setdefault("scenario_type", "unknown")
         scenario.setdefault("simulated_action", intended_action)
         scenario.setdefault("simulated_outcome_description", "Unknown outcome")
         scenario.setdefault("reward_sim", 0.0)
         scenario.setdefault("key_context_changes", {})
-        
+
         return scenario
 
     def _invoke_llm_for_scenario_generation(
@@ -484,7 +506,7 @@ class ScenarioSimulator:
 
             # Extract XML content from response
             xml_content = self._extract_xml_content(llm_response.content)
-            
+
             # Parse XML and extract scenarios
             scenarios = self._parse_xml_response(xml_content)
 
@@ -574,7 +596,7 @@ class ScenarioSimulator:
                     # Parse the next_state_components string into an actual tuple
                     next_state_str = scenario.get("next_state_components", "")
                     next_state_tuple = self._parse_tuple_string(next_state_str)
-                    
+
                     # Validate reward_sim is a float
                     reward_sim = scenario.get("reward_sim", 0.0)
                     if not isinstance(reward_sim, (int, float)):
@@ -582,20 +604,24 @@ class ScenarioSimulator:
                             reward_sim = float(reward_sim)
                         except (ValueError, TypeError):
                             reward_sim = 0.0
-                    
+
                     # Ensure scenario_type is valid
                     scenario_type = scenario.get("scenario_type", "unknown")
                     valid_types = ["ideal_success", "common_failure", "partial_success"]
                     if scenario_type not in valid_types:
                         scenario_type = "unknown"
-                    
+
                     # Create the simulated step with proper tuple conversion
                     simulated_step = {
                         "original_state": state_str,
                         "intended_action": intended_action,
-                        "simulated_action": scenario.get("simulated_action", intended_action),
+                        "simulated_action": scenario.get(
+                            "simulated_action", intended_action
+                        ),
                         "scenario_type": scenario_type,
-                        "simulated_outcome": scenario.get("simulated_outcome_description", "Unknown outcome"),
+                        "simulated_outcome": scenario.get(
+                            "simulated_outcome_description", "Unknown outcome"
+                        ),
                         "reward_sim": reward_sim,
                         "next_state": next_state_tuple,  # Now a proper tuple
                         "key_context_changes": scenario.get("key_context_changes", {}),
@@ -609,7 +635,7 @@ class ScenarioSimulator:
                     except Exception as validation_error:
                         print(f"Validation error for scenario: {validation_error}")
                         print(f"Problematic data: {simulated_step}")
-                        
+
                         # Create a fallback scenario with safe defaults
                         fallback_step = {
                             "original_state": state_str,
@@ -618,16 +644,21 @@ class ScenarioSimulator:
                             "scenario_type": "unknown",
                             "simulated_outcome": "Fallback scenario due to validation error",
                             "reward_sim": 0.0,
-                            "next_state": ("Unknown", intended_action, "Unknown", "Unknown"),
+                            "next_state": (
+                                "Unknown",
+                                intended_action,
+                                "Unknown",
+                                "Unknown",
+                            ),
                             "key_context_changes": {"error": "validation_failed"},
                             "source_details": step_details,
                         }
                         all_simulated_steps.append(ScenarioModel(**fallback_step))
-                        
+
                 except Exception as scenario_error:
                     print(f"Error processing scenario: {scenario_error}")
                     print(f"Scenario data: {scenario}")
-                    
+
                     # Create a fallback scenario
                     fallback_step = {
                         "original_state": state_str,
@@ -636,7 +667,12 @@ class ScenarioSimulator:
                         "scenario_type": "unknown",
                         "simulated_outcome": "Fallback scenario due to processing error",
                         "reward_sim": 0.0,
-                        "next_state": ("Unknown", intended_action, "Unknown", "Unknown"),
+                        "next_state": (
+                            "Unknown",
+                            intended_action,
+                            "Unknown",
+                            "Unknown",
+                        ),
                         "key_context_changes": {"error": "processing_failed"},
                         "source_details": step_details,
                     }
@@ -652,7 +688,9 @@ class ScenarioSimulator:
                 with open(self.output_path, "w") as f:
                     json.dump(
                         {
-                            "simulated_scenarios": [item.model_dump() for item in all_simulated_steps],
+                            "simulated_scenarios": [
+                                item.model_dump() for item in all_simulated_steps
+                            ],
                             "generation_timestamp": datetime.datetime.now().isoformat(),
                             "total_scenarios": len(all_simulated_steps),
                         },

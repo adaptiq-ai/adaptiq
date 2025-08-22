@@ -1,16 +1,16 @@
-
+import logging
 import os
 import shutil
-from typing import Dict, Any, Optional, Tuple
+from importlib.resources import files
+from typing import Any, Dict, Optional, Tuple
 
 import yaml
-from adaptiq.core.abstract.integrations.base_config import BaseConfig
-from importlib.resources import files
-import logging
 
+from adaptiq.core.abstract.integrations.base_config import BaseConfig
 
 # Set up logger
 logger = logging.getLogger(__name__)
+
 
 class CrewConfig(BaseConfig):
     """
@@ -18,15 +18,23 @@ class CrewConfig(BaseConfig):
     It reads configuration from a JSON/YAML file to determine how to access the agent's execution logs.
     The class supports both development and production modes, allowing for flexible log access based on the execution context.
     """
-    
+
     def __init__(self, config_path: str = None, preload: bool = False):
         super().__init__(config_path=config_path, preload=preload)
 
-    def create_project_template(self, base_path: str, project_name: str = None) -> Tuple[bool, str]:
+    def create_project_template(
+        self, base_path: str, project_name: str = None
+    ) -> Tuple[bool, str]:
         if not project_name:
-            return False, "❌ Error: Project name not provided. Please specify a project name."
+            return (
+                False,
+                "❌ Error: Project name not provided. Please specify a project name.",
+            )
         if not base_path:
-            return False, "❌ Error: Base path not provided. Please specify a base path."
+            return (
+                False,
+                "❌ Error: Base path not provided. Please specify a base path.",
+            )
 
         # Clean project name
         project_name = project_name.replace(" ", "_").replace("-", "_")
@@ -38,7 +46,10 @@ class CrewConfig(BaseConfig):
 
         project_path = os.path.join(src_path, project_name)
         if os.path.exists(project_path):
-            return False, f"❌ Error: Folder template already exists at '{project_path}'"
+            return (
+                False,
+                f"❌ Error: Folder template already exists at '{project_path}'",
+            )
 
         # Locate the template directory
         template_source = files("adaptiq.templates.crew_template")
@@ -59,7 +70,10 @@ class CrewConfig(BaseConfig):
                 with open(config_path, "w", encoding="utf-8") as f:
                     f.write(content)
 
-            return True, f"✅ Repository template created successfully!\n📁 Structure: {project_path}"
+            return (
+                True,
+                f"✅ Repository template created successfully!\n📁 Structure: {project_path}",
+            )
 
         except Exception as e:
             if os.path.exists(project_path):
@@ -69,14 +83,14 @@ class CrewConfig(BaseConfig):
     def _validate_config(self) -> Tuple[bool, str]:
         """
         Validate the AdaptiqAgentTracer configuration.
-        
+
         Returns:
             Tuple[bool, str]: A tuple containing a boolean indicating validity and a validation message.
         """
         try:
             current_dir = os.getcwd()
             config_data = self.config.model_dump()
-   
+
             # Check required top-level keys
             required_keys = [
                 "project_name",
@@ -90,7 +104,10 @@ class CrewConfig(BaseConfig):
 
             missing_keys = [key for key in required_keys if key not in config_data]
             if missing_keys:
-                return False, f"❌ Missing required configuration keys: {', '.join(missing_keys)}"
+                return (
+                    False,
+                    f"❌ Missing required configuration keys: {', '.join(missing_keys)}",
+                )
 
             # Check required nested keys
             llm_required = ["model_name", "api_key", "provider"]
@@ -100,8 +117,10 @@ class CrewConfig(BaseConfig):
                 if key not in config_data.get("llm_config", {})
             ]
             if llm_missing:
-                return False, f"❌ Missing required llm_config keys: {', '.join(llm_missing)}"
-                
+                return (
+                    False,
+                    f"❌ Missing required llm_config keys: {', '.join(llm_missing)}",
+                )
 
             framework_required = ["name", "settings"]
             framework_missing = [
@@ -110,7 +129,10 @@ class CrewConfig(BaseConfig):
                 if key not in config_data.get("framework_adapter", {})
             ]
             if framework_missing:
-                return False, f"❌ Missing required framework_adapter keys: {', '.join(framework_missing)}"
+                return (
+                    False,
+                    f"❌ Missing required framework_adapter keys: {', '.join(framework_missing)}",
+                )
 
             agent_config_required = [
                 "prompt_configuration_file_path",
@@ -124,7 +146,10 @@ class CrewConfig(BaseConfig):
                 if key not in config_data.get("agent_modifiable_config", {})
             ]
             if agent_config_missing:
-                return  False, f"❌ Missing required agent_modifiable_config keys: {', '.join(agent_config_missing)}"
+                return (
+                    False,
+                    f"❌ Missing required agent_modifiable_config keys: {', '.join(agent_config_missing)}",
+                )
 
             report_required = ["output_path", "prompts_path"]
             report_missing = [
@@ -133,7 +158,10 @@ class CrewConfig(BaseConfig):
                 if key not in config_data.get("report_config", {})
             ]
             if report_missing:
-                return False, f"❌ Missing required report_config keys: {', '.join(report_missing)}"
+                return (
+                    False,
+                    f"❌ Missing required report_config keys: {', '.join(report_missing)}",
+                )
 
             # --- Alert Mode Checks ---
             alert_mode = config_data.get("alert_mode")
@@ -143,7 +171,10 @@ class CrewConfig(BaseConfig):
             # Check on_demand
             on_demand = alert_mode.get("on_demand")
             if not on_demand or "enabled" not in on_demand:
-                return False, "❌ Missing 'on_demand' or its 'enabled' key in alert_mode"
+                return (
+                    False,
+                    "❌ Missing 'on_demand' or its 'enabled' key in alert_mode",
+                )
             if not isinstance(on_demand["enabled"], bool):
                 return False, "❌ 'on_demand.enabled' must be true or false"
             if on_demand["enabled"]:
@@ -152,7 +183,10 @@ class CrewConfig(BaseConfig):
                     or not isinstance(on_demand["runs"], int)
                     or on_demand["runs"] <= 0
                 ):
-                    return False, "❌ 'on_demand.runs' must be a positive integer when 'on_demand.enabled' is true"
+                    return (
+                        False,
+                        "❌ 'on_demand.runs' must be a positive integer when 'on_demand.enabled' is true",
+                    )
 
             # Check per_run
             per_run = alert_mode.get("per_run")
@@ -232,9 +266,15 @@ class CrewConfig(BaseConfig):
 
             found_placeholder = contains_placeholder(config_data)
             if found_placeholder:
-                return False,f"❌ Placeholder value '{found_placeholder}' found in your config. Please update all example/template values with your actual project information."
+                return (
+                    False,
+                    f"❌ Placeholder value '{found_placeholder}' found in your config. Please update all example/template values with your actual project information.",
+                )
 
-            return True, "✅ Config validation successful. All required keys, alert_mode, paths, and user-specific values are present and valid."
+            return (
+                True,
+                "✅ Config validation successful. All required keys, alert_mode, paths, and user-specific values are present and valid.",
+            )
 
         except Exception as e:
             return False, f"❌ Error reading config file: {str(e)}"

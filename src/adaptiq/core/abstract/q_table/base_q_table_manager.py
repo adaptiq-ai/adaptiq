@@ -1,10 +1,15 @@
 import ast
 import uuid
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Dict
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Tuple
 
-from adaptiq.core.entities.q_table import QTablePayload, QTableState, QTableAction, QTableQValue
+from adaptiq.core.entities.q_table import (
+    QTableAction,
+    QTablePayload,
+    QTableQValue,
+    QTableState,
+)
 
 
 class BaseQTableManager(ABC):
@@ -25,23 +30,27 @@ class BaseQTableManager(ABC):
         a: QTableAction,
         R: float,
         s_prime: QTableState,
-        actions_prime: List[QTableAction]
+        actions_prime: List[QTableAction],
     ) -> float:
         pass
 
     def save_q_table(self, prefix_version: str = None) -> bool:
         """Save Q-table to file using the new data model"""
         try:
-            version = prefix_version + "_" + str(uuid.uuid4())[:5] if prefix_version else "1.0"
+            version = (
+                prefix_version + "_" + str(uuid.uuid4())[:5]
+                if prefix_version
+                else "1.0"
+            )
 
             # Convert to serializable format
             serialized_q_table: Dict[str, Dict[str, QTableQValue]] = {}
-            
+
             for state, actions_dict in self.Q_table.items():
                 # FIX: Use the string representation of the tuple directly as the key.
                 state_key = f"{state.to_tuple()}"  # No more ast.literal_eval
                 serialized_q_table[state_key] = {}
-                
+
                 for action, q_value in actions_dict.items():
                     serialized_q_table[state_key][action.to_str()] = q_value
 
@@ -54,7 +63,7 @@ class BaseQTableManager(ABC):
                 Q_table=serialized_q_table,
                 seen_states=serialized_seen_states,
                 version=version,
-                timestamp=datetime.now(timezone.utc)
+                timestamp=datetime.now(timezone.utc),
             )
 
             with open(self.file_path, "w", encoding="utf-8") as f:
@@ -80,11 +89,11 @@ class BaseQTableManager(ABC):
             for state_str, actions_dict in payload.Q_table.items():
                 # FIX: Parse the string key from JSON back into a tuple.
                 state_tuple = ast.literal_eval(state_str)
-                
+
                 if len(state_tuple) == 4:
                     state = QTableState.from_tuple(state_tuple)
                     self.Q_table[state] = {}
-                    
+
                     for action_str, q_value in actions_dict.items():
                         action = QTableAction.from_str(action_str)
                         # Handle both dict and QTableQValue objects
@@ -107,7 +116,7 @@ class BaseQTableManager(ABC):
         except Exception as e:
             print(f"[ERROR] Failed to load Q-table: {e}")
             return False
-    
+
     def Q(self, s: QTableState, a: QTableAction) -> float:
         """Get Q-value for state-action pair"""
         if s not in self.Q_table:
@@ -119,11 +128,11 @@ class BaseQTableManager(ABC):
     def get_q_table(self) -> Dict[QTableState, Dict[QTableAction, QTableQValue]]:
         """Return copy of the Q-table"""
         return dict(self.Q_table)
-    
+
     def set_q_value(self, state: QTableState, action: QTableAction, value: float):
         """
         Directly set Q-value for a state-action pair
-        
+
         Args:
             state: The state
             action: The action
@@ -131,7 +140,7 @@ class BaseQTableManager(ABC):
         """
         if state not in self.Q_table:
             self.Q_table[state] = {}
-        
+
         self.Q_table[state][action] = QTableQValue(q_value=value)
         self.seen_states.add(state)
 
@@ -154,7 +163,7 @@ class BaseQTableManager(ABC):
                     actions.append(action.action)
                 break  # Found the state, no need to continue
         return actions
-    
+
     def get_actions_for_state_object(self, state: QTableState) -> List[QTableAction]:
         """
         Get all actions available for a given state object in the Q-table.
@@ -168,54 +177,58 @@ class BaseQTableManager(ABC):
         if state in self.Q_table:
             return list(self.Q_table[state].keys())
         return []
-   
-    def get_best_action(self, state: QTableState, available_actions: List[QTableAction]) -> QTableAction:
+
+    def get_best_action(
+        self, state: QTableState, available_actions: List[QTableAction]
+    ) -> QTableAction:
         """
         Get the best action for a given state based on Q-values
-        
+
         Args:
             state: Current state
             available_actions: List of actions available in this state
-            
+
         Returns:
             QTableAction: Best action to take
         """
         if not available_actions:
             raise ValueError("No available actions provided")
-        
+
         if state not in self.Q_table:
             # If state not seen before, return random action (first one)
             return available_actions[0]
-        
+
         best_action = available_actions[0]
         best_q_value = self.Q(state, best_action)
-        
+
         for action in available_actions[1:]:
             q_value = self.Q(state, action)
             if q_value > best_q_value:
                 best_q_value = q_value
                 best_action = action
-        
+
         return best_action
 
-    def get_action_values(self, state: QTableState, actions: List[QTableAction]) -> List[tuple[QTableAction, float]]:
+    def get_action_values(
+        self, state: QTableState, actions: List[QTableAction]
+    ) -> List[tuple[QTableAction, float]]:
         """
         Get Q-values for all specified actions in a state
-        
+
         Args:
             state: State to evaluate
             actions: List of actions to get values for
-            
+
         Returns:
             List of (action, q_value) sorted by Q-value descending
         """
         action_values = [(action, self.Q(state, action)) for action in actions]
         return sorted(action_values, key=lambda x: x[1], reverse=True)
-    
+
     def serialize_q_table(self) -> QTablePayload:
         """
         Serialize the Q-table to a QTablePayload object for JSON storage.
-        
+
         Returns:
             QTablePayload: Serialized Q-table data with stringified states and actions
         """
@@ -223,10 +236,10 @@ class BaseQTableManager(ABC):
         for state, actions_dict in self.Q_table.items():
             # FIX: Use the string representation directly.
             state_key_str = f"{state.to_tuple()}"
-            
+
             if state_key_str not in output_q_table:
                 output_q_table[state_key_str] = {}
-            
+
             # Convert each action and its Q-value
             for action, q_value in actions_dict.items():
                 action_str = action.to_str()
@@ -237,15 +250,13 @@ class BaseQTableManager(ABC):
 
         # Create and return QTablePayload object
         return QTablePayload(
-            Q_table=output_q_table,
-            seen_states=seen_states_output,
-            version="NA"
+            Q_table=output_q_table, seen_states=seen_states_output, version="NA"
         )
-    
+
     def get_q_table_dict(self) -> Dict:
         """
         Get Q-table data as a dictionary (for backward compatibility).
-        
+
         Returns:
             dict: Q-table data in dictionary format
         """
@@ -268,7 +279,7 @@ class BaseQTableManager(ABC):
             "timestamp": payload.timestamp.isoformat(),
             "version": payload.version,
         }
-    
+
     def extract_q_table_insights_to_str(self) -> str:
         """
         Extracts insights from the Q-table output.
@@ -276,7 +287,7 @@ class BaseQTableManager(ABC):
         """
 
         q_table_output = self.get_q_table_dict()
-        q_table:Dict = q_table_output.get("Q_table", {})
+        q_table: Dict = q_table_output.get("Q_table", {})
         if not q_table:
             return "No Q-table data available to analyze."
 
@@ -297,5 +308,5 @@ class BaseQTableManager(ABC):
 
         if len(insights) == 1:  # Only the header was added
             return "Q-table exists but contains no states with non-zero Q-values."
-        
+
         return "\n".join(insights)

@@ -1,10 +1,10 @@
+import inspect
 import json
 import logging
+import os
 from datetime import datetime
 from threading import Lock
 from typing import Any, Callable, Dict, List, Optional, Union
-import inspect
-import os
 
 
 class AdaptiqLogger(logging.Handler):
@@ -24,7 +24,7 @@ class AdaptiqLogger(logging.Handler):
     Usage:
         # Initialize the centralized logger (typically done once at app startup)
         logger = AdaptiqLogger.get_instance()
-        
+
         # Or use the setup method for quick initialization
         logger = AdaptiqLogger.setup(level=logging.INFO, max_logs=10000)
 
@@ -39,10 +39,12 @@ class AdaptiqLogger(logging.Handler):
         recent_logs = logger.get_recent_logs(limit=50)
     """
 
-    _instance: Optional['AdaptiqLogger'] = None
+    _instance: Optional["AdaptiqLogger"] = None
     _lock_instance = Lock()
 
-    def __init__(self, level=logging.NOTSET, max_logs: int = 10000, auto_rotate: bool = True):
+    def __init__(
+        self, level=logging.NOTSET, max_logs: int = 10000, auto_rotate: bool = True
+    ):
         super().__init__(level)
         self.execution_logs: List[Dict[str, Any]] = []
         self._lock = Lock()  # Thread safety for the logs list
@@ -50,18 +52,12 @@ class AdaptiqLogger(logging.Handler):
         self.max_logs = max_logs  # Maximum number of logs to keep in memory
         self.auto_rotate = auto_rotate  # Whether to automatically remove old logs
         self._total_logs_count = 0  # Track total logs ever created
-        
+
         # Statistics tracking
-        self._stats = {
-            "DEBUG": 0,
-            "INFO": 0,
-            "WARNING": 0,
-            "ERROR": 0,
-            "CRITICAL": 0
-        }
+        self._stats = {"DEBUG": 0, "INFO": 0, "WARNING": 0, "ERROR": 0, "CRITICAL": 0}
 
     @classmethod
-    def get_instance(cls) -> 'AdaptiqLogger':
+    def get_instance(cls) -> "AdaptiqLogger":
         """
         Returns the singleton instance of AdaptiqLogger.
         Creates one if it doesn't exist.
@@ -73,11 +69,13 @@ class AdaptiqLogger(logging.Handler):
         return cls._instance
 
     @classmethod
-    def setup(cls, level=logging.INFO, max_logs: int = 10000, auto_rotate: bool = True) -> "AdaptiqLogger":
+    def setup(
+        cls, level=logging.INFO, max_logs: int = 10000, auto_rotate: bool = True
+    ) -> "AdaptiqLogger":
         """
         Class method to set up the centralized logger and attach it to the root logger.
         Returns the singleton handler instance.
-        
+
         Args:
             level: Minimum logging level to capture
             max_logs: Maximum number of logs to keep in memory
@@ -91,7 +89,7 @@ class AdaptiqLogger(logging.Handler):
 
         # Get the root logger and add our handler if not already added
         root_logger = logging.getLogger()
-        
+
         # Check if our handler is already attached
         if handler not in root_logger.handlers:
             root_logger.addHandler(handler)
@@ -113,31 +111,33 @@ class AdaptiqLogger(logging.Handler):
                 frame = frame.f_back
                 if frame is None:
                     break
-                
+
                 filename = frame.f_code.co_filename
                 # Skip internal logging and our own files
-                if ('logging' not in filename.lower() and 
-                    'adaptiq' not in os.path.basename(filename).lower()):
+                if (
+                    "logging" not in filename.lower()
+                    and "adaptiq" not in os.path.basename(filename).lower()
+                ):
                     return {
                         "module": os.path.basename(filename),
                         "function": frame.f_code.co_name,
                         "line": str(frame.f_lineno),
-                        "file_path": filename
+                        "file_path": filename,
                     }
-            
+
             # Fallback if we can't find a good frame
             return {
                 "module": "unknown",
-                "function": "unknown", 
+                "function": "unknown",
                 "line": "0",
-                "file_path": "unknown"
+                "file_path": "unknown",
             }
         except:
             return {
                 "module": "unknown",
                 "function": "unknown",
-                "line": "0", 
-                "file_path": "unknown"
+                "line": "0",
+                "file_path": "unknown",
             }
 
     def _rotate_logs_if_needed(self) -> None:
@@ -173,7 +173,7 @@ class AdaptiqLogger(logging.Handler):
                 "context": context,
                 "payload": payload,
                 "logger_name": record.name,
-                "thread_name": getattr(record, 'threadName', 'MainThread')
+                "thread_name": getattr(record, "threadName", "MainThread"),
             }
 
             # Thread-safe operations
@@ -229,7 +229,11 @@ class AdaptiqLogger(logging.Handler):
         Returns the most recent N logs.
         """
         with self._lock:
-            return self.execution_logs[-limit:] if limit > 0 else self.execution_logs.copy()
+            return (
+                self.execution_logs[-limit:]
+                if limit > 0
+                else self.execution_logs.copy()
+            )
 
     def get_logs_json(self, pretty: bool = True) -> str:
         """
@@ -252,7 +256,8 @@ class AdaptiqLogger(logging.Handler):
         """
         with self._lock:
             return [
-                log for log in self.execution_logs 
+                log
+                for log in self.execution_logs
                 if log["context"]["module"] == module_name
             ]
 
@@ -262,32 +267,36 @@ class AdaptiqLogger(logging.Handler):
         """
         with self._lock:
             return [
-                log for log in self.execution_logs 
+                log
+                for log in self.execution_logs
                 if log["context"]["function"] == function_name
             ]
 
-    def get_logs_since(self, since_timestamp: Union[str, datetime]) -> List[Dict[str, Any]]:
+    def get_logs_since(
+        self, since_timestamp: Union[str, datetime]
+    ) -> List[Dict[str, Any]]:
         """
         Returns logs created after the specified timestamp.
         """
         if isinstance(since_timestamp, str):
-            since_timestamp = datetime.fromisoformat(since_timestamp.replace('Z', '+00:00'))
-        
-        since_iso = since_timestamp.isoformat()
-        
-        with self._lock:
-            return [
-                log for log in self.execution_logs 
-                if log["timestamp"] > since_iso
-            ]
+            since_timestamp = datetime.fromisoformat(
+                since_timestamp.replace("Z", "+00:00")
+            )
 
-    def search_logs(self, query: str, case_sensitive: bool = False) -> List[Dict[str, Any]]:
+        since_iso = since_timestamp.isoformat()
+
+        with self._lock:
+            return [log for log in self.execution_logs if log["timestamp"] > since_iso]
+
+    def search_logs(
+        self, query: str, case_sensitive: bool = False
+    ) -> List[Dict[str, Any]]:
         """
         Searches for logs containing the specified text in their description.
         """
         if not case_sensitive:
             query = query.lower()
-        
+
         with self._lock:
             results = []
             for log in self.execution_logs:
@@ -309,7 +318,7 @@ class AdaptiqLogger(logging.Handler):
                 "max_logs_limit": self.max_logs,
                 "auto_rotate_enabled": self.auto_rotate,
                 "logs_by_type": self._stats.copy(),
-                "callbacks_registered": len(self._callbacks)
+                "callbacks_registered": len(self._callbacks),
             }
 
     def clear_logs(self) -> None:
@@ -330,35 +339,36 @@ class AdaptiqLogger(logging.Handler):
     def export_logs(self, filename: str, format: str = "json") -> bool:
         """
         Exports logs to a file in the specified format.
-        
+
         Args:
             filename: Path to the output file
             format: Export format ("json" or "csv")
-            
+
         Returns:
             True if export was successful, False otherwise
         """
         try:
             logs = self.get_logs()
-            
+
             if format.lower() == "json":
-                with open(filename, 'w') as f:
+                with open(filename, "w") as f:
                     json.dump(logs, f, indent=2)
             elif format.lower() == "csv":
                 import csv
+
                 if logs:
-                    with open(filename, 'w', newline='') as f:
+                    with open(filename, "w", newline="") as f:
                         writer = csv.DictWriter(f, fieldnames=logs[0].keys())
                         writer.writeheader()
                         for log in logs:
                             # Flatten complex fields for CSV
                             flattened_log = log.copy()
-                            flattened_log['context'] = json.dumps(log['context'])
-                            flattened_log['payload'] = json.dumps(log['payload'])
+                            flattened_log["context"] = json.dumps(log["context"])
+                            flattened_log["payload"] = json.dumps(log["payload"])
                             writer.writerow(flattened_log)
             else:
                 raise ValueError(f"Unsupported format: {format}")
-                
+
             return True
         except Exception:
             return False
@@ -368,9 +378,11 @@ class AdaptiqLogger(logging.Handler):
         String representation showing current statistics.
         """
         stats = self.get_statistics()
-        return (f"AdaptiqLogger(logs: {stats['current_logs_count']}/{stats['max_logs_limit']}, "
-                f"total_ever: {stats['total_logs_ever']}, "
-                f"callbacks: {stats['callbacks_registered']})")
+        return (
+            f"AdaptiqLogger(logs: {stats['current_logs_count']}/{stats['max_logs_limit']}, "
+            f"total_ever: {stats['total_logs_ever']}, "
+            f"callbacks: {stats['callbacks_registered']})"
+        )
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -381,6 +393,9 @@ def get_logger() -> AdaptiqLogger:
     """Convenience function to get the singleton logger instance."""
     return AdaptiqLogger.get_instance()
 
-def setup_centralized_logging(level=logging.INFO, max_logs: int = 10000, auto_rotate: bool = True) -> AdaptiqLogger:
+
+def setup_centralized_logging(
+    level=logging.INFO, max_logs: int = 10000, auto_rotate: bool = True
+) -> AdaptiqLogger:
     """Convenience function to set up centralized logging for the entire application."""
     return AdaptiqLogger.setup(level=level, max_logs=max_logs, auto_rotate=auto_rotate)

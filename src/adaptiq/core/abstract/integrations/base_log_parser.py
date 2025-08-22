@@ -18,7 +18,7 @@ class BaseLogParser(ABC):
     """
 
     # --- Abstract Constants (to be defined by subclasses) ---
-    
+
     @property
     @abstractmethod
     def MIN_MEANINGFUL_THOUGHT_LEN(self) -> int:
@@ -63,7 +63,6 @@ class BaseLogParser(ABC):
         """
         if not os.path.isfile(self.logs_path):
             raise FileNotFoundError(f"File not found: {self.logs_path}")
-        
 
         with open(self.logs_path, "r", encoding="utf-8") as file:
             try:
@@ -127,7 +126,9 @@ class BaseLogParser(ABC):
         pass
 
     @abstractmethod
-    def extract_action_and_outcome(self, log_entry: Dict[str, Any], entry_type: str) -> tuple[str, Any]:
+    def extract_action_and_outcome(
+        self, log_entry: Dict[str, Any], entry_type: str
+    ) -> tuple[str, Any]:
         """
         Extract the action and outcome from a log entry.
 
@@ -141,7 +142,9 @@ class BaseLogParser(ABC):
         pass
 
     @abstractmethod
-    def extract_thought_or_description(self, log_entry: Dict[str, Any], entry_type: str) -> str:
+    def extract_thought_or_description(
+        self, log_entry: Dict[str, Any], entry_type: str
+    ) -> str:
         """
         Extract thought or description from a log entry.
 
@@ -183,7 +186,7 @@ class BaseLogParser(ABC):
         previous_outcome: Any,
         agent_name: str,
         current_action: str,
-        reward: float
+        reward: float,
     ) -> LogItem:
         return LogItem(
             key=LogKey(
@@ -197,7 +200,7 @@ class BaseLogParser(ABC):
             ),
             reward_exec=self.normalize_reward(reward),
         )
-        
+
     def save_processed_logs(self, processed_logs: List[LogItem]) -> None:
         if self.output_path and self.parsed_file_name:
             try:
@@ -206,18 +209,23 @@ class BaseLogParser(ABC):
 
                 # Serialize using Pydantic `.model_dump()`
                 with open(full_path, "w", encoding="utf-8") as f:
-                    json.dump([log.model_dump() for log in processed_logs], f, indent=2, ensure_ascii=False)
+                    json.dump(
+                        [log.model_dump() for log in processed_logs],
+                        f,
+                        indent=2,
+                        ensure_ascii=False,
+                    )
 
             except Exception as e:
                 raise RuntimeError(f"Failed to save logs to {full_path}: {e}") from e
-            
+
     def parse_logs(self) -> ProcessedLogs:
         """
         Parse the logs from the specified log file.
-        
+
         """
         logs: List[Dict[str, Any]] = self.load_json_data()
-        
+
         if not logs:
             return ProcessedLogs(processed_logs=[])
 
@@ -234,7 +242,9 @@ class BaseLogParser(ABC):
                 continue
 
             current_thought = self.extract_thought_or_description(log_entry, entry_type)
-            current_action, current_outcome = self.extract_action_and_outcome(log_entry, entry_type)
+            current_action, current_outcome = self.extract_action_and_outcome(
+                log_entry, entry_type
+            )
             reward = self.calculate_reward(log_entry, entry_type)
 
             log_item = self.create_log_item(
@@ -243,12 +253,14 @@ class BaseLogParser(ABC):
                 previous_outcome=previous_outcome,
                 agent_name=agent_name,
                 current_action=current_action,
-                reward=reward
+                reward=reward,
             )
             processed_logs.append(log_item)
 
             previous_action = current_action
-            previous_outcome = current_outcome if current_outcome is not None else "NoOutcome"
+            previous_outcome = (
+                current_outcome if current_outcome is not None else "NoOutcome"
+            )
 
         self.save_processed_logs(processed_logs)
         return ProcessedLogs(processed_logs=processed_logs)

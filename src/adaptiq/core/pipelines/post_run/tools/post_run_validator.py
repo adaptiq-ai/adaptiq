@@ -5,7 +5,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from adaptiq.core.entities import ProcessedLogs
-from adaptiq.core.entities.adaptiq_parsers import LogItem, RewardAssessment, ValidatedEntry, ValidationResults, ValidationSummary
+from adaptiq.core.entities.adaptiq_parsers import (
+    LogItem,
+    RewardAssessment,
+    ValidatedEntry,
+    ValidationResults,
+    ValidationSummary,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +28,7 @@ class PostRunValidator:
         self,
         raw_logs: List[Dict[str, Any]],
         parsed_logs: ProcessedLogs,
-        llm:BaseChatModel
+        llm: BaseChatModel,
     ):
         """
         Initialize the validator with raw and parsed logs.
@@ -120,7 +127,9 @@ class PostRunValidator:
         Returns:
             ValidatedEntry: Validation results with any reward corrections
         """
-        if raw_log_idx >= len(self.raw_logs) or parsed_log_idx >= len(self.parsed_logs.processed_logs):
+        if raw_log_idx >= len(self.raw_logs) or parsed_log_idx >= len(
+            self.parsed_logs.processed_logs
+        ):
             raise IndexError("Log index out of range")
 
         raw_entry = self.raw_logs[raw_log_idx]
@@ -136,6 +145,7 @@ class PostRunValidator:
             parsed_response = json.loads(response.content)
         except (json.JSONDecodeError, AttributeError):
             import re
+
             json_match = re.search(
                 r"```json\s*(.*?)\s*```",
                 response.content if hasattr(response, "content") else str(response),
@@ -162,7 +172,9 @@ class PostRunValidator:
         # Ensure we return a ValidatedEntry model
         try:
             validated_entry = ValidatedEntry(
-                reward_assessment=RewardAssessment(**parsed_response["reward_assessment"]),
+                reward_assessment=RewardAssessment(
+                    **parsed_response["reward_assessment"]
+                ),
                 corrected_entry=LogItem.model_validate(
                     parsed_response["corrected_entry"]
                 ),
@@ -194,7 +206,7 @@ class PostRunValidator:
 
         for i in range(min_length):
             parsed_entry = self.parsed_logs.processed_logs[i]
-            reward = parsed_entry.reward_exec 
+            reward = parsed_entry.reward_exec
             # fallback to "reward" if "reward_exec" missing
             if -0.25 < reward < 0.25:
                 validated_entry = self.validate_single_entry(i, i)
@@ -207,7 +219,7 @@ class PostRunValidator:
                         adjusted=reward,
                         reason="Skipped validation due to reward outside (-0.25, 0.25) range",
                     ),
-                    corrected_entry=self.parsed_logs.processed_logs[i]
+                    corrected_entry=self.parsed_logs.processed_logs[i],
                 )
             results.append(validated_entry)
 
@@ -253,7 +265,7 @@ class PostRunValidator:
 
         # Calculate average magnitude of adjustments
         adjustments: List[float] = []
-        for v in (validations or []):
+        for v in validations or []:
             if not v.reward_assessment.is_appropriate:
                 original = v.reward_assessment.original
                 adjusted = v.reward_assessment.adjusted
@@ -284,7 +296,9 @@ class PostRunValidator:
         summary = self.summarize_validations(validations)
 
         # Create the validation results output
-        validation_results = ValidationResults(validated_entries=validations, summary=summary)
+        validation_results = ValidationResults(
+            validated_entries=validations, summary=summary
+        )
 
         return corrected_logs, validation_results
 

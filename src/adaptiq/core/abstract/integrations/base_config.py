@@ -1,17 +1,16 @@
-from datetime import datetime
 import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
-from langchain_openai import OpenAIEmbeddings
-from langchain_openai import ChatOpenAI
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.embeddings import Embeddings
-from adaptiq.core.entities import AdaptiQConfig, FrameworkEnum, AgentTool, ProviderEnum
-
 import yaml
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
+from adaptiq.core.entities import AdaptiQConfig, AgentTool, FrameworkEnum, ProviderEnum
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -21,12 +20,13 @@ class BaseConfig(ABC):
     """
     Base class for managing configuration files in JSON or YAML format.
     Provides common functionality for loading, saving, and accessing configuration data.
-    
+
     This class can be extended to create specialized configuration managers
     for specific applications or services.
     """
+
     _shared_config: AdaptiQConfig = None
-    _current_prompt:str = None
+    _current_prompt: str = None
 
     @staticmethod
     def get_config() -> AdaptiQConfig:
@@ -67,7 +67,7 @@ class BaseConfig(ABC):
             template = template.replace(f"{{{{{key}}}}}", str(value))
 
         return template
-    
+
     @staticmethod
     def update_instructions_within_file(file_path: str, key: str):
         """
@@ -126,11 +126,11 @@ class BaseConfig(ABC):
     def __init__(self, config_path: str = None, preload: bool = False):
         """
         Initialize the configuration manager with the path to the configuration file.
-        
+
         Args:
             config_path (str): Path to the configuration file (JSON or YAML).
             auto_create (bool): If True, creates a default config file if it doesn't exist.
-            
+
         Raises:
             FileNotFoundError: If the configuration file does not exist and auto_create is False.
             ValueError: If the configuration file cannot be parsed.
@@ -138,51 +138,53 @@ class BaseConfig(ABC):
         if preload:
             if not config_path:
                 raise ValueError("Configuration path must be provided for preloading.")
-            self.config: AdaptiQConfig  = self._load_config(config_path)
+            self.config: AdaptiQConfig = self._load_config(config_path)
             BaseConfig._shared_config = self.config
 
             return
 
         self.config_path = None
         self.config = None
-    
+
     def _load_config(self, config_path: str) -> AdaptiQConfig:
         """
         Load the configuration file from the given path.
-        
+
         Args:
             config_path (str): Path to the configuration file.
-            
+
         Returns:
             AdaptiQConfig: The loaded configuration.
-            
+
         Raises:
             FileNotFoundError: If the file does not exist.
             ValueError: If the file cannot be parsed.
         """
         if not os.path.isfile(config_path):
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
-        
+
         try:
-            
+
             with open(config_path, "r", encoding="utf-8") as file:
-                raw_config =  yaml.safe_load(file) or {}
-            
+                raw_config = yaml.safe_load(file) or {}
+
             return AdaptiQConfig(**raw_config)
-        
+
         except yaml.YAMLError as e:
             raise ValueError(f"Failed to parse YAML configuration file: {e}")
         except Exception as e:
             raise ValueError(f"Failed to load configuration file: {e}")
-    
-    def get_prompt(self, get_newest:bool = False) -> str:
+
+    def get_prompt(self, get_newest: bool = False) -> str:
         if self.config.framework_adapter.name == FrameworkEnum.crewai:
-            prompt_path = self.config.agent_modifiable_config.prompt_configuration_file_path
+            prompt_path = (
+                self.config.agent_modifiable_config.prompt_configuration_file_path
+            )
             current_dir = os.getcwd()
             file_path = os.path.join(current_dir, prompt_path)
 
             # Read YAML file
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 yaml_content = yaml.safe_load(f)
 
             task_name = list(yaml_content.keys())[0]
@@ -191,13 +193,13 @@ class BaseConfig(ABC):
 
             # Combine both sections
             return f"{description}\nExpected output:\n{expected_output}"
-        
+
         else:
             prompt_path = self.config.report_config.prompts_path
             current_dir = os.getcwd()
-            file_path = os.path.join(current_dir, prompt_path) 
+            file_path = os.path.join(current_dir, prompt_path)
 
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 prompt_content = json.load(f)  # list of dicts
 
             if not prompt_content:
@@ -207,7 +209,9 @@ class BaseConfig(ABC):
                 # sort by timestamp and take the latest
                 newest_entry = max(
                     prompt_content,
-                    key=lambda x: datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S")
+                    key=lambda x: datetime.strptime(
+                        x["timestamp"], "%Y-%m-%d %H:%M:%S"
+                    ),
                 )
                 return newest_entry["prompt"]
             else:
@@ -215,28 +219,28 @@ class BaseConfig(ABC):
                 for entry in prompt_content:
                     if entry.get("type") == "default":
                         return entry["prompt"]
-                
+
                 # fallback: return first prompt if no default found
                 return prompt_content[0]["prompt"]
-            
+
     def get_config(self) -> AdaptiQConfig:
         """
         Get the entire configuration dictionary.
-        
+
         Returns:
             AdaptiQConfig: The complete configuration.
         """
         return self.config
-    
+
     def get_tools(self) -> List[AgentTool]:
         """
         Get the list of agent tools from the configuration.
-        
+
         Returns:
             List[AgentTool]: The list of agent tools.
         """
         return self.config.agent_modifiable_config.agent_tools
-    
+
     def reload_config(self) -> None:
         """
         Reload the configuration from the file.
@@ -244,24 +248,24 @@ class BaseConfig(ABC):
         """
         self.config = self._load_config(self.config_path)
         logger.info(f"Configuration reloaded from: {self.config_path}")
-    
+
     def validate_config(self) -> Tuple[bool, str]:
         """
         Validate the current configuration.
         This method should be implemented by subclasses to provide specific validation logic.
-        
+
         Returns:
             bool: True if configuration is valid, False otherwise.
             str: Validation message.
         """
         return self._validate_config()
-    
+
     @abstractmethod
     def _validate_config(self) -> Tuple[bool, str]:
         """
         Abstract method for configuration validation.
         Must be implemented by subclasses.
-        
+
         Returns:
             Tuple[bool, str]: A tuple containing a boolean indicating validity and a validation message.
         """
@@ -366,10 +370,7 @@ class BaseConfig(ABC):
             api_key = llm_config.api_key
 
             if llm_config.provider == ProviderEnum.openai:
-                return OpenAIEmbeddings(
-                    model="text-embedding-3-small",
-                    api_key=api_key
-                )
+                return OpenAIEmbeddings(model="text-embedding-3-small", api_key=api_key)
 
             raise ValueError(f"Unsupported Embeddings provider: {llm_config.provider}")
 

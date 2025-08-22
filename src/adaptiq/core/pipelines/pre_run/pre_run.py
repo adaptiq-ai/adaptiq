@@ -5,9 +5,29 @@ import os
 from typing import Dict, List
 
 from adaptiq.core.abstract.integrations import BaseConfig, BasePromptParser
-from adaptiq.core.entities import TaskIntent, ScenarioModel, HypotheticalStateRepresentation, StatusSummary, PromptParsingStatus, HypotheticalRepresentationStatus, ScenarioSimulationStatus, QTableInitializationStatus,PromptAnalysisStatus, FormattedAnalysis, QTableState, QTableAction, QTableQValue, PreRunResults
+from adaptiq.core.entities import (
+    FormattedAnalysis,
+    HypotheticalRepresentationStatus,
+    HypotheticalStateRepresentation,
+    PreRunResults,
+    PromptAnalysisStatus,
+    PromptParsingStatus,
+    QTableAction,
+    QTableInitializationStatus,
+    QTableQValue,
+    QTableState,
+    ScenarioModel,
+    ScenarioSimulationStatus,
+    StatusSummary,
+    TaskIntent,
+)
+from adaptiq.core.pipelines.pre_run.tools import (
+    HypotheticalStateGenerator,
+    PromptConsulting,
+    PromptEstimator,
+    ScenarioSimulator,
+)
 from adaptiq.core.q_table import QTableManager
-from adaptiq.core.pipelines.pre_run.tools import HypotheticalStateGenerator, PromptConsulting, ScenarioSimulator, PromptEstimator
 
 
 class PreRunPipeline:
@@ -21,10 +41,11 @@ class PreRunPipeline:
     This orchestration prepares the agent for execution with optimized configuration.
     """
 
-    def __init__(self, 
-    base_config: BaseConfig, 
-    base_prompt_parser: BasePromptParser,
-    output_path: str,
+    def __init__(
+        self,
+        base_config: BaseConfig,
+        base_prompt_parser: BasePromptParser,
+        output_path: str,
     ):
         """
         Initialize the PreRunOrchestrator with configuration.
@@ -77,7 +98,7 @@ class PreRunPipeline:
         self.offline_learner = QTableManager(file_path=self.q_table_path)
 
         # Results storage
-        self.parsed_steps:List[TaskIntent] = []
+        self.parsed_steps: List[TaskIntent] = []
         self.hypothetical_states: List[HypotheticalStateRepresentation] = []
         self.prompt_analysis: FormattedAnalysis = None
         self.simulated_scenarios: List[ScenarioModel] = []
@@ -113,8 +134,7 @@ class PreRunPipeline:
             self.parsed_steps = self.prompt_parser.run_parse_prompt()
 
             self.logger.info(
-                "Prompt Parsing complete. Identified %d steps.",
-                len(self.parsed_steps)
+                "Prompt Parsing complete. Identified %d steps.", len(self.parsed_steps)
             )
 
         except Exception as e:
@@ -131,15 +151,17 @@ class PreRunPipeline:
             # Initialize the hypothetical state generator
             self.state_generator = HypotheticalStateGenerator(
                 prompt_parsed_plan=self.parsed_steps,
-                llm=self.base_config.get_llm_instance()
+                llm=self.base_config.get_llm_instance(),
             )
 
             # Generate state-action pairs
-            self.hypothetical_states = self.state_generator.generate_hypothetical_state_action_pairs()
+            self.hypothetical_states = (
+                self.state_generator.generate_hypothetical_state_action_pairs()
+            )
 
             self.logger.info(
                 "Hypothetical State Generation complete. Generated %d state-action pairs.",
-                len(self.hypothetical_states)
+                len(self.hypothetical_states),
             )
 
         except Exception as e:
@@ -171,31 +193,31 @@ class PreRunPipeline:
             self.simulated_scenarios = (
                 self.scenario_simulator.generate_simulated_scenarios()
             )
-            
 
             self.logger.info(
                 "Scenario Simulation complete. Generated %d scenarios.",
-                len(self.simulated_scenarios)
+                len(self.simulated_scenarios),
             )
-
 
         except Exception as e:
             self.logger.error("Scenario Simulation failed: %s", str(e))
             raise
 
-    def _create_qtable_state_from_scenario(self, scenario: ScenarioModel) -> QTableState:
+    def _create_qtable_state_from_scenario(
+        self, scenario: ScenarioModel
+    ) -> QTableState:
         """
         Create a QTableState from scenario data.
-        
+
         Args:
             scenario: ScenarioModel containing state information
-            
+
         Returns:
             QTableState: Properly structured state object
         """
         # Extract state components from scenario
         # Assuming scenario has attributes we can use to construct the state
-        
+
         def safe_eval_tuple(val: str) -> tuple[str, str, str, str]:
             try:
                 # Try normal eval first
@@ -206,7 +228,11 @@ class PreRunPipeline:
                 # If parsing fails, return fallback
                 return ("unknown", "unknown", "unknown", "unknown")
 
-        current_subtask = scenario.original_state if scenario.original_state else "('unknown','unknown','unknown','unknown')"
+        current_subtask = (
+            scenario.original_state
+            if scenario.original_state
+            else "('unknown','unknown','unknown','unknown')"
+        )
         values = safe_eval_tuple(current_subtask)
 
         # For hypothetical states, we may not have complete information
@@ -214,21 +240,23 @@ class PreRunPipeline:
         # last_action_taken = getattr(scenario, 'previous_action', 'none')
         # last_outcome = getattr(scenario, 'previous_outcome', 'unknown')
         # key_context = getattr(scenario, 'context', str(scenario.simulated_action)[:50] if scenario.simulated_action else 'none')
-        
+
         return QTableState(
             current_subtask=values[0] if len(values) > 0 else "unknown",
             last_action_taken=values[1] if len(values) > 1 else "none",
             last_outcome=values[2] if len(values) > 2 else "unknown",
-            key_context=values[3] if len(values) > 3 else "none"
+            key_context=values[3] if len(values) > 3 else "none",
         )
 
-    def _create_next_qtable_state_from_scenario(self, scenario: ScenarioModel) -> QTableState:
+    def _create_next_qtable_state_from_scenario(
+        self, scenario: ScenarioModel
+    ) -> QTableState:
         """
         Create a next state QTableState from scenario data.
-        
+
         Args:
             scenario: ScenarioModel containing next state information
-            
+
         Returns:
             QTableState: Properly structured next state object
         """
@@ -237,7 +265,7 @@ class PreRunPipeline:
             current_subtask=scenario.next_state[0],
             last_action_taken=scenario.next_state[1],
             last_outcome=scenario.next_state[2],
-            key_context=scenario.next_state[3]
+            key_context=scenario.next_state[3],
         )
 
     def run_qtable_initialization(self, alpha: float = 0.8, gamma: float = 0.8) -> Dict:
@@ -268,7 +296,7 @@ class PreRunPipeline:
         # Collect all possible actions from scenarios
         all_actions = set()
         for scenario in self.simulated_scenarios:
-            action = scenario.simulated_action 
+            action = scenario.simulated_action
             if action:
                 all_actions.add(action)
 
@@ -279,7 +307,9 @@ class PreRunPipeline:
         for scenario in self.simulated_scenarios:
             try:
                 if not scenario.simulated_action:
-                    self.logger.warning("Skipping scenario with no action: %s", scenario)
+                    self.logger.warning(
+                        "Skipping scenario with no action: %s", scenario
+                    )
                     continue
 
                 # Create structured state objects
@@ -295,12 +325,17 @@ class PreRunPipeline:
                 # Find possible actions from scenarios with matching next_state
                 actions_prime = []
                 next_state_str = next_state.current_subtask
-                
+
                 for other_scenario in self.simulated_scenarios:
-                    if (other_scenario.original_state and 
-                        other_scenario.original_state_to_tuple() == next_state.to_tuple() and 
-                        other_scenario.simulated_action):
-                        actions_prime.append(QTableAction(action=other_scenario.simulated_action))
+                    if (
+                        other_scenario.original_state
+                        and other_scenario.original_state_to_tuple()
+                        == next_state.to_tuple()
+                        and other_scenario.simulated_action
+                    ):
+                        actions_prime.append(
+                            QTableAction(action=other_scenario.simulated_action)
+                        )
 
                 # If no specific actions found for next state, use all available actions
                 if not actions_prime:
@@ -319,7 +354,9 @@ class PreRunPipeline:
                     # Direct assignment if no next state info
                     if state not in self.offline_learner.Q_table:
                         self.offline_learner.Q_table[state] = {}
-                    self.offline_learner.Q_table[state][action] = QTableQValue(q_value=reward)
+                    self.offline_learner.Q_table[state][action] = QTableQValue(
+                        q_value=reward
+                    )
 
             except (KeyError, TypeError, ValueError) as e:
                 self.logger.error("Failed to process scenario: %s", e)
@@ -330,16 +367,18 @@ class PreRunPipeline:
         for state in self.offline_learner.seen_states:
             if state not in self.offline_learner.Q_table:
                 self.offline_learner.Q_table[state] = {}
-            
+
             for action in all_qtable_actions:
                 if action not in self.offline_learner.Q_table[state]:
                     # Initialize with a default value of 0.0
-                    self.offline_learner.Q_table[state][action] = QTableQValue(q_value=0.0)
+                    self.offline_learner.Q_table[state][action] = QTableQValue(
+                        q_value=0.0
+                    )
 
         self.logger.info(
             "Q-table initialized with %d states and %d total entries.",
             len(self.offline_learner.Q_table),
-            sum(len(actions) for actions in self.offline_learner.Q_table.values())
+            sum(len(actions) for actions in self.offline_learner.Q_table.values()),
         )
 
         save_success = self.offline_learner.save_q_table(prefix_version="pre_run")
@@ -361,19 +400,18 @@ class PreRunPipeline:
 
         try:
             # Load the agent prompt
-            agent_prompt = self.config_data.agent_modifiable_config.prompt_configuration_file_path
+            agent_prompt = (
+                self.config_data.agent_modifiable_config.prompt_configuration_file_path
+            )
             # Initialize the prompt consultant
             self.prompt_consultant = PromptConsulting(
-                agent_prompt=agent_prompt,
-                llm=self.base_config.get_llm_instance()
+                agent_prompt=agent_prompt, llm=self.base_config.get_llm_instance()
             )
 
             # Analyze the prompt
             self.prompt_analysis = self.prompt_consultant.analyze_prompt()
 
-
             self.logger.info("Prompt Analysis complete.")
-
 
         except Exception as e:
             self.logger.error("Prompt Analysis failed: %s", str(e))
@@ -399,8 +437,8 @@ class PreRunPipeline:
                 hypothetical_states=self.hypothetical_states,
                 offline_learner=self.offline_learner,
                 prompt_analysis=self.prompt_analysis,
-                agent_tools= self.agent_tools,
-                output_path= self.output_path,
+                agent_tools=self.agent_tools,
+                output_path=self.output_path,
             )
 
             # Generate the optimized prompt
@@ -436,14 +474,14 @@ class PreRunPipeline:
             self.run_qtable_initialization()
             new_prompt = self.run_prompt_estimation()
 
-
-
             # Compile results
             results = PreRunResults(
                 parsed_steps=self.parsed_steps,
                 hypothetical_states=self.hypothetical_states,
                 simulated_scenarios=self.simulated_scenarios,
-                q_table_size=len(self.offline_learner.Q_table) if self.offline_learner else 0,
+                q_table_size=(
+                    len(self.offline_learner.Q_table) if self.offline_learner else 0
+                ),
                 prompt_analysis=self.prompt_analysis,
                 new_prompt=new_prompt,
             )
@@ -461,11 +499,13 @@ class PreRunPipeline:
 
             self.logger.info("ADAPTIQ Pre-Run Pipeline complete.")
             return results
-        
+
         except Exception as e:
             self.logger.error("ADAPTIQ Pre-Run Pipeline failed: %s", str(e))
-            return {"error": str(e),}
-            
+            return {
+                "error": str(e),
+            }
+
     def get_status_summary(self) -> StatusSummary:
         """
         Get a summary of the current status of each pre-run component.
@@ -496,7 +536,10 @@ class PreRunPipeline:
                 completed=self.offline_learner is not None
                 and len(self.offline_learner.Q_table) > 0,
                 q_entries=(
-                    sum(len(actions) for actions in self.offline_learner.Q_table.values())
+                    sum(
+                        len(actions)
+                        for actions in self.offline_learner.Q_table.values()
+                    )
                     if self.offline_learner
                     else 0
                 ),
@@ -504,9 +547,7 @@ class PreRunPipeline:
             prompt_analysis=PromptAnalysisStatus(
                 completed=bool(self.prompt_analysis),
                 weaknesses_found=(
-                    len(self.prompt_analysis.weaknesses)
-                    if self.prompt_analysis
-                    else 0
+                    len(self.prompt_analysis.weaknesses) if self.prompt_analysis else 0
                 ),
                 suggestions_provided=(
                     len(self.prompt_analysis.suggested_modifications)

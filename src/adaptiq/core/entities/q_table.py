@@ -1,7 +1,8 @@
 import json
-from pydantic import BaseModel, Field
-from typing import Dict, List, Tuple
 from datetime import datetime, timezone
+from typing import Dict, List, Tuple
+
+from pydantic import BaseModel, Field
 
 
 class QTableState(BaseModel):
@@ -28,7 +29,7 @@ class QTableState(BaseModel):
             last_outcome=t[2],
             key_context=t[3],
         )
-    
+
     def __hash__(self):
         """Custom hash method for using as dictionary key"""
         return hash(self.to_tuple())
@@ -39,6 +40,7 @@ class QTableState(BaseModel):
             return False
         return self.to_tuple() == other.to_tuple()
 
+
 class QTableAction(BaseModel):
     action: str
 
@@ -48,7 +50,7 @@ class QTableAction(BaseModel):
     @classmethod
     def from_str(cls, s: str) -> "QTableAction":
         return cls(action=s)
-    
+
     def __hash__(self):
         """Custom hash method for using as dictionary key"""
         return hash(self.action)
@@ -85,7 +87,7 @@ class QTablePayload(BaseModel):
 
     def to_native(self) -> Dict[QTableState, Dict[QTableAction, QTableQValue]]:
         """Convert stringified keys back into objects."""
-        native:Dict[QTableState, Dict[QTableAction, QTableQValue]] = {}
+        native: Dict[QTableState, Dict[QTableAction, QTableQValue]] = {}
         for state_str, actions in self.Q_table.items():
             state = QTableState.from_tuple(tuple(state_str.split("||")))
             native[state] = {}

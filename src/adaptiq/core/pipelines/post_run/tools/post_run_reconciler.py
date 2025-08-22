@@ -2,13 +2,20 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Dict
+
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
-from adaptiq.core.entities import ProcessedLogs, ReconciliationResults, ReconciliationSummary
-from adaptiq.core.q_table import StateMapper, StateActionExtractor
+
+from adaptiq.core.entities import (
+    ProcessedLogs,
+    ReconciliationResults,
+    ReconciliationSummary,
+)
 from adaptiq.core.pipelines.post_run.tools import PostRunUpdater, PromptEngineer
+from adaptiq.core.q_table import StateActionExtractor, StateMapper
 
 logger = logging.getLogger(__name__)
+
 
 class PostRunReconciler:
     """
@@ -30,7 +37,7 @@ class PostRunReconciler:
         old_prompt: str = None,
         agent_name: str = None,
         feedback: str = None,
-        report_path: str = None
+        report_path: str = None,
     ):
         """
         Initialize the orchestrator with file paths and configuration.
@@ -61,8 +68,6 @@ class PostRunReconciler:
         # Validate file existence
         self._validate_files()
 
-
-
         # Initialize components (will be done lazily)
         self.extractor = None
         self.mapper = None
@@ -70,7 +75,6 @@ class PostRunReconciler:
         self.prompt_engineer = None
 
         logger.info("PostRunReconciler initialized successfully")
-
 
     def _validate_files(self):
         """Validate that all required files exist."""
@@ -134,7 +138,7 @@ class PostRunReconciler:
                 report_path=self.report_path,
                 old_prompt=self.old_prompt,
                 agent_name=self.agent_name,
-                feedback=str(self.feedback)
+                feedback=str(self.feedback),
             )
             logger.info("AdaptiqPromptEngineer initialized")
 
@@ -167,14 +171,12 @@ class PostRunReconciler:
 
             # Log classification summary
             known_states_count = sum(
-                1
-                for c in state_classifications
-                if c.classification.is_known_state
+                1 for c in state_classifications if c.classification.is_known_state
             )
             logger.info(
                 "Found %d known states out of %d total",
                 known_states_count,
-                len(state_classifications)
+                len(state_classifications),
             )
 
             # Step 4: Update Q-table based on classifications and rewards
@@ -205,7 +207,8 @@ class PostRunReconciler:
                     total_extracted_pairs=len(extracted_data),
                     total_classified_states=len(state_classifications),
                     known_states_found=known_states_count,
-                    unknown_states_found=len(state_classifications) - known_states_count,
+                    unknown_states_found=len(state_classifications)
+                    - known_states_count,
                     task_key=self.prompt_engineer.task_name,
                     new_prompt=self.prompt_engineer.new_prompt,
                 ),
@@ -240,5 +243,3 @@ class PostRunReconciler:
         except Exception as e:
             logger.error("Error saving results to %s: %s", output_path, e)
             raise
-
-

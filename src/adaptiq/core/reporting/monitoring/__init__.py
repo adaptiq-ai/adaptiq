@@ -3,8 +3,8 @@ from .adaptiq_metrics import capture_llm_response, instrumental_track_tokens
 
 __all__ = [
     "AdaptiqLogger",
-    "get_logger", 
+    "get_logger",
     "setup_centralized_logging",
     "capture_llm_response",
-    "instrumental_track_tokens"
+    "instrumental_track_tokens",
 ]

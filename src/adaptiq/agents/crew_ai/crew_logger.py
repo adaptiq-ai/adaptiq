@@ -1,10 +1,10 @@
-
 import json
 import re
 
 from crewai.agents.parser import AgentAction, AgentFinish, OutputParserException
 
 from adaptiq.core.abstract.integrations.base_agent_logger import BaseAgentLogger
+
 
 class CrewLogger(BaseAgentLogger):
     """

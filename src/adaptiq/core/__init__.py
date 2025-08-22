@@ -1,14 +1,14 @@
 # src/adaptiq/__init__.py
 
-__version__ = "0.12.2"  
+__version__ = "0.12.2"
 
 try:
     from .abstract import *
+    from .entities import *
     from .pipelines import *
     from .q_table import *
     from .reporting import *
-    from .entities import *
-    
+
 except ImportError:
     pass
 

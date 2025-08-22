@@ -1,10 +1,11 @@
-from abc import ABC, abstractmethod
 import re
 import xml.etree.ElementTree as ET
+from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
 from adaptiq.core.entities import AdaptiQConfig, AgentTool, TaskIntent
 
 
@@ -12,13 +13,15 @@ class BasePromptParser(ABC):
     """
     Abstract base class for prompt parsers that analyze agent task descriptions
     and infer idealized sequences of steps using XML output for reliable parsing.
-    
+
     This class defines the interface that all prompt parser implementations
     must follow, ensuring consistency across different parsing strategies
     and LLM providers.
     """
 
-    def __init__(self, config_data: AdaptiQConfig, task: str, tools: List[AgentTool] = []):
+    def __init__(
+        self, config_data: AdaptiQConfig, task: str, tools: List[AgentTool] = []
+    ):
         """
         Initialize the prompt parser with configuration.
 
@@ -35,14 +38,14 @@ class BasePromptParser(ABC):
         self.agent_tools = tools
         self.required_fields = [
             "intended_subtask",  # Fixed: lowercase 's' to match XML output
-            "intended_action", 
+            "intended_action",
             "preconditions_mentioned_in_prompt",
             "expected_ideal_outcome_mentioned_in_prompt",
         ]
         # Initialize prompt template
         self.prompt_parser_template = self._create_prompt_template()
 
-        # TODO this step will be removed from the parser and will have a unified llm client init 
+        # TODO this step will be removed from the parser and will have a unified llm client init
         self._initialize_components()
 
     def _initialize_components(self) -> None:
@@ -56,14 +59,12 @@ class BasePromptParser(ABC):
         # Initialize LLM client
         if self.provider.value == "openai":
             self.prompt_parser_llm = ChatOpenAI(
-                temperature=0.0, 
-                model=self.llm_model_name, 
-                api_key=self.api_key
+                temperature=0.0, model=self.llm_model_name, api_key=self.api_key
             )
         else:
             raise ValueError(
                 f"Unsupported provider: {self.provider}. Only 'openai' is currently supported."
-            )   
+            )
 
     def _create_prompt_template(self) -> ChatPromptTemplate:
         """
@@ -126,10 +127,7 @@ class BasePromptParser(ABC):
             + task_description_text: str
         """
 
-        tool_strings = [
-            f"{tool.name}: {tool.description}"
-            for tool in self.agent_tools
-        ]
+        tool_strings = [f"{tool.name}: {tool.description}" for tool in self.agent_tools]
         return {
             "agent_tools": ", ".join(tool_strings),
             "task_description_text": self.task,
@@ -160,10 +158,10 @@ class BasePromptParser(ABC):
     def _extract_xml_content(self, content: str) -> str:
         """
         Extract XML content from LLM response, handling potential markdown wrapping.
-        
+
         Args:
             content: Raw LLM response content
-            
+
         Returns:
             Clean XML content
         """
@@ -181,7 +179,7 @@ class BasePromptParser(ABC):
         # Look for XML content between <task_steps> tags
         xml_pattern = r"<task_steps>.*?</task_steps>"
         xml_match = re.search(xml_pattern, content, re.DOTALL)
-        
+
         if xml_match:
             return xml_match.group(0)
         else:
@@ -191,10 +189,10 @@ class BasePromptParser(ABC):
     def _parse_xml_response(self, xml_content: str) -> List[Dict[str, str]]:
         """
         Parse XML response and extract task steps.
-        
+
         Args:
             xml_content: XML string containing task steps
-            
+
         Returns:
             List of dictionaries with parsed step data
         """
@@ -202,18 +200,24 @@ class BasePromptParser(ABC):
             # Parse XML
             root = ET.fromstring(xml_content)
             steps = []
-            
-            for step_elem in root.findall('step'):
+
+            for step_elem in root.findall("step"):
                 step_data = {
-                    'intended_subtask': self._get_xml_text(step_elem, 'intended_subtask'),  # Fixed: lowercase 's'
-                    'intended_action': self._get_xml_text(step_elem, 'intended_action'),
-                    'preconditions_mentioned_in_prompt': self._get_xml_text(step_elem, 'preconditions_mentioned_in_prompt'),
-                    'expected_ideal_outcome_mentioned_in_prompt': self._get_xml_text(step_elem, 'expected_ideal_outcome_mentioned_in_prompt')
+                    "intended_subtask": self._get_xml_text(
+                        step_elem, "intended_subtask"
+                    ),  # Fixed: lowercase 's'
+                    "intended_action": self._get_xml_text(step_elem, "intended_action"),
+                    "preconditions_mentioned_in_prompt": self._get_xml_text(
+                        step_elem, "preconditions_mentioned_in_prompt"
+                    ),
+                    "expected_ideal_outcome_mentioned_in_prompt": self._get_xml_text(
+                        step_elem, "expected_ideal_outcome_mentioned_in_prompt"
+                    ),
                 }
                 steps.append(step_data)
-            
+
             return steps
-            
+
         except ET.ParseError as e:
             # If XML parsing fails, try regex fallback
             print(f"XML parsing error: {e}. Attempting regex fallback.")
@@ -222,11 +226,11 @@ class BasePromptParser(ABC):
     def _get_xml_text(self, element: ET.Element, tag_name: str) -> str:
         """
         Safely extract text from XML element.
-        
+
         Args:
             element: XML element to search in
             tag_name: Tag name to find
-            
+
         Returns:
             Text content or empty string if not found
         """
@@ -236,49 +240,57 @@ class BasePromptParser(ABC):
     def _parse_xml_with_regex(self, xml_content: str) -> List[Dict[str, str]]:
         """
         Fallback regex-based XML parsing for malformed XML.
-        
+
         Args:
             xml_content: XML string to parse
-            
+
         Returns:
             List of dictionaries with extracted data
         """
         steps = []
-        
+
         # Pattern to match each step block
-        step_pattern = r'<step>(.*?)</step>'
+        step_pattern = r"<step>(.*?)</step>"
         step_matches = re.findall(step_pattern, xml_content, re.DOTALL)
-        
+
         for step_content in step_matches:
             step_data = {
-                'intended_subtask': self._extract_tag_content(step_content, 'intended_subtask'),  # Fixed: lowercase 's'
-                'intended_action': self._extract_tag_content(step_content, 'intended_action'),
-                'preconditions_mentioned_in_prompt': self._extract_tag_content(step_content, 'preconditions_mentioned_in_prompt'),
-                'expected_ideal_outcome_mentioned_in_prompt': self._extract_tag_content(step_content, 'expected_ideal_outcome_mentioned_in_prompt')
+                "intended_subtask": self._extract_tag_content(
+                    step_content, "intended_subtask"
+                ),  # Fixed: lowercase 's'
+                "intended_action": self._extract_tag_content(
+                    step_content, "intended_action"
+                ),
+                "preconditions_mentioned_in_prompt": self._extract_tag_content(
+                    step_content, "preconditions_mentioned_in_prompt"
+                ),
+                "expected_ideal_outcome_mentioned_in_prompt": self._extract_tag_content(
+                    step_content, "expected_ideal_outcome_mentioned_in_prompt"
+                ),
             }
             steps.append(step_data)
-        
+
         return steps
 
     def _extract_tag_content(self, xml_string: str, tag_name: str) -> str:
         """
         Extract content from a specific XML tag using regex.
-        
+
         Args:
             xml_string: XML string to search in
             tag_name: Name of the tag to extract
-            
+
         Returns:
             Content of the tag or empty string if not found
         """
-        pattern = f'<{tag_name}>(.*?)</{tag_name}>'
+        pattern = f"<{tag_name}>(.*?)</{tag_name}>"
         match = re.search(pattern, xml_string, re.DOTALL)
         return match.group(1).strip() if match else ""
 
     def _validate_parsed_steps(self, parsed_steps: List[Dict[str, str]]) -> None:
         """
         Validate the structure of parsed steps.
-        
+
         This method can be used by concrete implementations to ensure
         the parsed steps follow the expected format.
 
@@ -298,10 +310,10 @@ class BasePromptParser(ABC):
             for field in self.required_fields:
                 if field not in step:
                     raise ValueError(f"Step {i} is missing required field '{field}'")
-                
+
                 if not isinstance(step[field], str):
                     raise ValueError(f"Step {i} field '{field}' should be a string")
-                
+
     def _parse_model_response(self, response: str) -> List[TaskIntent]:
         """
         Parse and validate the model's XML response into structured steps.
@@ -318,7 +330,7 @@ class BasePromptParser(ABC):
         try:
             # Extract XML content from response
             xml_content = self._extract_xml_content(response)
-            
+
             # Parse XML and extract steps
             parsed_steps: List[Dict[str, str]] = self._parse_xml_response(xml_content)
 
@@ -326,7 +338,7 @@ class BasePromptParser(ABC):
             self._validate_parsed_steps(parsed_steps)
 
             return [TaskIntent(**step) for step in parsed_steps]
-            
+
         except Exception as e:
             # Provide more detailed error information
             error_msg = f"Failed to parse LLM XML response: {e}\n\n"
@@ -336,7 +348,7 @@ class BasePromptParser(ABC):
     def run_parse_prompt(self) -> List[TaskIntent]:
         """
         Main method to parse the agent's prompt and infer idealized steps.
-        
+
         This template method orchestrates the parsing process by calling
         the methods in the correct sequence.
 
@@ -352,13 +364,13 @@ class BasePromptParser(ABC):
         """
         # Construct the parsing prompt
         prompt = self._construct_parsing_prompt()
-        
+
         # Invoke the parsing model
         response = self._invoke_parsing_model(prompt)
-        
+
         # Parse and validate the response
         parsed_steps = self._parse_model_response(response)
-        
+
         return parsed_steps
 
     @property

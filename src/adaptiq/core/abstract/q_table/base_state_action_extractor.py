@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
-from langchain_core.prompts import  PromptTemplate
+
 from langchain_core.language_models.chat_models import BaseChatModel
-from adaptiq.core.entities import ProcessedLogs, LogItem, LogState, StateActionMapping
+from langchain_core.prompts import PromptTemplate
+
+from adaptiq.core.entities import LogItem, LogState, ProcessedLogs, StateActionMapping
+
 
 class BaseStateActionExtractor(ABC):
     """
@@ -24,14 +27,14 @@ class BaseStateActionExtractor(ABC):
     def _create_prompt_template(self) -> PromptTemplate:
         """
         Create the prompt template for state-action extraction.
-        
+
         Returns:
             PromptTemplate instance
         """
         pass
 
     @abstractmethod
-    def _extract_raw_state_and_action(self, log_data: LogItem)-> Tuple[Dict, str]:
+    def _extract_raw_state_and_action(self, log_data: LogItem) -> Tuple[Dict, str]:
         """
         Extract raw state and action from the input data.
 
@@ -44,7 +47,9 @@ class BaseStateActionExtractor(ABC):
         pass
 
     @abstractmethod
-    def _transform_with_llm(self, state_dict: LogState, action_str: str) -> StateActionMapping:
+    def _transform_with_llm(
+        self, state_dict: LogState, action_str: str
+    ) -> StateActionMapping:
         """
         Use LLM to transform the extracted state and action.
 
@@ -57,7 +62,7 @@ class BaseStateActionExtractor(ABC):
         """
         pass
 
-    def extract(self, input_data: LogItem)-> StateActionMapping:
+    def extract(self, input_data: LogItem) -> StateActionMapping:
         """
         Extract and transform state and action from the input data.
 

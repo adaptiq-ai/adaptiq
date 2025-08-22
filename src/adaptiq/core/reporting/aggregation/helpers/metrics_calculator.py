@@ -1,9 +1,10 @@
 import json
 import logging
-import tiktoken
 from typing import Dict, List
-from adaptiq.core.entities import AdaptiQConfig
-from adaptiq.core.entities import ValidationResults
+
+import tiktoken
+
+from adaptiq.core.entities import AdaptiQConfig, ValidationResults
 
 
 class MetricsCalculator:
@@ -11,6 +12,7 @@ class MetricsCalculator:
     Handles all metrics calculations including token counting, cost computations,
     performance scoring, and statistical aggregations.
     """
+
     # TODO: Unify the config to generic data model (from base config)
     def __init__(self, config_data: AdaptiQConfig, pricings: Dict):
         """
@@ -22,33 +24,33 @@ class MetricsCalculator:
         """
         self.logger = logging.getLogger("ADAPTIQ-Aggregator-MetricsCalculator")
         self.pricings = pricings
-        self.provider = config_data.llm_config.provider.value 
-        self.model = config_data.llm_config.model_name.value 
-        
+        self.provider = config_data.llm_config.provider.value
+        self.model = config_data.llm_config.model_name.value
+
         # Initialize tracking variables
         self._run_count = 0
         self._reward_sum = 0.0
         self._total_run_time = 0.0
         self._total_errors = 0
-        
+
         # Token tracking
         self.avg_input_tokens = 0.0
         self.avg_output_tokens = 0.0
         self.avg_input = 0.0
         self.avg_output = 0.0
         self.overall_avg = 0.0
-        
+
         # Pricing cache
         self.input_price = 0.0
         self.output_price = 0.0
-        
+
         # Token tracking per run type
         self.run_tokens = {
             "pre_tokens": {"input": 0.0, "output": 0.0},
             "post_tokens": {"input": 0.0, "output": 0.0},
             "recon_tokens": {"input": 0.0, "output": 0.0},
         }
-        
+
         # Runtime state
         self._default_run_mode = True
         self._last_reward = 0.0
@@ -60,8 +62,13 @@ class MetricsCalculator:
         """Set the current run count."""
         self._run_count = count
 
-    def set_last_run_data(self, reward: float, run_time: float = 0.0, 
-                         original_prompt: str = "", suggested_prompt: str = ""):
+    def set_last_run_data(
+        self,
+        reward: float,
+        run_time: float = 0.0,
+        original_prompt: str = "",
+        suggested_prompt: str = "",
+    ):
         """Store data from the last run for performance calculations."""
         self._last_reward = reward
         self._last_run_time = run_time
@@ -70,7 +77,7 @@ class MetricsCalculator:
 
     def calculate_avg_reward(
         self,
-        validation_results: ValidationResults= None,
+        validation_results: ValidationResults = None,
         simulated_scenarios: List = None,
         reward_type: str = "execution",
     ) -> float:
@@ -225,7 +232,9 @@ class MetricsCalculator:
         pricing = self.pricings.get(self.provider, {}).get(self.model)
         if not pricing:
             self.logger.error(
-                "Pricing not found for provider '%s' and model '%s'.", self.provider, self.model
+                "Pricing not found for provider '%s' and model '%s'.",
+                self.provider,
+                self.model,
             )
             return 0.0
 
@@ -257,7 +266,9 @@ class MetricsCalculator:
         pricing = self.pricings.get(self.provider, {}).get(self.model)
         if not pricing:
             self.logger.error(
-                "Pricing not found for provider '%s' and model '%s'.", self.provider, self.model
+                "Pricing not found for provider '%s' and model '%s'.",
+                self.provider,
+                self.model,
             )
             return 0.0
 
@@ -294,7 +305,7 @@ class MetricsCalculator:
     def update_error_count(self, errors_this_run: int):
         """
         Update the running sum of errors across runs.
-        
+
         Args:
             errors_this_run (int): Number of errors in this run.
         """
@@ -303,7 +314,7 @@ class MetricsCalculator:
     def get_avg_errors(self) -> float:
         """
         Get the average number of errors per run.
-        
+
         Returns:
             float: Average errors per run.
         """
@@ -410,7 +421,7 @@ class MetricsCalculator:
         self.avg_input = 0.0
         self.avg_output = 0.0
         self.overall_avg = 0.0
-        
+
         # Reset token tracking
         self.run_tokens = {
             "pre_tokens": {"input": 0.0, "output": 0.0},
