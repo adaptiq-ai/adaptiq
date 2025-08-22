@@ -6,11 +6,12 @@ import time
 import tracemalloc
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
+from adaptiq.core.abstract.integrations import BaseInstrumental
 from adaptiq.agents.crew_ai import CrewLogger, CrewConfig, CrewLogParser, CrewPromptParser
 from adaptiq.core.pipelines import AdaptiqRun
 import yaml
 
-class CrewInstrumental:
+class CrewInstrumental(BaseInstrumental):
     """
     A comprehensive instrumentation class for tracking and monitoring function execution,
     crew performance, and token usage with AdaptiQ pipeline integration.
@@ -21,14 +22,14 @@ class CrewInstrumental:
         self._token_tracking: Dict[str, Any] = {}
         self._crew_counter: int = 0
         self.logger = CrewLogger()
-        self._crew_metrics: List[Dict[str, Any]] = []
+        self._agent_metrics: List[Dict[str, Any]] = []
         self.current_dir = os.getcwd()
         self.logs_path = "./log.json"
 
     def display_agent_last_exec(self):
         crew_metrics = None
         try:
-            crew_metrics = self.get_crew_metrics()
+            crew_metrics = self.get_agent_metrics()
 
             print("[INSTRUMENT] === CREW METRICS CAPTURED ===")
             print(f"[INSTRUMENT] Total executions tracked: {len(crew_metrics)}")
@@ -62,27 +63,10 @@ class CrewInstrumental:
             crew_metrics = None
     
     def run(self, config_path: Optional[str] = None, enable_pipeline: bool = True, prompt_auto_update: bool = False, feedback: Optional[str] = None):
-        """
-        Decorator to instrument a function with execution timing and optional AdaptiQ pipeline triggering.
-
-        Args:
-            config_path (str, optional): Path to the adaptiq_config.yml file. If None, uses default path.
-            enabled (bool, optional): Whether to trigger the AdaptiQ pipeline. Defaults to True.
-            feedback (str, optional): Human feedback about agent performance for prompt optimization. Defaults to None.
-        """
         def decorator(func):
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
             
-                try:
-                    alert_mode_info = self._get_alert_mode(config_path)
-                    print(f"[INSTRUMENT] Alert mode detected: {alert_mode_info['mode']}")
-                    if alert_mode_info["runs"]:
-                        print(f"[INSTRUMENT] Number of runs configured: {alert_mode_info['runs']}")
-                except Exception as e:
-                    print(f"[INSTRUMENT] Warning: Could not read alert mode configuration: {str(e)}")
-                    alert_mode_info = {"mode": "none", "runs": None}
-
                 base_config = CrewConfig(config_path=config_path, preload=True)
                 base_log_parser = CrewLogParser(logs_path=self.logs_path, output_path=os.path.join(self.current_dir, "results"))
                 base_prompt_parser = CrewPromptParser(config_data=base_config.get_config(), task=base_config.get_prompt(get_newest= True), tools=base_config.get_tools())
@@ -100,9 +84,9 @@ class CrewInstrumental:
                 
                 result = adaptiq_run.init_run(func=func, *args, **kwargs)
 
-                adaptiq_run.run(agent_metrics= self._crew_metrics)
+                adaptiq_run.run(agent_metrics= self._agent_metrics)
 
-                return {"original_result": result, "crew_metrics": self._crew_metrics}
+                return {"original_result": result, "crew_metrics": self._agent_metrics}
 
             return wrapper
         return decorator
@@ -274,7 +258,7 @@ class CrewInstrumental:
                     metrics["successful_requests"] = getattr(token_usage, "successful_requests", 0)
 
                 # Store metrics in instance variable
-                self._crew_metrics.append(metrics)
+                self._agent_metrics.append(metrics)
 
                 # Log to console if requested
                 if log_to_console:
@@ -367,21 +351,21 @@ class CrewInstrumental:
             self._token_tracking = {}
             print("Reset all tracking data")
 
-    def get_crew_metrics(self) -> List[Dict[str, Any]]:
+    def get_agent_metrics(self) -> List[Dict[str, Any]]:
         """
         Get all stored crew metrics.
 
         Returns:
             List[Dict[str, Any]]: List of all metrics collected from crew executions
         """
-        return self._crew_metrics.copy()  # Return a copy to prevent external modification
+        return self._agent_metrics.copy()  # Return a copy to prevent external modification
 
     def reset_crew_metrics(self) -> None:
         """
         Reset all stored crew metrics and execution counter.
         """
         self._crew_counter = 0
-        self._crew_metrics = []
+        self._agent_metrics = []
         print("🔄 Crew metrics and counter have been reset.")
 
     def update_token_tracking(self, mode: str, input_tokens: int, output_tokens: int) -> None:
