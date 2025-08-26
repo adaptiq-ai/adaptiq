@@ -29,7 +29,7 @@ llm_config:
 # --- Embedding Configuration ---
 embedding_config:
     provider: "openai"  
-    model_name: "text-embedding-ada-002"        # Embedding model to use
+    model_name: "text-embedding-3-small"        # Embedding model to use
     api_key: "your_openai_api_key"         # Your API key
 
 # --- Framework Adapter Configuration ---

@@ -15,6 +15,7 @@ class ModelNameEnum(str, Enum):
     # add more here as they’re supported later
 
 class EmbeddingModelNameEnum(str, Enum):
+    text_embedding_3_small = "text-embedding-3-small"
     text_embedding_ada_002 = "text-embedding-ada-002"
 
 
@@ -30,7 +31,7 @@ class LLMConfig(BaseModel):
 
 class EmbeddingConfig(BaseModel):
     provider: ProviderEnum = ProviderEnum.openai
-    model_name: EmbeddingModelNameEnum = EmbeddingModelNameEnum.text_embedding_ada_002
+    model_name: EmbeddingModelNameEnum = EmbeddingModelNameEnum.text_embedding_3_small
     api_key: str
 
 # --- Log Source Config ---
