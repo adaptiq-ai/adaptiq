@@ -52,17 +52,6 @@ report_config:
     output_path: "./reports/{project_name}.md"    # Path for the optimization report (Been set by default)
     prompts_path: "./reports/prompts.json"
 
-# --- Alert Mode Configuration ---
-# Configure when AdaptiQ should generate reports
-alert_mode:
-    # On-demand mode: Generate a report after a specified number of runs (useful when the crew is in loop mode or wrapped within an endpoint).
-    on_demand:
-        enabled: false                        # Enable on-demand reporting
-        runs: 5                              # Number of runs before generating report
-
-    # Per-run mode: Generate report after each run
-    per_run:
-        enabled: true                       # Enable per-run reporting
 
 # =============================================================================
 # NEXT STEPS:

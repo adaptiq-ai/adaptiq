@@ -62,21 +62,6 @@ class ReportConfig(BaseModel):
     prompts_path: str = "./reports/prompts.json"
 
 
-# --- Alert Mode ---
-class OnDemandAlertMode(BaseModel):
-    enabled: bool = False
-    runs: int = 5
-
-
-class PerRunAlertMode(BaseModel):
-    enabled: bool = True
-
-
-class AlertMode(BaseModel):
-    on_demand: OnDemandAlertMode = OnDemandAlertMode()
-    per_run: PerRunAlertMode = PerRunAlertMode()
-
-
 # --- Main Config ---
 class AdaptiQConfig(BaseModel):
     project_name: str
@@ -85,4 +70,3 @@ class AdaptiQConfig(BaseModel):
     framework_adapter: FrameworkAdapter
     agent_modifiable_config: AgentModifiableConfig
     report_config: ReportConfig
-    alert_mode: AlertMode
