@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 
 from adaptiq.core.abstract.integrations.base_log_parser import BaseLogParser
+from adaptiq.core.entities import CrewRewards
 
 
 class CrewLogParser(BaseLogParser):
@@ -12,64 +13,6 @@ class CrewLogParser(BaseLogParser):
     a normalized reward signal based on rule-based heuristics, such as the quality of thoughts,
     tool usage success, output length, and error detection.
     """
-
-    # --- Constants for Reward Calculation ---
-
-    # Thresholds for thought/output quality
-    MIN_MEANINGFUL_THOUGHT_LEN = 250
-    SHORT_OUTPUT_LEN_THRESHOLD = 500
-    MEDIUM_OUTPUT_LEN_THRESHOLD = 1000
-
-    # General
-    BONUS_GOOD_THOUGHT = 0.15
-    PENALTY_POOR_THOUGHT = -0.15  # For empty/placeholder/very short thoughts
-
-    # AgentAction: Tool Usage
-    REWARD_TOOL_SUCCESS = 1.0
-    REWARD_TOOL_SUCCESS_EMPTY_RESULT = 0.25  # Tool worked, but result was empty
-    PENALTY_TOOL_ERROR = -1.0
-    PENALTY_TOOL_NO_RESULT_FIELD = -0.75  # Tool was called, but 'result' key is missing
-    PENALTY_TOOL_NAME_EMPTY_STRING = -1.0  # If 'tool' field is an empty string
-
-    # AgentAction: Thinking (No Tool)
-    REWARD_AGENT_THINK_ACTION_GOOD_THOUGHT = 0.3
-    PENALTY_AGENT_THINK_ACTION_POOR_THOUGHT = -0.3
-
-    # AgentFinish: Final Output
-    REWARD_FINAL_OUTPUT_LONG = 0.75
-    REWARD_FINAL_OUTPUT_MEDIUM = 0.5
-    REWARD_FINAL_OUTPUT_SHORT = 0.2
-    PENALTY_FINAL_OUTPUT_EMPTY_OR_PLACEHOLDER = -0.5
-
-    # TaskLog
-    REWARD_TASKLOG_HAS_DESCRIPTION = 0.25
-    PENALTY_TASKLOG_NO_DESCRIPTION = -0.25
-    REWARD_TASKLOG_HAS_RAW = 0.5
-    PENALTY_TASKLOG_NO_RAW = -0.5
-    PENALTY_TASKLOG_RAW_CONTAINS_ERROR = -0.75
-
-    # Keywords and Placeholder strings
-    ERROR_KEYWORDS = [
-        "error:",
-        "traceback:",
-        "failed to execute",
-        "exception:",
-        "failure:",
-    ]
-    PLACEHOLDER_STRINGS_LOWER = [
-        "none",
-        "n/a",
-        "missing thought",
-        "empty thought",
-        "task log content",
-        "null",
-    ]
-
-    # Action representations for keys
-    ACTION_AGENT_THOUGHT_PROCESS = "AgentThoughtProcess"
-    ACTION_INVALID_TOOL_EMPTY_NAME = "InvalidTool(EmptyName)"
-    ACTION_FINAL_ANSWER = "FinalAnswer"
-    TASKLOG_NO_RAW_OUTPUT_REPR = "NoRawOutputInTaskLog"
 
     def get_supported_entry_types(self) -> List[str]:
         """
@@ -166,11 +109,11 @@ class CrewLogParser(BaseLogParser):
             return action, outcome
 
         elif tool_name == "":
-            return self.ACTION_INVALID_TOOL_EMPTY_NAME, "InvalidToolName(EmptyString)"
+            return CrewRewards.ACTION_INVALID_TOOL_EMPTY_NAME.value, "InvalidToolName(EmptyString)"
 
         else:  # No tool specified (thinking action)
             thought = self.extract_thought_or_description(log_entry, "AgentAction")
-            return self.ACTION_AGENT_THOUGHT_PROCESS, thought
+            return CrewRewards.ACTION_AGENT_THOUGHT_PROCESS.value, thought
 
     def _process_agent_finish(self, log_entry: Dict[str, Any]) -> tuple[str, Any]:
         """Process AgentFinish entry and return action and outcome."""
@@ -180,7 +123,7 @@ class CrewLogParser(BaseLogParser):
         if self.is_string_effectively_empty_or_placeholder(outcome):
             outcome = "EmptyFinalOutput"
 
-        return self.ACTION_FINAL_ANSWER, outcome
+        return CrewRewards.ACTION_FINAL_ANSWER.value, outcome
 
     def _process_task_log(self, log_entry: Dict[str, Any]) -> tuple[str, Any]:
         """Process TaskLog entry and return action and outcome."""
@@ -188,7 +131,7 @@ class CrewLogParser(BaseLogParser):
         outcome = str(raw_output).strip()
 
         if not outcome:
-            return self.TASKLOG_NO_RAW_OUTPUT_REPR, ""
+            return CrewRewards.TASKLOG_NO_RAW_OUTPUT_REPR.value, ""
         else:
             return "TaskLogRawOutput", outcome
 
@@ -230,11 +173,11 @@ class CrewLogParser(BaseLogParser):
             self.is_string_effectively_empty_or_placeholder(thought)
             or thought == "Empty thought"
         ):
-            return self.PENALTY_POOR_THOUGHT
-        elif len(thought) < self.MIN_MEANINGFUL_THOUGHT_LEN:
-            return self.PENALTY_POOR_THOUGHT
+            return CrewRewards.PENALTY_POOR_THOUGHT.value
+        elif len(thought) < CrewRewards.MIN_MEANINGFUL_THOUGHT_LEN.value:
+            return CrewRewards.PENALTY_POOR_THOUGHT.value
         else:
-            return self.BONUS_GOOD_THOUGHT
+            return CrewRewards.BONUS_GOOD_THOUGHT.value
 
     def _calculate_agent_action_reward(self, log_entry: Dict[str, Any]) -> float:
         """Calculate reward specific to AgentAction entries."""
@@ -250,27 +193,27 @@ class CrewLogParser(BaseLogParser):
 
                 # Check for errors
                 is_error = any(
-                    err_keyword in result_str for err_keyword in self.ERROR_KEYWORDS
+                    err_keyword in result_str for err_keyword in CrewRewards.ERROR_KEYWORDS.value
                 )
 
                 if is_error:
-                    reward += self.PENALTY_TOOL_ERROR
+                    reward += CrewRewards.PENALTY_TOOL_ERROR.value
                 elif not result_str or result_str == "[]" or result_str == "{}":
-                    reward += self.REWARD_TOOL_SUCCESS_EMPTY_RESULT
+                    reward += CrewRewards.REWARD_TOOL_SUCCESS_EMPTY_RESULT.value
                 else:
-                    reward += self.REWARD_TOOL_SUCCESS
+                    reward += CrewRewards.REWARD_TOOL_SUCCESS.value
             else:
-                reward += self.PENALTY_TOOL_NO_RESULT_FIELD
+                reward += CrewRewards.PENALTY_TOOL_NO_RESULT_FIELD.value
 
         elif tool_name == "":
-            reward += self.PENALTY_TOOL_NAME_EMPTY_STRING
+            reward += CrewRewards.PENALTY_TOOL_NAME_EMPTY_STRING.value
 
         else:  # Thinking action (no tool)
             thought_reward = self._calculate_thought_reward(log_entry, "AgentAction")
             if thought_reward > 0:  # Good thought
-                reward += self.REWARD_AGENT_THINK_ACTION_GOOD_THOUGHT
+                reward += CrewRewards.REWARD_AGENT_THINK_ACTION_GOOD_THOUGHT.value
             else:
-                reward += self.PENALTY_AGENT_THINK_ACTION_POOR_THOUGHT
+                reward += CrewRewards.PENALTY_AGENT_THINK_ACTION_POOR_THOUGHT.value
 
         return reward
 
@@ -280,13 +223,13 @@ class CrewLogParser(BaseLogParser):
         output_str = str(final_output).strip() if final_output is not None else ""
 
         if self.is_string_effectively_empty_or_placeholder(output_str):
-            return self.PENALTY_FINAL_OUTPUT_EMPTY_OR_PLACEHOLDER
-        elif len(output_str) <= self.SHORT_OUTPUT_LEN_THRESHOLD:
-            return self.REWARD_FINAL_OUTPUT_SHORT
-        elif len(output_str) <= self.MEDIUM_OUTPUT_LEN_THRESHOLD:
-            return self.REWARD_FINAL_OUTPUT_MEDIUM
+            return CrewRewards.PENALTY_FINAL_OUTPUT_EMPTY_OR_PLACEHOLDER.value
+        elif len(output_str) <= CrewRewards.SHORT_OUTPUT_LEN_THRESHOLD.value:
+            return CrewRewards.REWARD_FINAL_OUTPUT_SHORT.value
+        elif len(output_str) <= CrewRewards.MEDIUM_OUTPUT_LEN_THRESHOLD.value:
+            return CrewRewards.REWARD_FINAL_OUTPUT_MEDIUM.value
         else:
-            return self.REWARD_FINAL_OUTPUT_LONG
+            return CrewRewards.REWARD_FINAL_OUTPUT_LONG.value
 
     def _calculate_task_log_reward(self, log_entry: Dict[str, Any]) -> float:
         """Calculate reward specific to TaskLog entries."""
@@ -298,22 +241,22 @@ class CrewLogParser(BaseLogParser):
             description = log_entry.get("summary", "")
 
         if self.is_string_effectively_empty_or_placeholder(description):
-            reward += self.PENALTY_TASKLOG_NO_DESCRIPTION
+            reward += CrewRewards.PENALTY_TASKLOG_NO_DESCRIPTION.value
         else:
-            reward += self.REWARD_TASKLOG_HAS_DESCRIPTION
+            reward += CrewRewards.REWARD_TASKLOG_HAS_DESCRIPTION.value
 
         # Raw output reward
         raw_output = log_entry.get("raw", "")
         raw_str = str(raw_output).strip()
 
         if not raw_str:
-            reward += self.PENALTY_TASKLOG_NO_RAW
+            reward += CrewRewards.PENALTY_TASKLOG_NO_RAW.value
         else:
-            reward += self.REWARD_TASKLOG_HAS_RAW
+            reward += CrewRewards.REWARD_TASKLOG_HAS_RAW.value
             # Check for errors in raw output
             if any(
-                err_keyword in raw_str.lower() for err_keyword in self.ERROR_KEYWORDS
+                err_keyword in raw_str.lower() for err_keyword in CrewRewards.ERROR_KEYWORDS.value
             ):
-                reward += self.PENALTY_TASKLOG_RAW_CONTAINS_ERROR
+                reward += CrewRewards.PENALTY_TASKLOG_RAW_CONTAINS_ERROR.value
 
         return reward
