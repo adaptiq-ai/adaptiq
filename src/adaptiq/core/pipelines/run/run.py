@@ -169,7 +169,7 @@ class AdaptiqRun:
             self.post_run_pipeline = PostRunPipeline(
                 base_config=self.base_config,
                 base_log_parser=self.base_log_parser,
-                output_dir=self.output_path,
+                output_path=self.output_path,
                 feedback=self.feedback,
             )
 

@@ -32,7 +32,7 @@ class PostRunPipeline:
         self,
         base_config: BaseConfig,
         base_log_parser: BaseLogParser,
-        output_dir: str,
+        output_path: str,
         feedback: Optional[str] = None,
     ):
         """
@@ -56,7 +56,7 @@ class PostRunPipeline:
         self.configuration = base_config.get_config()
         self.llm = self.base_config.get_llm_instance()
         self.embedding = self.base_config.get_embeddings_instance()
-        self.output_dir = output_dir
+        self.output_dir = output_path
         self.feedback = feedback
 
         self.agent_name = self.configuration.agent_modifiable_config.agent_name
@@ -65,8 +65,8 @@ class PostRunPipeline:
         self.old_prompt = base_config.get_prompt(get_newest=True)
 
         # Ensure output directory exists
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
 
         self.log_parser = base_log_parser
         self.log_parser.set_embeddings(self.embedding)
@@ -74,10 +74,10 @@ class PostRunPipeline:
         self.reconciler = None
 
         # Paths for output files
-        self.parsed_logs_path = os.path.join(output_dir, "parsed_logs.json")
-        self.validated_logs_path = os.path.join(output_dir, "validated_logs.json")
+        self.parsed_logs_path = os.path.join(output_path, "parsed_logs.json")
+        self.validated_logs_path = os.path.join(output_path, "validated_logs.json")
         self.validation_summary_path = os.path.join(
-            output_dir, "validation_summary.json"
+            output_path, "validation_summary.json"
         )
 
     def parse_logs(self) -> Tuple[ProcessedLogs, ValidationResults]:

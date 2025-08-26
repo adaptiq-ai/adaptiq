@@ -1,5 +1,6 @@
 import ast
 import logging
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -24,9 +25,11 @@ class PostRunUpdater:
     def __init__(
         self,
         embeddings: Embeddings,
+        output_path: Path ,
         alpha: float = 0.8,
         gamma: float = 0.8,
         similarity_threshold: float = 0.7,
+        
     ):
         """
         Initialize the AdaptiqQtableUpdate class.
@@ -39,7 +42,7 @@ class PostRunUpdater:
         """
         self.embeddings = embeddings
         self.learner = QTableManager(
-            alpha=alpha, gamma=gamma, file_path="adaptiq_q_table.json"
+            alpha=alpha, gamma=gamma, file_path=output_path
         )
         self.similarity_threshold = similarity_threshold
 

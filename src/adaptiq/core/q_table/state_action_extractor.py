@@ -7,8 +7,7 @@ from langchain_core.prompts import PromptTemplate
 from adaptiq.core.abstract.q_table.base_state_action_extractor import (
     BaseStateActionExtractor,
 )
-from adaptiq.core.entities import LogItem, LogState, ProcessedLogs
-from adaptiq.core.entities.adaptiq_parsers import StateActionMapping
+from adaptiq.core.entities import LogItem, LogState, StateActionMapping
 
 
 class StateActionExtractor(BaseStateActionExtractor):
