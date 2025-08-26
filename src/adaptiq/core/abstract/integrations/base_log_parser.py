@@ -20,30 +20,12 @@ class BaseLogParser(ABC):
 
     # --- Abstract Constants (to be defined by subclasses) ---
 
-    @property
-    @abstractmethod
-    def MIN_MEANINGFUL_THOUGHT_LEN(self) -> int:
-        """Minimum length for a meaningful thought/description."""
-        pass
-
-    @property
-    @abstractmethod
-    def ERROR_KEYWORDS(self) -> List[str]:
-        """Keywords that indicate errors in log outputs."""
-        pass
-
-    @property
-    @abstractmethod
-    def PLACEHOLDER_STRINGS_LOWER(self) -> List[str]:
-        """Lowercase strings considered as placeholders or empty content."""
-        pass
 
     def __init__(self, logs_path: str, output_path: str = None):
         """
         Initialize the log parser with input and output paths.
 
         Args:
-            embeddings (Embeddings): The embeddings model to use for text representation.
             logs_path (str): Path to the log file to be processed.
             output_path (str, optional): Path where processed logs will be saved.
         """
@@ -116,12 +98,7 @@ class BaseLogParser(ABC):
         Returns:
             bool: True if the string is effectively empty or a placeholder, False otherwise.
         """
-        if s is None:
-            return True
-        s_str = str(s).strip()
-        if not s_str:  # Empty after stripping
-            return True
-        return s_str.lower() in self.PLACEHOLDER_STRINGS_LOWER
+        pass
 
     @abstractmethod
     def calculate_reward(self, log_entry: Dict[str, Any], entry_type: str) -> float:
