@@ -96,6 +96,7 @@ class CrewConfig(BaseConfig):
                 "project_name",
                 "email",
                 "llm_config",
+                "embedding_config",
                 "framework_adapter",
                 "agent_modifiable_config",
                 "report_config"
@@ -119,6 +120,18 @@ class CrewConfig(BaseConfig):
                 return (
                     False,
                     f"❌ Missing required llm_config keys: {', '.join(llm_missing)}",
+                )
+            
+            embedding_required = ["model_name", "api_key", "provider"]
+            embedding_missing = [
+                key
+                for key in embedding_required
+                if key not in config_data.get("embedding_config", {})
+            ]
+            if embedding_missing:
+                return (
+                    False,
+                    f"❌ Missing required embedding_config keys: {', '.join(embedding_missing)}",
                 )
 
             framework_required = ["name", "settings"]

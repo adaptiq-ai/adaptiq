@@ -24,7 +24,13 @@ email: ""          # Developer's email for reporting (By entering your email, yo
 llm_config:
     provider: "openai"                     # LLM provider (only 'openai' supported)
     model_name: "gpt-4.1-mini"              # OpenAI model to use (Currently, only the gpt-4.1-mini model is supported. More models will be available in future versions.)
-    api_key: "your_openai_api_key"         # Your OpenAI API key
+    api_key: "your_openai_api_key"         # Your API key
+
+# --- Embedding Configuration ---
+embedding_config:
+    provider: "openai"  
+    model_name: "text-embedding-ada-002"        # Embedding model to use
+    api_key: "your_openai_api_key"         # Your API key
 
 # --- Framework Adapter Configuration ---
 # Currently only CrewAI is supported

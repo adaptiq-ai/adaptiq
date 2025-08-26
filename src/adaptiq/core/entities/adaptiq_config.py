@@ -14,6 +14,9 @@ class ModelNameEnum(str, Enum):
     gpt_4_1 = "gpt-4.1"  # Full model, not mini
     # add more here as they’re supported later
 
+class EmbeddingModelNameEnum(str, Enum):
+    text_embedding_ada_002 = "text-embedding-ada-002"
+
 
 class FrameworkEnum(str, Enum):
     crewai = "crewai"
@@ -25,6 +28,10 @@ class LLMConfig(BaseModel):
     model_name: ModelNameEnum = ModelNameEnum.gpt_4_1_mini
     api_key: str
 
+class EmbeddingConfig(BaseModel):
+    provider: ProviderEnum = ProviderEnum.openai
+    model_name: EmbeddingModelNameEnum = EmbeddingModelNameEnum.text_embedding_ada_002
+    api_key: str
 
 # --- Log Source Config ---
 class LogSourceConfig(BaseModel):
@@ -67,6 +74,7 @@ class AdaptiQConfig(BaseModel):
     project_name: str
     email: Optional[str] = ""
     llm_config: LLMConfig
+    embedding_config: EmbeddingConfig
     framework_adapter: FrameworkAdapter
     agent_modifiable_config: AgentModifiableConfig
     report_config: ReportConfig
