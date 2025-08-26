@@ -51,13 +51,3 @@ agent_modifiable_config:
 report_config:
     output_path: "./reports/{project_name}.md"    # Path for the optimization report (Been set by default)
     prompts_path: "./reports/prompts.json"
-
-
-# =============================================================================
-# NEXT STEPS:
-# 1. Update all placeholder values with your actual project information
-# 2. Validate your configuration: wizard check config adaptiq_config.yml
-# 3. Run your first optimization: wizard start
-# 4. Instrument your code with @instrumental_logger and @instrumental_run decorators
-# 5. Run your full optimization: after executing your agent adaptiq will runs automatically the process
-# =============================================================================
