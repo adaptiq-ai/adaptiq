@@ -1,8 +1,7 @@
-import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Optional, Tuple
 
 from adaptiq.core.abstract.integrations import BaseConfig, BaseLogParser
 from adaptiq.core.entities import (
@@ -14,7 +13,8 @@ from adaptiq.core.entities import (
     ValidationData,
     ValidationResults,
 )
-from adaptiq.core.pipelines.post_run.tools import PostRunReconciler, PostRunValidator
+
+from adaptiq.core.pipelines.post_run.tools import PostRunReconciler
 
 
 class PostRunPipeline:
@@ -68,8 +68,8 @@ class PostRunPipeline:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        # Other components will be initialized as needed
         self.log_parser = base_log_parser
+        self.log_parser.set_embeddings(self.embedding)
         self.validator = None
         self.reconciler = None
 
@@ -80,12 +80,12 @@ class PostRunPipeline:
             output_dir, "validation_summary.json"
         )
 
-    def parse_logs(self) -> ProcessedLogs:
+    def parse_logs(self) -> Tuple[ProcessedLogs, ValidationResults]:
         """
         Parse logs using AdaptiqLogParser.
 
         Returns:
-            ProcessedLogs: Parsed logs containing state-action-reward mappings
+            Tuple[ProcessedLogs, ValidationResults]: Parsed logs containing state-action-reward mappings
 
         Raises:
             FileNotFoundError: If raw logs are not provided and can't be loaded.
@@ -95,46 +95,19 @@ class PostRunPipeline:
         try:
 
             # Initialize and run parser
-            parsed_data = self.log_parser.parse_logs()
+            parsed_data, validation_results = self.log_parser.parse_logs()
 
             self.logger.info(
                 f"Log parsing completed, generated {len(parsed_data.processed_logs)} state-action-reward mappings"
             )
+
             self.logger.info(f"Parsed logs saved to {self.parsed_logs_path}")
 
-            return parsed_data
+            return parsed_data, validation_results
 
         except FileNotFoundError as e:
             self.logger.error(f"Failed to parse logs: {e}")
             raise
-
-    def validate_parsed_logs(
-        self,
-        raw_logs: List[Dict[str, Any]],
-        parsed_logs: ProcessedLogs,
-    ) -> Tuple[ProcessedLogs, ValidationResults]:
-        """
-        Validate the parsed logs using AdaptiqPostRunValidator.
-
-        Args:
-            raw_logs: List of raw log entries as dictionaries
-            parsed_logs: ProcessedLogs containing parsed log entries
-
-        Returns:
-            Tuple containing:
-            - List of corrected logs with validated rewards
-            - Dictionary with validation results and summary
-        """
-        self.logger.info("Starting validation of parsed logs...")
-
-        # Initialize and run validator
-        self.validator = PostRunValidator(
-            raw_logs=raw_logs, parsed_logs=parsed_logs, llm=self.llm
-        )
-
-        corrected_logs, validation_results = self.validator.run_validation_pipeline()
-
-        return ProcessedLogs(processed_logs=corrected_logs), validation_results
 
     def reconciliate_logs(self, parsed_logs: ProcessedLogs) -> ReconciliationResults:
         """
@@ -172,21 +145,6 @@ class PostRunPipeline:
 
         return result
 
-    def get_raw_logs(self, trace_output) -> Dict[str, Any]:
-        """
-        Get the agent trace.
-
-        Returns:
-            Dict containing the raw logs from the agent trace.
-        """
-        self.logger.info("Starting agent trace retrieval...")
-
-        try:
-            raw_logs: Dict[str, Any] = json.loads(trace_output)
-            return raw_logs
-        except Exception as e:
-            self.logger.error(f"Failed to save raw logs to file: {e}")
-
     def execute_post_run_pipeline(self) -> PostRunResults:
         """
         Run the complete pipeline: agent execution, log parsing, and validation.
@@ -196,18 +154,10 @@ class PostRunPipeline:
         """
         self.logger.info("Starting full Adaptiq pipeline execution...")
 
-        trace_output = self.base_config.get_agent_trace()
-        raw_logs = self.get_raw_logs(trace_output=trace_output)
-
         # Parse logs
-        parsed_logs: ProcessedLogs = self.parse_logs()
+        parsed_logs, validation_results = self.parse_logs()
 
-        # Step 3: Validate parsed logs
-        corrected_logs, validation_results = self.validate_parsed_logs(
-            raw_logs, parsed_logs
-        )
-
-        # Step 4: Reconciliate logs
+        # Reconciliate logs
         reconciliated_data: ReconciliationResults = self.reconciliate_logs(parsed_logs)
 
         # Prepare pipeline results

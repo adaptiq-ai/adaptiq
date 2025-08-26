@@ -2,9 +2,10 @@ import json
 import math
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Union
-
+from typing import Any, Dict, List, Tuple, Union
+from langchain_core.embeddings import Embeddings
 from adaptiq.core.entities import LogItem, LogKey, LogState, ProcessedLogs
+from adaptiq.core.entities.adaptiq_parsers import ValidationResults
 
 
 class BaseLogParser(ABC):
@@ -42,12 +43,23 @@ class BaseLogParser(ABC):
         Initialize the log parser with input and output paths.
 
         Args:
+            embeddings (Embeddings): The embeddings model to use for text representation.
             logs_path (str): Path to the log file to be processed.
             output_path (str, optional): Path where processed logs will be saved.
         """
         self.logs_path = logs_path
         self.output_path = output_path
         self.parsed_file_name = "parsed_logs.json"
+        self.embeddings = None
+
+    def set_embeddings(self, embeddings: Embeddings):
+        """
+        Set the embeddings model for the log parser.
+
+        Args:
+            embeddings (Embeddings): The embeddings model to use.
+        """
+        self.embeddings = embeddings
 
     def load_json_data(self) -> Union[Dict, List[Dict[str, Any]]]:
         """
@@ -167,6 +179,13 @@ class BaseLogParser(ABC):
         """
         pass
 
+    @abstractmethod
+    def validate_parsing(self, raw_logs:Dict[str, Any], parsed_logs: List[LogItem])-> ValidationResults:
+        """
+            Validate the parsing of logs by comparing raw and parsed logs.
+        """
+        pass
+
     def extract_agent_name(self, logs: List[Dict[str, Any]]) -> str:
         """
         Extract agent name from logs. Can be overridden by subclasses for specific extraction logic.
@@ -219,7 +238,7 @@ class BaseLogParser(ABC):
             except Exception as e:
                 raise RuntimeError(f"Failed to save logs to {full_path}: {e}") from e
 
-    def parse_logs(self) -> ProcessedLogs:
+    def parse_logs(self) -> Tuple[ProcessedLogs, ValidationResults]:
         """
         Parse the logs from the specified log file.
 
@@ -227,7 +246,7 @@ class BaseLogParser(ABC):
         logs: List[Dict[str, Any]] = self.load_json_data()
 
         if not logs:
-            return ProcessedLogs(processed_logs=[])
+            raise ValueError("No logs found to parse.")
 
         processed_logs: List[LogItem] = []
         agent_name = self.extract_agent_name(logs)
@@ -263,4 +282,6 @@ class BaseLogParser(ABC):
             )
 
         self.save_processed_logs(processed_logs)
-        return ProcessedLogs(processed_logs=processed_logs)
+
+        validation_results = self.validate_parsing(raw_logs=logs, parsed_logs=processed_logs)
+        return ProcessedLogs(processed_logs=processed_logs), validation_results

@@ -2,6 +2,7 @@ from typing import Any, Dict, List
 
 from adaptiq.core.abstract.integrations.base_log_parser import BaseLogParser
 from adaptiq.core.entities import CrewRewards
+from adaptiq.core.entities import LogItem, ValidationResults
 
 
 class CrewLogParser(BaseLogParser):
@@ -260,3 +261,9 @@ class CrewLogParser(BaseLogParser):
                 reward += CrewRewards.PENALTY_TASKLOG_RAW_CONTAINS_ERROR.value
 
         return reward
+
+    def validate_parsing(self, raw_logs: Dict[str, Any], parsed_logs: List[LogItem]) -> ValidationResults:
+        """
+            Validate the parsing of logs by comparing raw and parsed logs.
+        """
+        pass
