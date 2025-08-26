@@ -2,7 +2,7 @@ from typing import Any, Dict, List
 
 from adaptiq.core.abstract.integrations.base_log_parser import BaseLogParser
 from adaptiq.core.entities import CrewRewards
-from adaptiq.core.entities import LogItem, ValidationResults
+from adaptiq.core.entities import LogItem, ValidationResults, RewardAssessment, ValidationSummary, ValidatedEntry
 
 
 class CrewLogParser(BaseLogParser):
@@ -22,7 +22,24 @@ class CrewLogParser(BaseLogParser):
         Returns:
             List[str]: List of supported entry types.
         """
-        return ["AgentAction", "AgentFinish", "TaskLog"]
+        return ["AgentAction", "AgentFinish"]
+
+    def is_string_effectively_empty_or_placeholder(self, s: Any) -> bool:
+        """
+        Checks if a string is None, empty, whitespace only, or a known placeholder.
+
+        Args:
+            s (Any): The string to check.
+
+        Returns:
+            bool: True if the string is effectively empty or a placeholder, False otherwise.
+        """
+        if s is None:
+            return True
+        s_str = str(s).strip()
+        if not s_str:  # Empty after stripping
+            return True
+        return s_str.lower() in CrewRewards.PLACEHOLDER_STRINGS_LOWER.value
 
     def extract_agent_name(self, logs: List[Dict[str, Any]]) -> str:
         """
@@ -262,8 +279,123 @@ class CrewLogParser(BaseLogParser):
 
         return reward
 
-    def validate_parsing(self, raw_logs: Dict[str, Any], parsed_logs: List[LogItem]) -> ValidationResults:
+    def validate_parsing(self, raw_logs: List[Dict[str, Any]], parsed_logs: List[LogItem]) -> ValidationResults:
         """
-            Validate the parsing of logs by comparing raw and parsed logs.
+        Validate the parsing of logs by comparing raw and parsed logs using semantic similarity.
+        Only validates entries with reward_exec in range (-0.25, 0.25).
         """
-        pass
+        validated_entries = []
+        min_length = min(len(raw_logs), len(parsed_logs))
+        
+        for i in range(min_length):
+            raw_entry = raw_logs[i]
+            parsed_entry = parsed_logs[i]
+            
+            # Only validate if reward is in the target range
+            if -0.25 < parsed_entry.reward_exec < 0.25:
+                # Extract content from raw entry
+                raw_content_parts = []
+                if raw_entry.get("type"):
+                    raw_content_parts.append(raw_entry["type"])
+                if raw_entry.get("thought"):
+                    raw_content_parts.append(raw_entry["thought"])
+                if raw_entry.get("tool"):
+                    raw_content_parts.append(f"Tool: {raw_entry['tool']}")
+                if raw_entry.get("tool_input"):
+                    raw_content_parts.append(f"Input: {raw_entry['tool_input']}")
+                if raw_entry.get("result"):
+                    raw_content_parts.append(f"Result: {raw_entry['result']}")
+                
+                raw_content = " ".join(raw_content_parts)
+                
+                # Extract content from parsed entry (focus on action and thought, not outcomes)
+                parsed_content_parts = [
+                    parsed_entry.key.state.current_sub_task_or_thought,
+                    parsed_entry.key.agent_action
+                ]
+                parsed_content = " ".join(str(part) for part in parsed_content_parts if part)
+                
+                # Generate embeddings
+                raw_embedding = self.embeddings.embed_query(raw_content)
+                parsed_embedding = self.embeddings.embed_query(parsed_content)
+                
+                # Calculate cosine similarity
+                import numpy as np
+                similarity = np.dot(raw_embedding, parsed_embedding) / (
+                    np.linalg.norm(raw_embedding) * np.linalg.norm(parsed_embedding)
+                )
+                
+                # Determine adjustment based on similarity - BOOST rewards for good parsing
+                original_reward = parsed_entry.reward_exec
+                is_appropriate = True
+                adjusted_reward = original_reward
+                reason = "High semantic similarity - reward boosted significantly"
+                
+                if similarity > 0.8:
+                    # High confidence - BOOST the reward significantly since parsing was accurate
+                    adjusted_reward = 0.7  # Boost to high positive reward
+                    is_appropriate = False  # Mark as adjusted
+                    reason = f"High semantic similarity ({similarity:.3f}) - reward boosted to 0.7"
+                elif similarity > 0.6:
+                    # Medium confidence - moderate boost
+                    adjusted_reward = 0.4  # Moderate positive reward
+                    is_appropriate = False
+                    reason = f"Medium semantic similarity ({similarity:.3f}) - reward boosted to 0.4"
+                else:
+                    # Low confidence - keep original low reward or slight penalty
+                    adjusted_reward = original_reward * 0.8  # Small penalty for poor parsing
+                    is_appropriate = False
+                    reason = f"Low semantic similarity ({similarity:.3f}) - small penalty applied"
+                
+                # Ensure adjusted reward stays within reasonable bounds (but allow higher rewards)
+                adjusted_reward = max(-0.25, min(1.0, adjusted_reward))
+                
+                # Update the parsed entry with adjusted reward
+                corrected_entry = parsed_entry.model_copy()
+                corrected_entry.reward_exec = adjusted_reward
+                
+            else:
+                # Skip validation for rewards outside range
+                is_appropriate = True
+                adjusted_reward = parsed_entry.reward_exec
+                reason = "Reward outside validation range (-0.25, 0.25) - skipped"
+                corrected_entry = parsed_entry
+            
+            # Create validated entry
+            validated_entry = ValidatedEntry(
+                reward_assessment=RewardAssessment(
+                    original=parsed_entry.reward_exec,
+                    is_appropriate=is_appropriate,
+                    adjusted=adjusted_reward,
+                    reason=reason
+                ),
+                corrected_entry=corrected_entry
+            )
+            validated_entries.append(validated_entry)
+        
+        # Calculate summary statistics
+        total_entries = len(validated_entries)
+        appropriate_count = sum(1 for v in validated_entries if v.reward_assessment.is_appropriate)
+        adjustment_count = total_entries - appropriate_count
+        
+        # Calculate average adjustment magnitude
+        adjustments = [
+            abs(v.reward_assessment.adjusted - v.reward_assessment.original)
+            for v in validated_entries 
+            if not v.reward_assessment.is_appropriate
+        ]
+        avg_adjustment = sum(adjustments) / len(adjustments) if adjustments else 0.0
+        
+        summary = ValidationSummary(
+            total_entries=total_entries,
+            entries_with_appropriate_rewards=appropriate_count,
+            entries_with_reward_adjustments=adjustment_count,
+            appropriate_reward_rate=appropriate_count / total_entries if total_entries > 0 else 0.0,
+            reward_adjustment_rate=adjustment_count / total_entries if total_entries > 0 else 0.0,
+            average_adjustment_magnitude=avg_adjustment
+        )
+        
+        return ValidationResults(
+            summary=summary,
+            validated_entries=validated_entries
+        )

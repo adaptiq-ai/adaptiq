@@ -21,8 +21,7 @@ class PostRunPipeline:
     """
     AdaptiqPostRunOrchestrator orchestrates the entire workflow of:
     1. Capturing the agent's execution trace using AdaptiqAgentTracer,
-    2. Parsing the logs using AdaptiqLogParser
-    3. Validating the parsed logs using AdaptiqPostRunValidator
+    2. Parsing the logs and validating them using AdaptiqLogParser
 
     This class serves as a high-level interface to the entire pipeline,
     providing methods to execute the full workflow or individual stages.
