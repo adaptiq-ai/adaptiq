@@ -230,7 +230,6 @@ class ReportBuilder:
         reward_sum: float = 0.0,
         run_count: int = 1,
         input_price: float = 0.0,
-        default_run_mode: bool = True,
         log_file_path: str = None,
     ) -> Dict:
         """
@@ -254,7 +253,6 @@ class ReportBuilder:
             reward_sum (float): Cumulative reward sum for improvement calculation
             run_count (int): Total run count for calculations
             input_price (float): Price per 1000 input tokens
-            default_run_mode (bool): Whether in default run mode
             log_file_path (str, optional): Path to log file for tool parsing
 
         Returns:

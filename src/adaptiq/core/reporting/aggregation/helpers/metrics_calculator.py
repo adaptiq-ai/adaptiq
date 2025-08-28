@@ -8,12 +8,11 @@ from adaptiq.core.entities import AdaptiQConfig, ValidationResults
 
 
 class MetricsCalculator:
-    """&²
+    """
     Handles all metrics calculations including token counting, cost computations,
     performance scoring, and statistical aggregations.
     """
 
-    # TODO: Unify the config to generic data model (from base config)
     def __init__(self, config_data: AdaptiQConfig, pricings: Dict):
         """
         Initialize the metrics calculator.
@@ -52,7 +51,6 @@ class MetricsCalculator:
         }
 
         # Runtime state
-        self._default_run_mode = True
         self._last_reward = 0.0
         self._last_run_time = 0.0
         self._last_original_prompt = ""
@@ -138,7 +136,6 @@ class MetricsCalculator:
         post_output: int,
         recon_input: int,
         recon_output: int,
-        default_run_mode: bool = True,
     ):
         """
         Update the running sum for input/output tokens for each token type.
@@ -150,7 +147,6 @@ class MetricsCalculator:
             post_output (int): Output tokens for post_tokens.
             recon_input (int): Input tokens for recon_tokens.
             recon_output (int): Output tokens for recon_tokens.
-            default_run_mode (bool): Whether this is a default mode (True) or not (False).
         """
         if self._run_count == 0:
             return  # Avoid division by zero
@@ -164,23 +160,17 @@ class MetricsCalculator:
         self.run_tokens["recon_tokens"]["output"] += recon_output
 
         # Calculate this run's average input and output tokens
-        if default_run_mode:
-            avg_input_this_run = pre_input
-            avg_output_this_run = pre_output
-        else:
-            avg_input_this_run = (
-                pre_input + post_input + recon_input
-            ) / self._run_count
-            avg_output_this_run = (
-                pre_output + post_output + recon_output
-            ) / self._run_count
+
+        avg_input_this_run = (
+            pre_input + post_input + recon_input
+        ) / self._run_count
+        avg_output_this_run = (
+            pre_output + post_output + recon_output
+        ) / self._run_count
 
         # Add to running sums for averages
         self.avg_input_tokens += avg_input_this_run
         self.avg_output_tokens += avg_output_this_run
-
-        # Store run mode
-        self._default_run_mode = default_run_mode
 
     def get_avg_run_tokens(self) -> tuple:
         """
@@ -206,10 +196,8 @@ class MetricsCalculator:
             + self.run_tokens["recon_tokens"]["output"]
         ) / self._run_count
 
-        if self._default_run_mode:
-            self.overall_avg = avg_pre
-        else:
-            self.overall_avg = (avg_pre + avg_post + avg_recon) / self._run_count
+
+        self.overall_avg = (avg_pre + avg_post + avg_recon) / self._run_count
 
         self.avg_input = self.avg_input_tokens / self._run_count
         self.avg_output = self.avg_output_tokens / self._run_count

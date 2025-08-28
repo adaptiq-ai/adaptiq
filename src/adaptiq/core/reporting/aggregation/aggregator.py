@@ -44,7 +44,6 @@ class Aggregator:
 
         # Initialize run tracking
         self._run_count = 0
-        self._default_run_mode = True
         self.task_name = None
 
         # Define pricing information
@@ -103,7 +102,6 @@ class Aggregator:
         post_output: int,
         recon_input: int,
         recon_output: int,
-        default_run_mode: bool = True,
     ):
         """
         Update the running sum for input/output tokens for each token type.
@@ -115,9 +113,7 @@ class Aggregator:
             post_output (int): Output tokens for post_tokens.
             recon_input (int): Input tokens for recon_tokens.
             recon_output (int): Output tokens for recon_tokens.
-            default_run_mode (bool): Whether this is a default mode (True) or not (False).
         """
-        self._default_run_mode = default_run_mode
         return self.metrics_calculator.update_avg_run_tokens(
             pre_input,
             pre_output,
@@ -125,7 +121,6 @@ class Aggregator:
             post_output,
             recon_input,
             recon_output,
-            default_run_mode,
         )
 
     def get_avg_run_tokens(self) -> tuple:
@@ -465,13 +460,11 @@ class Aggregator:
         total_output_tokens = int(pre["output"] + post["output"] + recon["output"])
 
         # Get log file path for tools (if not in default mode)
-        log_file_path = None
-        if not self._default_run_mode:
-            log_file_path = self.config_data.framework_adapter.settings.log_source.path
+        log_file_path = self.config_data.framework_adapter.settings.log_source.path
 
         # Parse tools if needed
         tools_used = []
-        if not self._default_run_mode and log_file_path and task_name:
+        if log_file_path:
             tools_used = self.parse_log_file(log_file_path, task_name)
 
         return self.report_builder.build_run_details(
@@ -492,7 +485,6 @@ class Aggregator:
             reward_sum=self.metrics_calculator.get_reward_sum(),
             run_count=self._run_count,
             input_price=self.metrics_calculator.input_price,
-            default_run_mode=self._default_run_mode,
             log_file_path=log_file_path,
         )
 
@@ -686,7 +678,6 @@ class Aggregator:
                         post_output=completion_tokens,
                         recon_input=0,
                         recon_output=0,
-                        default_run_mode=False,
                     )
 
                     # Update run time and error count
@@ -727,7 +718,6 @@ class Aggregator:
                     post_output=0,
                     recon_input=0,
                     recon_output=0,
-                    default_run_mode=False,
                 )
                 self.update_avg_run_time(0)
                 self.update_error_count(0)
