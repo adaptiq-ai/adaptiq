@@ -37,29 +37,27 @@ class DataProcessor:
 
         if not log_file_path:
             self.logger.error("Log file path is not provided.")
-            raise ValueError("Log file path is not provided.")
 
         try:
             with open(log_file_path, "r", encoding="utf-8") as file:
                 log_data = json.load(file)
         except (json.JSONDecodeError, FileNotFoundError) as e:
             self.logger.error(f"Error reading JSON log file: {e}")
-            raise ValueError(f"Error reading JSON log file: {e}")
 
         # Filter only AgentAction entries (tool usage)
-        try:
-            agent_actions = [
-                entry for entry in log_data if entry.get("type") == "AgentAction"
-            ]
+        agent_actions = [
+            entry for entry in log_data if entry.get("type") == "AgentAction"
+        ]
 
-            for i, action in enumerate(agent_actions):
-                # Extract tool information
-                tool_name = action.get("tool", "Unknown Tool")
-                tool_result = action.get("result", "")
-                timestamp = action.get("timestamp", "")
+        for i, action in enumerate(agent_actions):
+            # Extract tool information
+            tool_name = action.get("tool", "Unknown Tool")
+            tool_result = action.get("result", "")
+            timestamp = action.get("timestamp", "")
 
-                # Calculate duration
-                duration = "0s"  # Default
+            # Calculate duration
+            duration = "0s"  # Default
+            if i < len(agent_actions) - 1:
                 try:
                     current_time = datetime.datetime.strptime(
                         timestamp, "%Y-%m-%d %H:%M:%S"
@@ -73,43 +71,39 @@ class DataProcessor:
                 except (ValueError, TypeError):
                     duration = "N/A"
 
-                # Use regex to check for "error" or "Error" in tool_result
-                error_pattern = re.compile(r"\berror\b", re.IGNORECASE)
-                has_error = bool(error_pattern.search(tool_result))
+            # Use regex to check for "error" or "Error" in tool_result
+            error_pattern = re.compile(r"\berror\b", re.IGNORECASE)
+            has_error = bool(error_pattern.search(tool_result))
 
-                # Determine status based on result
-                status = "failed" if has_error else "success"
+            # Determine status based on result
+            status = "failed" if has_error else "success"
 
-                # Set error message
-                error_message = tool_result if has_error else None
+            # Set error message
+            error_message = tool_result if has_error else None
 
-                # Set output data
-                output_data = (
-                    {"status": "completed", "result": tool_result}
-                    if status == "success"
-                    else {"error": "Tool execution failed"}
-                )
+            # Set output data
+            output_data = (
+                {"status": "completed", "result": tool_result}
+                if status == "success"
+                else {"error": "Tool execution failed"}
+            )
 
-                tool_info = {
-                    "name": tool_name.strip(),
-                    "status": status,
-                    "duration": duration,
-                    "error_message": error_message,
-                    "input_data": {
-                        "task": task_name,
-                        "timeout": 30,
-                        "tool_input": action.get("tool_input", {}),
-                    },
-                    "output_data": output_data,
-                }
+            tool_info = {
+                "name": tool_name.strip(),
+                "status": status,
+                "duration": duration,
+                "error_message": error_message,
+                "input_data": {
+                    "task": task_name,
+                    "timeout": 30,
+                    "tool_input": action.get("tool_input", {}),
+                },
+                "output_data": output_data,
+            }
 
-                tools_used.append(tool_info)
+            tools_used.append(tool_info)
 
-            return tools_used
-        
-        except Exception as e:
-            self.logger.error(f"Error while finding the agent tools {e}")
-            raise e
+        return tools_used
 
     def send_run_results(self, data: Dict) -> bool:
         """
