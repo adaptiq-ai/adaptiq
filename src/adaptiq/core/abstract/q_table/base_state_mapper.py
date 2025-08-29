@@ -113,7 +113,7 @@ class BaseStateMapper(ABC):
         """
         classification_results: List[ClassificationEntry] = []
 
-        for index, processed_log in enumerate(processed_logs):
+        for index, processed_log in enumerate(processed_logs.processed_logs):
             # Invoke the LLM for classification
             classification_output = self._invoke_llm_for_classification(processed_log)
 

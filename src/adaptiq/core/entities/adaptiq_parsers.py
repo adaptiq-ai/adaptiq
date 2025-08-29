@@ -196,13 +196,8 @@ class ValidationResults(BaseModel):
 
 
 class StateActionMapping(BaseModel):
-    state: List[str] = Field(
-        ...,
-        min_items=4,
-        max_items=4,
-        description="Compact state representation: [sub_task, last_action, last_outcome, context]",
-    )
-    action: str = Field(..., description="Clean tool name only, e.g. 'FileReadTool'")
+    state: List[Optional[str]]
+    action: Optional[str]
 
 
 ########################################################-----########################################################

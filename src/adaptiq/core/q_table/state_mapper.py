@@ -104,10 +104,18 @@ class StateMapper(BaseStateMapper):
             formatted_known_states = []
             for original, parsed in self.parsed_states:
                 formatted_known_states.append({"original": original, "components": parsed})
+            
+            log_state = input_state.key.state
 
             # Create inputs for the LLM
             inputs = {
-                "input_state": input_state.key.state.model_dump(),
+                "input_state": {
+                    "current_sub_task_or_thought": log_state.current_sub_task_or_thought,
+                    "last_action_taken": log_state.last_action_taken, 
+                    "last_outcome": log_state.last_outcome,
+                    "agent_context": log_state.agent_context,
+                    "action": input_state.key.agent_action
+                },
                 "known_states": self._format_known_states_for_display(formatted_known_states),
             }
 
@@ -136,7 +144,8 @@ class StateMapper(BaseStateMapper):
                 },
                 classification=Classification(
                     is_known_state=False,
-                    state=[None, None, None, None],
+                    # FIX: Convert the list to a string to match the Pydantic model
+                    state=str([None, None, None, None]),
                     reasoning=f"Classification error: {str(e)}"
                 )
             )
@@ -285,7 +294,7 @@ class StateMapper(BaseStateMapper):
             return {
                 "classification": {
                     "is_known_state": is_known_state,
-                    "state": final_state,
+                    "state": f"[{', '.join(map(str, final_state))}]",
                     "reasoning": reasoning or "No reasoning provided",
                 },
                 "input_state": {
@@ -354,7 +363,8 @@ class StateMapper(BaseStateMapper):
         return {
             "classification": {
                 "is_known_state": is_known_state,
-                "state": final_state,
+                # FIX: Convert the final_state list to a string, just like in _parse_xml_response
+                "state": f"[{', '.join(map(str, final_state))}]",
                 "reasoning": reasoning or "Error parsing LLM output",
             },
             "input_state": {
