@@ -210,12 +210,13 @@ class StateActionMapping(BaseModel):
 
 class Classification(BaseModel):
     is_known_state: bool
-    matched_state: Optional[str]  # null if not found
+    state: Optional[str]  
     reasoning: str
 
 
 class ClassificationResponse(BaseModel):
     classification: Classification
+    input_state: StateActionMapping
 
 
 class ClassificationEntry(BaseModel):
@@ -238,7 +239,6 @@ class ReconciliationSummary(BaseModel):
 
 class ReconciliationResults(BaseModel):
     pipeline_status: str = None
-    extracted_data: List[StateActionMapping] = None
     state_classifications: List[ClassificationEntry] = None
     updated_qtable: Dict = None
     report_content: str = None

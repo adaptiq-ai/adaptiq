@@ -267,7 +267,7 @@ class PostRunUpdater:
             reward_exec = reward_execs[i]
 
             if classification.classification.is_known_state:
-                matched_state_repr = classification.classification.matched_state
+                matched_state_repr = classification.classification.state
                 # Parse the matched state representation to QTableState
                 matched_state = self._parse_state_to_qtable_state(matched_state_repr)
 
@@ -310,7 +310,7 @@ class PostRunUpdater:
                         ):
                             next_state_repr = state_classifications[
                                 i + 1
-                            ].classification.matched_state
+                            ].classification.state
 
                             next_state_parsed = self._parse_state_to_qtable_state(
                                 next_state_repr
@@ -370,7 +370,7 @@ class PostRunUpdater:
                             ):
                                 next_state_repr = state_classifications[
                                     i + 1
-                                ].classification.matched_state
+                                ].classification.state
                                 next_state_parsed = self._parse_state_to_qtable_state(
                                     next_state_repr
                                 )
