@@ -169,7 +169,7 @@ class PostRunReconciler:
             )
 
             # Step 4: Update Q-table based on classifications and rewards
-            logger.info("Step 4: Updating Q-table")
+            logger.info("Step 3: Updating Q-table")
             self._initialize_post_run_updater()
             updated_qtable, q_insights = self.post_run_updater.process_data(
                 state_classifications_data=state_classifications,
@@ -178,7 +178,7 @@ class PostRunReconciler:
             )
             logger.info("Q-table updated successfully")
             # Step 5: Generate prompt engineering report
-            logger.info("Step 5: Generating prompt engineering report")
+            logger.info("Step 4: Generating prompt engineering report")
             self._initialize_prompt_engineer()
             report_content = self.prompt_engineer.generate_and_save_report(
                 q_insights=q_insights,

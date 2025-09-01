@@ -276,7 +276,7 @@ class StateMapper(BaseStateMapper):
 
             # Normalize action
             if not action or action.lower() == "null":
-                action = None
+                action = "None"
 
             # Parse states into lists
             matched_state = self._parse_state_list(matched_state_text)
@@ -294,7 +294,7 @@ class StateMapper(BaseStateMapper):
             return {
                 "classification": {
                     "is_known_state": is_known_state,
-                    "state": f"[{', '.join(map(str, final_state))}]",
+                    "state": f"({', '.join(repr(item) for item in final_state)})",
                     "reasoning": reasoning or "No reasoning provided",
                 },
                 "input_state": {
