@@ -152,6 +152,61 @@ class CrewLogParser(BaseLogParser):
             return CrewRewards.TASKLOG_NO_RAW_OUTPUT_REPR.value, ""
         else:
             return "TaskLogRawOutput", outcome
+        
+    def calculate_step_time(self, current_entry: Dict[str, Any], previous_entry: Dict[str, Any] = None) -> float:
+        """
+        Calculate the time taken for a CrewAI step based on timestamps.
+        
+        Args:
+            current_entry (Dict[str, Any]): The current log entry.
+            previous_entry (Dict[str, Any], optional): The previous log entry for time comparison.
+
+        Returns:
+            float: Time taken in seconds. Returns 0.0 for first step or if calculation fails.
+        """
+        if not previous_entry:
+            return 0.0
+        
+        try:
+            from datetime import datetime
+            
+            current_timestamp = current_entry.get("timestamp")
+            previous_timestamp = previous_entry.get("timestamp")
+            
+            if not current_timestamp or not previous_timestamp:
+                return 0.0
+            
+            # Parse CrewAI timestamp format: "2025-07-19 13:13:15"
+            current_time = datetime.strptime(current_timestamp, "%Y-%m-%d %H:%M:%S")
+            previous_time = datetime.strptime(previous_timestamp, "%Y-%m-%d %H:%M:%S")
+            
+            time_diff = (current_time - previous_time).total_seconds()
+            return max(0.0, time_diff)  # Ensure non-negative
+            
+        except Exception:
+            return 0.0
+
+    def extract_step_content(self, log_entry: Dict[str, Any]) -> str:
+        """
+        Extract all text content from a log entry for token counting.
+        
+        Args:
+            log_entry (Dict[str, Any]): The log entry to extract content from.
+            
+        Returns:
+            str: Combined text content from the entry.
+        """
+        content_parts = []
+        
+        # Add all text fields that contribute to the step's content
+        fields_to_include = ["thought", "text", "tool_input", "result", "output"]
+        
+        for field in fields_to_include:
+            value = log_entry.get(field)
+            if value and not self.is_string_effectively_empty_or_placeholder(value):
+                content_parts.append(str(value))
+        
+        return " ".join(content_parts)
 
     def calculate_reward(self, log_entry: Dict[str, Any], entry_type: str) -> float:
         """
@@ -179,8 +234,43 @@ class CrewLogParser(BaseLogParser):
         elif entry_type == "TaskLog":
             reward += self._calculate_task_log_reward(log_entry)
 
+        # Time-based rewards
+        reward += self._calculate_time_reward(log_entry)
+        
+        # Token-based rewards
+        reward += self._calculate_token_reward(log_entry)
+
         return reward
 
+    def _calculate_time_reward(self, log_entry: Dict[str, Any]) -> float:
+        """Calculate reward based on step execution time."""
+        step_time = self.calculate_step_time(log_entry, self._previous_entry)
+        
+        if step_time == 0.0:  # First step or calculation failed
+            return 0.0
+        elif step_time <= CrewRewards.FAST_STEP_TIME_THRESHOLD.value:
+            return CrewRewards.REWARD_FAST_EXECUTION.value
+        elif step_time <= CrewRewards.SLOW_STEP_TIME_THRESHOLD.value:
+            return 0.0  # Neutral - reasonable time
+        elif step_time <= CrewRewards.MAX_REASONABLE_STEP_TIME.value:
+            return CrewRewards.PENALTY_SLOW_EXECUTION.value
+        else:
+            return CrewRewards.PENALTY_EXCESSIVE_TIME.value
+
+    def _calculate_token_reward(self, log_entry: Dict[str, Any]) -> float:
+        """Calculate reward based on token efficiency."""
+        content = self.extract_step_content(log_entry)
+        token_count = self.calculate_token_count(content)
+        
+        if token_count <= CrewRewards.EFFICIENT_TOKEN_THRESHOLD.value:
+            return CrewRewards.REWARD_EFFICIENT_TOKENS.value
+        elif token_count <= CrewRewards.VERBOSE_TOKEN_THRESHOLD.value:
+            return 0.0  # Neutral - reasonable length
+        elif token_count <= CrewRewards.EXCESSIVE_TOKEN_THRESHOLD.value:
+            return CrewRewards.PENALTY_VERBOSE_TOKENS.value
+        else:
+            return CrewRewards.PENALTY_EXCESSIVE_TOKENS.value
+    
     def _calculate_thought_reward(
         self, log_entry: Dict[str, Any], entry_type: str
     ) -> float:

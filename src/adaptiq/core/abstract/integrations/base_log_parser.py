@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import tiktoken
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple, Union
 from langchain_core.embeddings import Embeddings
@@ -19,8 +20,6 @@ class BaseLogParser(ABC):
     """
 
     # --- Abstract Constants (to be defined by subclasses) ---
-
-
     def __init__(self, logs_path: str, output_path: str = None):
         """
         Initialize the log parser with input and output paths.
@@ -33,6 +32,7 @@ class BaseLogParser(ABC):
         self.output_path = output_path
         self.parsed_file_name = "parsed_logs.json"
         self.embeddings = None
+        self._previous_entry = None
 
     def set_embeddings(self, embeddings: Embeddings):
         """
@@ -163,6 +163,49 @@ class BaseLogParser(ABC):
         """
         pass
 
+    @abstractmethod
+    def calculate_step_time(self, current_entry: Dict[str, Any], previous_entry: Dict[str, Any] = None) -> float:
+        """
+        Calculate the time taken for a step based on timestamps.
+        Implementation depends on the specific agent framework's timestamp format.
+
+        Args:
+            current_entry (Dict[str, Any]): The current log entry.
+            previous_entry (Dict[str, Any], optional): The previous log entry for time comparison.
+
+        Returns:
+            float: Time taken in seconds. Returns 0.0 for first step or if calculation fails.
+        """
+        pass
+
+    @staticmethod
+    def calculate_token_count(text: str, model_name: str = "gpt-4") -> int:
+        """
+        Calculate the number of tokens in the given text using tiktoken.
+
+        Args:
+            text (str): The text to count tokens for.
+            model_name (str): The model name for token encoding (default: "gpt-4")
+
+        Returns:
+            int: Number of tokens in the text.
+        """
+        try:
+            # Get the appropriate encoding for the model
+            encoding = tiktoken.encoding_for_model(model_name)
+            
+            # Handle empty or None text
+            if not text:
+                return 0
+                
+            # Encode and count tokens
+            encoded = encoding.encode(text)
+            return len(encoded)
+            
+        except Exception as e:
+            # Fallback to rough estimation (4 chars per token)
+            return len(text) // 4 if text else 0
+
     def extract_agent_name(self, logs: List[Dict[str, Any]]) -> str:
         """
         Extract agent name from logs. Can be overridden by subclasses for specific extraction logic.
@@ -231,6 +274,7 @@ class BaseLogParser(ABC):
 
         previous_action = "None"
         previous_outcome = "None"
+        self._previous_entry = None  # Initialize
 
         for log_entry in logs:
             entry_type = log_entry.get("type")
@@ -257,6 +301,7 @@ class BaseLogParser(ABC):
             previous_outcome = (
                 current_outcome if current_outcome is not None else "NoOutcome"
             )
+            self._previous_entry = log_entry  # Update previous entry
 
         self.save_processed_logs(processed_logs)
 
