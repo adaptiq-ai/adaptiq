@@ -8,7 +8,6 @@
 ### Changed
 - Updated from PR #43
 
-
 ## [v0.12.7] - 2025-08-22
 
 ### Added
