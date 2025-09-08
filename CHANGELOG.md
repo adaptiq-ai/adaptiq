@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.12.8] - 2025-09-08
+
+### Added
+- Refactor/post run optimization
+
+### Changed
+- Updated from PR #43
+
+
 ## [v0.12.7] - 2025-08-22
 
 ### Added
