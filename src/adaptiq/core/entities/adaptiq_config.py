@@ -14,6 +14,10 @@ class ModelNameEnum(str, Enum):
     gpt_4_1 = "gpt-4.1"  # Full model, not mini
     # add more here as they’re supported later
 
+class EmbeddingModelNameEnum(str, Enum):
+    text_embedding_3_small = "text-embedding-3-small"
+    text_embedding_ada_002 = "text-embedding-ada-002"
+
 
 class FrameworkEnum(str, Enum):
     crewai = "crewai"
@@ -25,6 +29,10 @@ class LLMConfig(BaseModel):
     model_name: ModelNameEnum = ModelNameEnum.gpt_4_1_mini
     api_key: str
 
+class EmbeddingConfig(BaseModel):
+    provider: ProviderEnum = ProviderEnum.openai
+    model_name: EmbeddingModelNameEnum = EmbeddingModelNameEnum.text_embedding_3_small
+    api_key: str
 
 # --- Log Source Config ---
 class LogSourceConfig(BaseModel):
@@ -62,27 +70,12 @@ class ReportConfig(BaseModel):
     prompts_path: str = "./reports/prompts.json"
 
 
-# --- Alert Mode ---
-class OnDemandAlertMode(BaseModel):
-    enabled: bool = False
-    runs: int = 5
-
-
-class PerRunAlertMode(BaseModel):
-    enabled: bool = True
-
-
-class AlertMode(BaseModel):
-    on_demand: OnDemandAlertMode = OnDemandAlertMode()
-    per_run: PerRunAlertMode = PerRunAlertMode()
-
-
 # --- Main Config ---
 class AdaptiQConfig(BaseModel):
     project_name: str
     email: Optional[str] = ""
     llm_config: LLMConfig
+    embedding_config: EmbeddingConfig
     framework_adapter: FrameworkAdapter
     agent_modifiable_config: AgentModifiableConfig
     report_config: ReportConfig
-    alert_mode: AlertMode

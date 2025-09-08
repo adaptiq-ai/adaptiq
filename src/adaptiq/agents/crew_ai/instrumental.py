@@ -112,28 +112,6 @@ class CrewInstrumental(BaseInstrumental):
 
         return decorator
 
-    def _get_alert_mode(self, config_path: str) -> Dict[str, Any]:
-        """
-        Reads the adaptiq_config.yml and extracts alert_mode settings.
-        Returns:
-            dict: {
-                "mode": "on_demand" or "per_run" or "none",
-                "runs": int or None
-            }
-        """
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-        alert_mode = config.get("alert_mode", {})
-        if alert_mode.get("on_demand", {}).get("enabled", False):
-            return {
-                "mode": "on_demand",
-                "runs": alert_mode["on_demand"].get("runs", None),
-            }
-        elif alert_mode.get("per_run", {}).get("enabled", False):
-            return {"mode": "per_run", "runs": None}
-        else:
-            return {"mode": "none", "runs": None}
-
     def agent_logger(self, func: Callable) -> Callable:
         """
         Decorator to automatically add step_callback logging to CrewAI agents.

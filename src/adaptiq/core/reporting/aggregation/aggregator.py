@@ -44,7 +44,6 @@ class Aggregator:
 
         # Initialize run tracking
         self._run_count = 0
-        self._default_run_mode = True
         self.task_name = None
 
         # Define pricing information
@@ -103,7 +102,6 @@ class Aggregator:
         post_output: int,
         recon_input: int,
         recon_output: int,
-        default_run_mode: bool = True,
     ):
         """
         Update the running sum for input/output tokens for each token type.
@@ -115,9 +113,7 @@ class Aggregator:
             post_output (int): Output tokens for post_tokens.
             recon_input (int): Input tokens for recon_tokens.
             recon_output (int): Output tokens for recon_tokens.
-            default_run_mode (bool): Whether this is a default mode (True) or not (False).
         """
-        self._default_run_mode = default_run_mode
         return self.metrics_calculator.update_avg_run_tokens(
             pre_input,
             pre_output,
@@ -125,7 +121,6 @@ class Aggregator:
             post_output,
             recon_input,
             recon_output,
-            default_run_mode,
         )
 
     def get_avg_run_tokens(self) -> tuple:
@@ -279,65 +274,6 @@ class Aggregator:
             self._run_count, summary_metrics
         )
 
-    def build_run_summary(
-        self,
-        run_name: str,
-        reward: float,
-        api_calls: int,
-        suggested_prompt: str,
-        status: str,
-        issues: List,
-        error: str = None,
-        memory_usage: float = None,
-        run_time_seconds: float = None,
-        execution_logs: List = None,
-    ) -> Dict:
-        """
-        Build a summary JSON for a single run.
-        """
-        task_name = "Under-Fixing (Dev msg)"
-
-        # Calculate token totals from metrics calculator
-        pre = self.metrics_calculator.run_tokens["pre_tokens"]
-        post = self.metrics_calculator.run_tokens["post_tokens"]
-        recon = self.metrics_calculator.run_tokens["recon_tokens"]
-
-        total_input_tokens = int(pre["input"] + post["input"] + recon["input"])
-        total_output_tokens = int(pre["output"] + post["output"] + recon["output"])
-        total_tokens = total_input_tokens + total_output_tokens
-
-        # Set last run data for performance calculation
-        self.metrics_calculator.set_last_run_data(
-            reward, run_time_seconds or 0, self.original_prompt, suggested_prompt
-        )
-
-        # Calculate performance score and current run cost
-        performance_score = self.calculate_performance_score()
-        current_run_cost = self.calculate_current_run_cost(
-            total_input_tokens, total_output_tokens
-        )
-
-        return self.report_builder.build_run_summary(
-            run_number=self._run_count,
-            run_name=run_name,
-            task_name=task_name,
-            reward=reward,
-            api_calls=api_calls,
-            suggested_prompt=suggested_prompt,
-            original_prompt=self.original_prompt,
-            status=status,
-            issues=issues,
-            performance_score=performance_score,
-            total_tokens=total_tokens,
-            total_input_tokens=total_input_tokens,
-            total_output_tokens=total_output_tokens,
-            current_run_cost=current_run_cost,
-            error=error,
-            memory_usage=memory_usage,
-            run_time_seconds=run_time_seconds,
-            execution_logs=execution_logs,
-        )
-
     def add_run_summary(
         self,
         run_name: str,
@@ -346,6 +282,7 @@ class Aggregator:
         suggested_prompt: str,
         status: str,
         issues: List,
+        tools_used: List = None,
         error: str = None,
         memory_usage: float = None,
         run_time_seconds: float = None,
@@ -391,6 +328,7 @@ class Aggregator:
             total_input_tokens=total_input_tokens,
             total_output_tokens=total_output_tokens,
             current_run_cost=current_run_cost,
+            tools_used=tools_used,
             error=error,
             memory_usage=memory_usage,
             run_time_seconds=run_time_seconds,
@@ -424,76 +362,6 @@ class Aggregator:
         """
         return self.report_builder.create_error_info(
             exception, error_type, severity, include_stack_trace
-        )
-
-    def build_run_details(
-        self,
-        exec_time: float,
-        reward: float,
-        timestamp: str = None,
-        task_name: str = None,
-        suggested_prompt: str = None,
-        memory_usage: float = None,
-        api_calls: int = None,
-        error: str = None,
-        execution_logs: List = None,
-    ) -> Dict:
-        """
-        Build a detailed prompt analysis JSON for a single run.
-
-        Args:
-            exec_time (float): Execution time in seconds
-            reward (float): Reward for this run
-            timestamp (str, optional): Timestamp. If None, uses current UTC.
-            task_name (str, optional): Task name
-            original_prompt (str, optional): Original prompt text
-            suggested_prompt (str, optional): Suggested/optimized prompt text
-            memory_usage (float, optional): Memory usage in MB
-            api_calls (int, optional): Number of API calls
-            error (str, optional): Error information
-            execution_logs (list, optional): List of execution log dicts.
-
-        Returns:
-            dict: The prompt analysis JSON.
-        """
-        # Get token totals
-        pre = self.metrics_calculator.run_tokens["pre_tokens"]
-        post = self.metrics_calculator.run_tokens["post_tokens"]
-        recon = self.metrics_calculator.run_tokens["recon_tokens"]
-
-        total_input_tokens = int(pre["input"] + post["input"] + recon["input"])
-        total_output_tokens = int(pre["output"] + post["output"] + recon["output"])
-
-        # Get log file path for tools (if not in default mode)
-        log_file_path = None
-        if not self._default_run_mode:
-            log_file_path = self.config_data.framework_adapter.settings.log_source.path
-
-        # Parse tools if needed
-        tools_used = []
-        if not self._default_run_mode and log_file_path and task_name:
-            tools_used = self.parse_log_file(log_file_path, task_name)
-
-        return self.report_builder.build_run_details(
-            run_number=self._run_count,
-            exec_time=exec_time,
-            reward=reward,
-            timestamp=timestamp,
-            task_name=task_name,
-            original_prompt=self.original_prompt,
-            suggested_prompt=suggested_prompt,
-            memory_usage=memory_usage or 0,
-            api_calls=api_calls or 0,
-            total_input_tokens=total_input_tokens,
-            total_output_tokens=total_output_tokens,
-            error=error,
-            execution_logs=execution_logs,
-            tools_used=tools_used,
-            reward_sum=self.metrics_calculator.get_reward_sum(),
-            run_count=self._run_count,
-            input_price=self.metrics_calculator.input_price,
-            default_run_mode=self._default_run_mode,
-            log_file_path=log_file_path,
         )
 
     def send_run_results(self, data: Dict) -> bool:
@@ -608,6 +476,10 @@ class Aggregator:
             total_prompt_tokens = 0
             total_completion_tokens = 0
             total_successful_requests = 0
+            log_file_path = self.config_data.framework_adapter.settings.log_source.path
+
+            # Parse tools if needed
+            tools_used = []
 
             if agent_metrics:
                 logging.info(
@@ -686,12 +558,14 @@ class Aggregator:
                         post_output=completion_tokens,
                         recon_input=0,
                         recon_output=0,
-                        default_run_mode=False,
                     )
 
                     # Update run time and error count
                     self.update_avg_run_time(execution_time_seconds)
                     self.update_error_count(0)
+
+                    if log_file_path:
+                        tools_used = self.parse_log_file(log_file_path, task_name = None)
 
                     # Add run summary to the aggregator
                     self.add_run_summary(
@@ -703,6 +577,7 @@ class Aggregator:
                         issues=[],
                         error=None,
                         memory_usage=peak_memory_mb,
+                        tools_used=tools_used,
                         run_time_seconds=execution_time_seconds,
                         execution_logs=self.tracer.get_logs(),
                     )
@@ -727,7 +602,6 @@ class Aggregator:
                     post_output=0,
                     recon_input=0,
                     recon_output=0,
-                    default_run_mode=False,
                 )
                 self.update_avg_run_time(0)
                 self.update_error_count(0)
@@ -740,6 +614,7 @@ class Aggregator:
                     status="completed",
                     issues=[],
                     error=None,
+                    tools_used=tools_used,
                     memory_usage=0,
                     run_time_seconds=0,
                     execution_logs=self.tracer.get_logs(),
@@ -806,6 +681,7 @@ class Aggregator:
                         error=str(e),
                         memory_usage=0,
                         run_time_seconds=0,
+                        tools_used=tools_used,
                         execution_logs=self.tracer.get_logs(),
                     )
             else:
@@ -824,6 +700,7 @@ class Aggregator:
                     error=str(e),
                     memory_usage=0,
                     run_time_seconds=0,
+                    tools_used=tools_used,
                     execution_logs=self.tracer.get_logs(),
                 )
 

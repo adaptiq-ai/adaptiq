@@ -1,5 +1,6 @@
 import ast
 import logging
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -24,9 +25,11 @@ class PostRunUpdater:
     def __init__(
         self,
         embeddings: Embeddings,
+        output_path: Path ,
         alpha: float = 0.8,
         gamma: float = 0.8,
         similarity_threshold: float = 0.7,
+        
     ):
         """
         Initialize the AdaptiqQtableUpdate class.
@@ -39,7 +42,7 @@ class PostRunUpdater:
         """
         self.embeddings = embeddings
         self.learner = QTableManager(
-            alpha=alpha, gamma=gamma, file_path="adaptiq_q_table.json"
+            alpha=alpha, gamma=gamma, file_path=output_path
         )
         self.similarity_threshold = similarity_threshold
 
@@ -264,7 +267,7 @@ class PostRunUpdater:
             reward_exec = reward_execs[i]
 
             if classification.classification.is_known_state:
-                matched_state_repr = classification.classification.matched_state
+                matched_state_repr = classification.classification.state
                 # Parse the matched state representation to QTableState
                 matched_state = self._parse_state_to_qtable_state(matched_state_repr)
 
@@ -307,7 +310,7 @@ class PostRunUpdater:
                         ):
                             next_state_repr = state_classifications[
                                 i + 1
-                            ].classification.matched_state
+                            ].classification.state
 
                             next_state_parsed = self._parse_state_to_qtable_state(
                                 next_state_repr
@@ -367,7 +370,7 @@ class PostRunUpdater:
                             ):
                                 next_state_repr = state_classifications[
                                     i + 1
-                                ].classification.matched_state
+                                ].classification.state
                                 next_state_parsed = self._parse_state_to_qtable_state(
                                     next_state_repr
                                 )

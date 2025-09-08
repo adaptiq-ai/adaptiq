@@ -1,10 +1,12 @@
 import json
 import math
 import os
+import tiktoken
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Union
-
+from typing import Any, Dict, List, Tuple, Union
+from langchain_core.embeddings import Embeddings
 from adaptiq.core.entities import LogItem, LogKey, LogState, ProcessedLogs
+from adaptiq.core.entities.adaptiq_parsers import ValidationResults
 
 
 class BaseLogParser(ABC):
@@ -18,25 +20,6 @@ class BaseLogParser(ABC):
     """
 
     # --- Abstract Constants (to be defined by subclasses) ---
-
-    @property
-    @abstractmethod
-    def MIN_MEANINGFUL_THOUGHT_LEN(self) -> int:
-        """Minimum length for a meaningful thought/description."""
-        pass
-
-    @property
-    @abstractmethod
-    def ERROR_KEYWORDS(self) -> List[str]:
-        """Keywords that indicate errors in log outputs."""
-        pass
-
-    @property
-    @abstractmethod
-    def PLACEHOLDER_STRINGS_LOWER(self) -> List[str]:
-        """Lowercase strings considered as placeholders or empty content."""
-        pass
-
     def __init__(self, logs_path: str, output_path: str = None):
         """
         Initialize the log parser with input and output paths.
@@ -48,6 +31,17 @@ class BaseLogParser(ABC):
         self.logs_path = logs_path
         self.output_path = output_path
         self.parsed_file_name = "parsed_logs.json"
+        self.embeddings = None
+        self._previous_entry = None
+
+    def set_embeddings(self, embeddings: Embeddings):
+        """
+        Set the embeddings model for the log parser.
+
+        Args:
+            embeddings (Embeddings): The embeddings model to use.
+        """
+        self.embeddings = embeddings
 
     def load_json_data(self) -> Union[Dict, List[Dict[str, Any]]]:
         """
@@ -104,12 +98,7 @@ class BaseLogParser(ABC):
         Returns:
             bool: True if the string is effectively empty or a placeholder, False otherwise.
         """
-        if s is None:
-            return True
-        s_str = str(s).strip()
-        if not s_str:  # Empty after stripping
-            return True
-        return s_str.lower() in self.PLACEHOLDER_STRINGS_LOWER
+        pass
 
     @abstractmethod
     def calculate_reward(self, log_entry: Dict[str, Any], entry_type: str) -> float:
@@ -167,6 +156,56 @@ class BaseLogParser(ABC):
         """
         pass
 
+    @abstractmethod
+    def validate_parsing(self, raw_logs:Dict[str, Any], parsed_logs: List[LogItem])-> ValidationResults:
+        """
+            Validate the parsing of logs by comparing raw and parsed logs.
+        """
+        pass
+
+    @abstractmethod
+    def calculate_step_time(self, current_entry: Dict[str, Any], previous_entry: Dict[str, Any] = None) -> float:
+        """
+        Calculate the time taken for a step based on timestamps.
+        Implementation depends on the specific agent framework's timestamp format.
+
+        Args:
+            current_entry (Dict[str, Any]): The current log entry.
+            previous_entry (Dict[str, Any], optional): The previous log entry for time comparison.
+
+        Returns:
+            float: Time taken in seconds. Returns 0.0 for first step or if calculation fails.
+        """
+        pass
+
+    @staticmethod
+    def calculate_token_count(text: str, model_name: str = "gpt-4") -> int:
+        """
+        Calculate the number of tokens in the given text using tiktoken.
+
+        Args:
+            text (str): The text to count tokens for.
+            model_name (str): The model name for token encoding (default: "gpt-4")
+
+        Returns:
+            int: Number of tokens in the text.
+        """
+        try:
+            # Get the appropriate encoding for the model
+            encoding = tiktoken.encoding_for_model(model_name)
+            
+            # Handle empty or None text
+            if not text:
+                return 0
+                
+            # Encode and count tokens
+            encoded = encoding.encode(text)
+            return len(encoded)
+            
+        except Exception as e:
+            # Fallback to rough estimation (4 chars per token)
+            return len(text) // 4 if text else 0
+
     def extract_agent_name(self, logs: List[Dict[str, Any]]) -> str:
         """
         Extract agent name from logs. Can be overridden by subclasses for specific extraction logic.
@@ -219,7 +258,7 @@ class BaseLogParser(ABC):
             except Exception as e:
                 raise RuntimeError(f"Failed to save logs to {full_path}: {e}") from e
 
-    def parse_logs(self) -> ProcessedLogs:
+    def parse_logs(self) -> Tuple[ProcessedLogs, ValidationResults]:
         """
         Parse the logs from the specified log file.
 
@@ -227,7 +266,7 @@ class BaseLogParser(ABC):
         logs: List[Dict[str, Any]] = self.load_json_data()
 
         if not logs:
-            return ProcessedLogs(processed_logs=[])
+            raise ValueError("No logs found to parse.")
 
         processed_logs: List[LogItem] = []
         agent_name = self.extract_agent_name(logs)
@@ -235,6 +274,7 @@ class BaseLogParser(ABC):
 
         previous_action = "None"
         previous_outcome = "None"
+        self._previous_entry = None  # Initialize
 
         for log_entry in logs:
             entry_type = log_entry.get("type")
@@ -261,6 +301,9 @@ class BaseLogParser(ABC):
             previous_outcome = (
                 current_outcome if current_outcome is not None else "NoOutcome"
             )
+            self._previous_entry = log_entry  # Update previous entry
 
         self.save_processed_logs(processed_logs)
-        return ProcessedLogs(processed_logs=processed_logs)
+
+        validation_results = self.validate_parsing(raw_logs=logs, parsed_logs=processed_logs)
+        return ProcessedLogs(processed_logs=processed_logs), validation_results

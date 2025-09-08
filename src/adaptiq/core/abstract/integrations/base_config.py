@@ -366,13 +366,13 @@ class BaseConfig(ABC):
             Exception: For any runtime errors during initialization.
         """
         try:
-            llm_config = self.config.llm_config
-            api_key = llm_config.api_key
+            embedding_config = self.config.embedding_config
+            api_key = embedding_config.api_key
 
-            if llm_config.provider == ProviderEnum.openai:
-                return OpenAIEmbeddings(model="text-embedding-3-small", api_key=api_key)
+            if embedding_config.provider == ProviderEnum.openai:
+                return OpenAIEmbeddings(model=embedding_config.model_name.value, api_key=api_key)
 
-            raise ValueError(f"Unsupported Embeddings provider: {llm_config.provider}")
+            raise ValueError(f"Unsupported Embeddings provider: {embedding_config.provider}")
 
         except Exception as e:
             logger.error(f"Failed to create Embeddings instance: {e}", exc_info=True)

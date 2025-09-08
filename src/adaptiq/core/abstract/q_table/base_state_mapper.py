@@ -8,8 +8,11 @@ from langchain_core.prompts import ChatPromptTemplate
 from adaptiq.core.entities import (
     ClassificationEntry,
     ClassificationResponse,
-    StateActionMapping,
+    ProcessedLogs,
+    LogItem
 )
+
+
 
 
 class BaseStateMapper(ABC):
@@ -83,7 +86,7 @@ class BaseStateMapper(ABC):
 
     @abstractmethod
     def _invoke_llm_for_classification(
-        self, input_state: StateActionMapping
+        self, input_state: LogItem
     ) -> ClassificationResponse:
         """
         Invoke the LLM to classify a state.
@@ -96,37 +99,8 @@ class BaseStateMapper(ABC):
         """
         pass
 
-    def _validate_classification(
-        self, classification_output: ClassificationResponse
-    ) -> ClassificationResponse:
-        """
-        Validate the classification output from the LLM.
-
-        Args:
-            classification_output: The LLM's classification output
-
-        Returns:
-            Validated classification output
-        """
-        classification = classification_output.classification
-
-        # If LLM says it's a known state, verify the matched state is actually in our known states
-        if classification.is_known_state:
-            matched_state = classification.matched_state
-
-            if matched_state not in self.known_states:
-                # If matched state not in known states, invalidate the classification
-                classification.is_known_state = False
-                classification.matched_state = None
-                classification.reasoning = (
-                    "State validation: matched state not found in known states"
-                )
-
-        classification_output.classification = classification
-        return classification_output
-
     def classify_states(
-        self, input_states: List[StateActionMapping]
+        self, processed_logs: ProcessedLogs
     ) -> List[ClassificationEntry]:
         """
         Classify input states against the known states.
@@ -139,18 +113,15 @@ class BaseStateMapper(ABC):
         """
         classification_results: List[ClassificationEntry] = []
 
-        for index, input_state in enumerate(input_states):
+        for index, processed_log in enumerate(processed_logs.processed_logs):
             # Invoke the LLM for classification
-            classification_output = self._invoke_llm_for_classification(input_state)
-
-            # Validate the classification output
-            validated_output = self._validate_classification(classification_output)
+            classification_output = self._invoke_llm_for_classification(processed_log)
 
             # Create the classification entry
             classification_entry = ClassificationEntry(
                 index=index,
-                input_state=input_state,
-                classification=validated_output.classification,
+                input_state=classification_output.input_state,
+                classification=classification_output.classification,
             )
 
             classification_results.append(classification_entry)

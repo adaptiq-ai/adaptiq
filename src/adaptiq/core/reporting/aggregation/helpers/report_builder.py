@@ -142,6 +142,7 @@ class ReportBuilder:
         total_input_tokens: int,
         total_output_tokens: int,
         current_run_cost: float,
+        tools_used: List,
         error: str = None,
         memory_usage: float = None,
         run_time_seconds: float = None,
@@ -205,6 +206,7 @@ class ReportBuilder:
                 memory_usage=memory_usage or 0,
                 api_calls=api_calls,
                 error=error,
+                tools_used=tools_used,
                 execution_logs=execution_logs or [],
                 total_input_tokens=total_input_tokens,
                 total_output_tokens=total_output_tokens,
@@ -230,7 +232,6 @@ class ReportBuilder:
         reward_sum: float = 0.0,
         run_count: int = 1,
         input_price: float = 0.0,
-        default_run_mode: bool = True,
         log_file_path: str = None,
     ) -> Dict:
         """
@@ -254,7 +255,6 @@ class ReportBuilder:
             reward_sum (float): Cumulative reward sum for improvement calculation
             run_count (int): Total run count for calculations
             input_price (float): Price per 1000 input tokens
-            default_run_mode (bool): Whether in default run mode
             log_file_path (str, optional): Path to log file for tool parsing
 
         Returns:
@@ -360,7 +360,7 @@ class ReportBuilder:
             },
             "execution_analysis": {
                 "summary_metrics": summary_metrics,
-                "tools_used": tools_used or [],
+                "tools_used": tools_used,
             },
             "performance_metrics": {
                 "total_time_value": round(exec_time, 3),
@@ -390,6 +390,7 @@ class ReportBuilder:
         total_input_tokens: int,
         total_output_tokens: int,
         current_run_cost: float,
+        tools_used: List = None,
         error: str = None,
         memory_usage: float = None,
         run_time_seconds: float = None,
@@ -416,6 +417,7 @@ class ReportBuilder:
             total_input_tokens=total_input_tokens,
             total_output_tokens=total_output_tokens,
             current_run_cost=current_run_cost,
+            tools_used=tools_used,
             error=error,
             memory_usage=memory_usage,
             run_time_seconds=run_time_seconds,
