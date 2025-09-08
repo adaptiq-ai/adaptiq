@@ -1,6 +1,6 @@
 # src/adaptiq/__init__.py
 
-__version__ = "0.12.7"
+__version__ = "0.12.8"
 
 
 
