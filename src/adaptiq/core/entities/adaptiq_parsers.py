@@ -196,13 +196,8 @@ class ValidationResults(BaseModel):
 
 
 class StateActionMapping(BaseModel):
-    state: List[str] = Field(
-        ...,
-        min_items=4,
-        max_items=4,
-        description="Compact state representation: [sub_task, last_action, last_outcome, context]",
-    )
-    action: str = Field(..., description="Clean tool name only, e.g. 'FileReadTool'")
+    state: List[Optional[str]]
+    action: Optional[str]
 
 
 ########################################################-----########################################################
@@ -210,12 +205,13 @@ class StateActionMapping(BaseModel):
 
 class Classification(BaseModel):
     is_known_state: bool
-    matched_state: Optional[str]  # null if not found
+    state: Optional[str]  
     reasoning: str
 
 
 class ClassificationResponse(BaseModel):
     classification: Classification
+    input_state: StateActionMapping
 
 
 class ClassificationEntry(BaseModel):
@@ -238,7 +234,6 @@ class ReconciliationSummary(BaseModel):
 
 class ReconciliationResults(BaseModel):
     pipeline_status: str = None
-    extracted_data: List[StateActionMapping] = None
     state_classifications: List[ClassificationEntry] = None
     updated_qtable: Dict = None
     report_content: str = None

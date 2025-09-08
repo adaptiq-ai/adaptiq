@@ -13,7 +13,8 @@ from adaptiq.core.entities import (
 )
 from adaptiq.core.pipelines.post_run.tools.post_run_updater import PostRunUpdater
 from adaptiq.core.pipelines.post_run.tools.prompt_engineer import PromptEngineer
-from adaptiq.core.q_table import StateActionExtractor, StateMapper
+from adaptiq.core.q_table import StateMapper
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class PostRunReconciler:
         agent_name: str = None,
         feedback: str = None,
         report_path: str = None,
+         
     ):
         """
         Initialize the orchestrator with file paths and configuration.
@@ -103,14 +105,6 @@ class PostRunReconciler:
             logger.error("Error loading file %s: %s", file_path, e)
             raise
 
-    def _initialize_extractor(self):
-        """Initialize the StateActionExtractor if not already done."""
-        if self.extractor is None:
-            self.extractor = StateActionExtractor(
-                llm=self.llm,
-            )
-            logger.info("StateActionExtractor initialized")
-
     def _initialize_mapper(self, warmed_qtable_data: Dict):
         """Initialize the StateMapper if not already done."""
         if self.mapper is None:
@@ -128,6 +122,7 @@ class PostRunReconciler:
                 alpha=self.alpha,
                 gamma=self.gamma,
                 similarity_threshold=self.similarity_threshold,
+                output_path=self.warmed_qtable_file,
             )
             logger.info("PostRunUpdater initialized")
 
@@ -158,16 +153,10 @@ class PostRunReconciler:
 
             warmed_qtable_data = self._load_json_file(self.warmed_qtable_file)
 
-            # Step 2: Extract state-action pairs from execution data
-            logger.info("Step 2: Extracting state-action pairs")
-            self._initialize_extractor()
-            extracted_data = self.extractor.process_batch(self.parsed_logs)
-            logger.info("Extracted %d state-action pairs", len(extracted_data))
-
-            # Step 3: Map states to Q-table states
-            logger.info("Step 3: Mapping states to Q-table")
+            # Step 2: Map states to Q-table states
+            logger.info("Step 2: Mapping states to Q-table")
             self._initialize_mapper(warmed_qtable_data)
-            state_classifications = self.mapper.classify_states(extracted_data)
+            state_classifications = self.mapper.classify_states(processed_logs=self.parsed_logs)
             logger.info("Classified %d states", len(state_classifications))
 
             # Log classification summary
@@ -181,7 +170,7 @@ class PostRunReconciler:
             )
 
             # Step 4: Update Q-table based on classifications and rewards
-            logger.info("Step 4: Updating Q-table")
+            logger.info("Step 3: Updating Q-table")
             self._initialize_post_run_updater()
             updated_qtable, q_insights = self.post_run_updater.process_data(
                 state_classifications_data=state_classifications,
@@ -190,7 +179,7 @@ class PostRunReconciler:
             )
             logger.info("Q-table updated successfully")
             # Step 5: Generate prompt engineering report
-            logger.info("Step 5: Generating prompt engineering report")
+            logger.info("Step 4: Generating prompt engineering report")
             self._initialize_prompt_engineer()
             report_content = self.prompt_engineer.generate_and_save_report(
                 q_insights=q_insights,
@@ -200,12 +189,11 @@ class PostRunReconciler:
             # Compile results
             results = ReconciliationResults(
                 pipeline_status="completed",
-                extracted_data=extracted_data,
                 state_classifications=state_classifications,
                 updated_qtable=updated_qtable,
                 report_content=report_content,
                 summary=ReconciliationSummary(
-                    total_extracted_pairs=len(extracted_data),
+                    total_extracted_pairs=len([item for item in state_classifications if item.classification.is_known_state == False]),
                     total_classified_states=len(state_classifications),
                     known_states_found=known_states_count,
                     unknown_states_found=len(state_classifications)

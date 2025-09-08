@@ -96,10 +96,10 @@ class CrewConfig(BaseConfig):
                 "project_name",
                 "email",
                 "llm_config",
+                "embedding_config",
                 "framework_adapter",
                 "agent_modifiable_config",
-                "report_config",
-                "alert_mode",
+                "report_config"
             ]
 
             missing_keys = [key for key in required_keys if key not in config_data]
@@ -120,6 +120,18 @@ class CrewConfig(BaseConfig):
                 return (
                     False,
                     f"❌ Missing required llm_config keys: {', '.join(llm_missing)}",
+                )
+            
+            embedding_required = ["model_name", "api_key", "provider"]
+            embedding_missing = [
+                key
+                for key in embedding_required
+                if key not in config_data.get("embedding_config", {})
+            ]
+            if embedding_missing:
+                return (
+                    False,
+                    f"❌ Missing required embedding_config keys: {', '.join(embedding_missing)}",
                 )
 
             framework_required = ["name", "settings"]
@@ -163,37 +175,6 @@ class CrewConfig(BaseConfig):
                     f"❌ Missing required report_config keys: {', '.join(report_missing)}",
                 )
 
-            # --- Alert Mode Checks ---
-            alert_mode = config_data.get("alert_mode")
-            if not alert_mode:
-                return False, "❌ Missing required section: alert_mode"
-
-            # Check on_demand
-            on_demand = alert_mode.get("on_demand")
-            if not on_demand or "enabled" not in on_demand:
-                return (
-                    False,
-                    "❌ Missing 'on_demand' or its 'enabled' key in alert_mode",
-                )
-            if not isinstance(on_demand["enabled"], bool):
-                return False, "❌ 'on_demand.enabled' must be true or false"
-            if on_demand["enabled"]:
-                if (
-                    "runs" not in on_demand
-                    or not isinstance(on_demand["runs"], int)
-                    or on_demand["runs"] <= 0
-                ):
-                    return (
-                        False,
-                        "❌ 'on_demand.runs' must be a positive integer when 'on_demand.enabled' is true",
-                    )
-
-            # Check per_run
-            per_run = alert_mode.get("per_run")
-            if not per_run or "enabled" not in per_run:
-                return False, "❌ Missing 'per_run' or its 'enabled' key in alert_mode"
-            if not isinstance(per_run["enabled"], bool):
-                return False, "❌ 'per_run.enabled' must be true or false"
 
             # Helper function to resolve relative paths
             def resolve_path(path_value):
@@ -273,7 +254,7 @@ class CrewConfig(BaseConfig):
 
             return (
                 True,
-                "✅ Config validation successful. All required keys, alert_mode, paths, and user-specific values are present and valid.",
+                "✅ Config validation successful. All required keys, paths, and user-specific values are present and valid.",
             )
 
         except Exception as e:

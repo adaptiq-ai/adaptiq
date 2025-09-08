@@ -24,7 +24,13 @@ email: ""          # Developer's email for reporting (By entering your email, yo
 llm_config:
     provider: "openai"                     # LLM provider (only 'openai' supported)
     model_name: "gpt-4.1-mini"              # OpenAI model to use (Currently, only the gpt-4.1-mini model is supported. More models will be available in future versions.)
-    api_key: "your_openai_api_key"         # Your OpenAI API key
+    api_key: "your_openai_api_key"         # Your API key
+
+# --- Embedding Configuration ---
+embedding_config:
+    provider: "openai"  
+    model_name: "text-embedding-3-small"        # Embedding model to use
+    api_key: "your_openai_api_key"         # Your API key
 
 # --- Framework Adapter Configuration ---
 # Currently only CrewAI is supported
@@ -51,24 +57,3 @@ agent_modifiable_config:
 report_config:
     output_path: "./reports/{project_name}.md"    # Path for the optimization report (Been set by default)
     prompts_path: "./reports/prompts.json"
-
-# --- Alert Mode Configuration ---
-# Configure when AdaptiQ should generate reports
-alert_mode:
-    # On-demand mode: Generate a report after a specified number of runs (useful when the crew is in loop mode or wrapped within an endpoint).
-    on_demand:
-        enabled: false                        # Enable on-demand reporting
-        runs: 5                              # Number of runs before generating report
-
-    # Per-run mode: Generate report after each run
-    per_run:
-        enabled: true                       # Enable per-run reporting
-
-# =============================================================================
-# NEXT STEPS:
-# 1. Update all placeholder values with your actual project information
-# 2. Validate your configuration: wizard check config adaptiq_config.yml
-# 3. Run your first optimization: wizard start
-# 4. Instrument your code with @instrumental_logger and @instrumental_run decorators
-# 5. Run your full optimization: after executing your agent adaptiq will runs automatically the process
-# =============================================================================

@@ -37,14 +37,12 @@ class DataProcessor:
 
         if not log_file_path:
             self.logger.error("Log file path is not provided.")
-            return tools_used
 
         try:
             with open(log_file_path, "r", encoding="utf-8") as file:
                 log_data = json.load(file)
         except (json.JSONDecodeError, FileNotFoundError) as e:
             self.logger.error(f"Error reading JSON log file: {e}")
-            return tools_used
 
         # Filter only AgentAction entries (tool usage)
         agent_actions = [
