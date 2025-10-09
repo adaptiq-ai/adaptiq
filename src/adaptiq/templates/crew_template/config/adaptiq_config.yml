@@ -32,6 +32,12 @@ embedding_config:
     model_name: "text-embedding-3-small"        # Embedding model to use
     api_key: "your_openai_api_key"         # Your API key
 
+# --- Rerank Configuration ---
+rerank_config:
+    provider: "cohere"  
+    model_name: "rerank-v3.5"        # Rerank model to use
+    api_key: "your_cohere_api_key"         # Your API key
+
 # --- Framework Adapter Configuration ---
 # Currently only CrewAI is supported
 framework_adapter:

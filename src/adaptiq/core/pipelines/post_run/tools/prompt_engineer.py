@@ -6,6 +6,8 @@ from typing import Tuple
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 
+from adaptiq.core.entities import FeedbackMap
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
@@ -28,7 +30,7 @@ class PromptEngineer:
         report_path: str,
         old_prompt: str,
         agent_name: str = None,
-        feedback: str = None,
+        feedback: FeedbackMap = None,
     ):
         """
         Initialize the PromptEngineerLLM.
@@ -38,7 +40,7 @@ class PromptEngineer:
             report_path: Path to save the generated report
             old_prompt: The original prompt to be analyzed and improved
             agent_name: Optional name of the agent for report context
-            feedback: Optional human feedback to guide prompt improvements
+            feedback: Optional FeedbackMap containing HUMAN and EVENT feedback to guide prompt improvements
         """
         self.llm = llm
         self.task_name = None
@@ -49,6 +51,46 @@ class PromptEngineer:
         self.report_path = report_path
 
         logger.info("PromptEngineerLLM initialized")
+
+    def _format_feedback_map(self) -> str:
+        """
+        Format FeedbackMap into a human-readable string for LLM analysis.
+
+        Returns:
+            Formatted string describing all feedback events, or a message indicating no feedback.
+        """
+        if not self.feedback or not self.feedback.results:
+            return "No feedback provided currently."
+
+        feedback_lines = [f"Feedback Batch ID: {self.feedback.batch_id}\n"]
+        feedback_lines.append(f"Total Feedback Events: {len(self.feedback.results)}\n")
+
+        for idx, result in enumerate(self.feedback.results, 1):
+            event = result.event
+            document = result.document
+            reward = result.reward_feedback
+
+            feedback_lines.append(f"\n--- Feedback Event {idx} ---")
+            feedback_lines.append(f"Event ID: {event.event_id}")
+            feedback_lines.append(f"Feedback Type: {event.feedback_type}")
+            feedback_lines.append(f"Event Name: {event.payload.event_name}")
+            feedback_lines.append(f"Timestamp: {event.timestamp_utc}")
+
+            # Context information
+            feedback_lines.append(f"Context: {event.payload.context.ui_location} (Item: {event.payload.context.item_id})")
+
+            # Feedback details
+            if event.payload.details.original_value is not None:
+                feedback_lines.append(f"Original Value: {event.payload.details.original_value}")
+            feedback_lines.append(f"New Value: {event.payload.details.new_value}")
+
+            # Associated agent task and action
+            feedback_lines.append(f"Associated Agent Task: {document.agent_task}")
+            feedback_lines.append(f"Associated Agent Action: {document.agent_action}")
+            feedback_lines.append(f"Relevance Score: {document.relevance_score:.4f}" if document.relevance_score else "Relevance Score: N/A")
+            feedback_lines.append(f"Reward Assigned: {reward:.4f}" if reward is not None else "Reward Assigned: N/A")
+
+        return "\n".join(feedback_lines)
 
     def _invoke_llm_for_analysis(
         self, old_prompt: str, q_table_insights: str
@@ -67,21 +109,31 @@ class PromptEngineer:
         You are an expert AI Agent Prompt Engineer and Performance Diagnostician.
         Your goal is to analyze an agent's current prompt and its recent performance data to provide a diagnostic review and suggest an enhanced prompt.
 
-        You have access to two key sources of performance data:
+        You have access to three key sources of performance data:
         1. Q-table insights: Quantitative behavioral patterns showing state-action values and decision-making patterns
-        2. Human feedback: Qualitative evaluation of the agent's actual task performance and results
+        2. HUMAN feedback: Direct qualitative feedback from users evaluating the agent's actual task performance and results
+        3. EVENT feedback: Automated feedback from agent-environment interactions capturing behavioral events like value changes and text edits
+
+        Understanding Feedback Types:
+        - HUMAN feedback (feedback_type: "HUMAN"): Direct user input expressing satisfaction, concerns, or suggestions about agent performance
+        - EVENT feedback (feedback_type: "EVENT"): Automated observations of agent behavior including:
+          * VALUE_INCREASED: Metrics or values improved during agent execution
+          * VALUE_DECREASED: Metrics or values degraded during agent execution
+          * TEXT_EDITED: Agent made textual modifications to outputs or artifacts
 
         The new prompt should:
-        - Address any observed weaknesses or suboptimal behaviors indicated by both Q-table insights and human feedback
-        - Incorporate lessons learned from human evaluations of the agent's actual task outcomes
+        - Address any observed weaknesses or suboptimal behaviors indicated by Q-table insights, HUMAN feedback, and EVENT feedback
+        - Incorporate lessons learned from both human evaluations and automated behavioral observations
         - Guide the agent more effectively towards its objective for the task '{self.task_name}'
         - Maintain the original format and core intent of the prompt where appropriate
         - Be clearer, more specific, and provide better guidance based on both quantitative and qualitative performance data
         - If the original prompt has numbered steps or specific output format requirements, the new prompt should try to adhere to similar conventions
-        - Prioritize addressing issues highlighted in human feedback, as these represent real-world performance gaps
+        - Prioritize addressing issues highlighted in HUMAN feedback (real-world performance gaps) while considering patterns from EVENT feedback
 
-        When human feedback is available, use it as the primary guide for improvements, with Q-table insights providing supporting behavioral context. When no human feedback is provided, rely primarily on Q-table analysis.
+        When feedback is available, use HUMAN feedback as the primary guide for improvements, EVENT feedback to understand behavioral patterns, and Q-table insights for supporting context. When no feedback is provided, rely primarily on Q-table analysis.
         """
+
+        formatted_feedback = self._format_feedback_map()
 
         user_prompt_content = f"""
         Here is the information for your analysis:
@@ -102,24 +154,31 @@ class PromptEngineer:
         {q_table_insights}
         ---
 
-        4. Human Feedback on Agent Performance:
-        {self.feedback if self.feedback and self.feedback.strip() else "No human feedback provided for this optimization cycle."}
+        4. Feedback on Agent Performance (HUMAN and EVENT types):
+        The following feedback includes both direct HUMAN feedback and automated EVENT feedback from agent-environment interactions:
+        ---
+        {formatted_feedback}
         ---
 
         Based on all the above information, please provide the following in Markdown format:
 
         ## Agent Review and Diagnostic
-        (Provide your analysis of the agent's likely behavior, strengths, weaknesses, and potential areas for improvement. Consider both the Q-table behavioral patterns and any human feedback about actual task performance. What patterns do you observe? Are there disconnects between what the Q-table suggests the agent learned and what humans observed in the results? How well does the current prompt seem to guide the agent based on both the quantitative behavioral data and qualitative human evaluation?)
+        (Provide your analysis of the agent's likely behavior, strengths, weaknesses, and potential areas for improvement. Consider:
+        - Q-table behavioral patterns showing decision-making tendencies
+        - HUMAN feedback revealing user satisfaction and real-world performance gaps
+        - EVENT feedback indicating behavioral patterns from agent-environment interactions
+        What patterns do you observe? Are there disconnects between what the Q-table suggests, what EVENT feedback captures, and what HUMAN feedback reports? How well does the current prompt guide the agent based on all three data sources?)
 
         ## Key Issues Identified
         (Summarize the main problems or improvement opportunities identified from:
-        - Human feedback (if available): What specific issues did humans identify with the agent's performance?
+        - HUMAN feedback (if available): What specific issues did users identify with the agent's performance?
+        - EVENT feedback (if available): What behavioral patterns or events suggest areas for improvement?
         - Q-table patterns: What behavioral patterns suggest suboptimal decision-making?
         - Prompt-performance gaps: Where does the current prompt appear insufficient based on the evidence?)
 
         ## Suggested Enhanced Prompt for Task '{self.task_name}'
-        (Provide the full text of the new, improved prompt for the agent. The prompt should directly address the issues identified in human feedback and Q-table analysis. 
-        Enclose the prompt itself within a code block for easy copying. 
+        (Provide the full text of the new, improved prompt for the agent. The prompt should directly address the issues identified in HUMAN feedback, EVENT feedback, and Q-table analysis.
+        Enclose the prompt itself within a code block for easy copying.
         The prompt should be directly usable by an agent and incorporate specific improvements based on the performance data.)
 
         ```
@@ -127,8 +186,8 @@ class PromptEngineer:
         ```
 
         ## Rationale for Changes
-        (Explain the key changes made to the prompt and how they address the identified issues from human feedback and Q-table insights. 
-        Connect specific prompt modifications to specific problems observed in the performance data.)
+        (Explain the key changes made to the prompt and how they address the identified issues from HUMAN feedback, EVENT feedback, and Q-table insights.
+        Connect specific prompt modifications to specific problems observed in the performance data from all three sources.)
         """
         messages = [
             SystemMessage(content=system_prompt_content),

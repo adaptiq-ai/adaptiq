@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from adaptiq.core.abstract.integrations import BaseConfig, BaseLogParser
+
 from adaptiq.core.entities import (
     Outputs,
     PostRunResults,
@@ -12,8 +13,10 @@ from adaptiq.core.entities import (
     Stats,
     ValidationData,
     ValidationResults,
+    FeedbackMap
 )
 
+from adaptiq.core.pipelines.post_run.feedback_router import FeedbackEngine
 from adaptiq.core.pipelines.post_run.tools import PostRunReconciler
 
 
@@ -32,7 +35,6 @@ class PostRunPipeline:
         base_config: BaseConfig,
         base_log_parser: BaseLogParser,
         output_path: str,
-        feedback: Optional[str] = None,
     ):
         """
         Initialize the AdaptiqPostRunOrchestrator.
@@ -56,12 +58,15 @@ class PostRunPipeline:
         self.llm = self.base_config.get_llm_instance()
         self.embedding = self.base_config.get_embeddings_instance()
         self.output_dir = output_path
-        self.feedback = feedback
 
         self.agent_name = self.configuration.agent_modifiable_config.agent_name
         self.report_path = self.configuration.report_config.output_path
 
         self.old_prompt = base_config.get_prompt(get_newest=True)
+
+        self.rerank_model = self.configuration.rerank_config.model_name
+        self.rerank_provider = self.configuration.rerank_config.provider
+        self.rerank_api_key = self.configuration.rerank_config.api_key
 
         # Ensure output directory exists
         if not os.path.exists(output_path):
@@ -108,7 +113,27 @@ class PostRunPipeline:
             self.logger.error(f"Failed to parse logs: {e}")
             raise
 
-    def reconciliate_logs(self, parsed_logs: ProcessedLogs) -> ReconciliationResults:
+    def parse_feedbacks(self, processed_logs: ProcessedLogs) -> Tuple[ProcessedLogs, FeedbackMap]:
+        """
+        Parse human feedback using FeedbackEngine.
+
+        Returns:
+            Optional[Feedback]: Parsed feedback object or None if no feedback provided.
+        """
+        self.logger.info("Parsing feedback events...")
+        feedback_engine = FeedbackEngine(
+            rerank_model=self.rerank_model,
+            rerank_provider=self.rerank_provider,
+            rerank_api_key=self.rerank_api_key,
+            llm=self.llm,
+            processed_logs=processed_logs,
+        )
+        new_processed_logs, feedbackmap = feedback_engine.parse_feedbacks()
+        self.logger.info("Feedback parsing completed.")
+
+        return new_processed_logs, feedbackmap
+
+    def reconciliate_logs(self, parsed_logs: ProcessedLogs, feedback: FeedbackMap) -> ReconciliationResults:
         """
         Reconciliate logs using PostRunReconciler.
 
@@ -133,7 +158,7 @@ class PostRunPipeline:
             embeddings=self.embedding,
             old_prompt=self.old_prompt,
             agent_name=self.agent_name,
-            feedback=self.feedback,
+            feedback=feedback,
             report_path=self.report_path,
         )
 
@@ -156,8 +181,11 @@ class PostRunPipeline:
         # Parse logs
         parsed_logs, validation_results = self.parse_logs()
 
+        # Parse feedback if provided
+        new_parsed_logs, feedbackmap = self.parse_feedbacks(parsed_logs)
+
         # Reconciliate logs
-        reconciliated_data: ReconciliationResults = self.reconciliate_logs(parsed_logs)
+        reconciliated_data: ReconciliationResults = self.reconciliate_logs(new_parsed_logs, feedbackmap)
 
         # Prepare pipeline results
         validation_output = ValidationData(

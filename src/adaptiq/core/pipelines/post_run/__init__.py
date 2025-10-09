@@ -1,4 +1,4 @@
 from .post_run import PostRunPipeline
 from .tools import *
 
-__all__ = ["PostRunPipeline", "tools"]
+__all__ = ["PostRunPipeline", "tools", "feedback_router"]

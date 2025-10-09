@@ -10,7 +10,9 @@ from adaptiq.core.entities import (
     ProcessedLogs,
     ReconciliationResults,
     ReconciliationSummary,
+    FeedbackMap
 )
+
 from adaptiq.core.pipelines.post_run.tools.post_run_updater import PostRunUpdater
 from adaptiq.core.pipelines.post_run.tools.prompt_engineer import PromptEngineer
 from adaptiq.core.q_table import StateMapper
@@ -38,7 +40,7 @@ class PostRunReconciler:
         embeddings: Embeddings,
         old_prompt: str = None,
         agent_name: str = None,
-        feedback: str = None,
+        feedback: FeedbackMap = None,
         report_path: str = None,
          
     ):
@@ -134,7 +136,7 @@ class PostRunReconciler:
                 report_path=self.report_path,
                 old_prompt=self.old_prompt,
                 agent_name=self.agent_name,
-                feedback=str(self.feedback),
+                feedback=self.feedback,
             )
             logger.info("AdaptiqPromptEngineer initialized")
 

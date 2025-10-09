@@ -99,3 +99,52 @@ class CrewRewards(Enum):
     REWARD_EFFICIENT_TOKENS = 0.15
     PENALTY_VERBOSE_TOKENS = -0.2
     PENALTY_EXCESSIVE_TOKENS = -0.5
+
+
+class FeedbackRewards(Enum):
+    """
+    Enum containing reward constants for feedback-based adjustments to agent actions.
+
+    This enum defines rewards and penalties based on user feedback events and sentiment analysis.
+    Feedback can come from explicit events (VALUE_INCREASED, VALUE_DECREASED, TEXT_EDITED)
+    or human-submitted feedback with sentiment analysis (positive, negative, neutral).
+
+    The reward system integrates user feedback to:
+    - Reinforce actions that led to positive outcomes (increased values, positive sentiment)
+    - Penalize actions that led to negative outcomes (decreased values, negative sentiment)
+    - Apply moderate adjustments for text edits and neutral sentiment
+    - Scale rewards based on sentiment polarity scores (-1.0 to 1.0)
+
+    Event-based rewards are fixed, while sentiment-based rewards are scaled by polarity score.
+
+    Categories:
+    - Event Feedback: Rewards for VALUE_INCREASED, VALUE_DECREASED, TEXT_EDITED events
+    - Sentiment Feedback: Base rewards multiplied by polarity_score for HUMAN_SUBMITTED_FEEDBACK
+    - Thresholds: Polarity score ranges for sentiment interpretation
+    """
+
+    # Event-based feedback rewards (fixed values)
+    REWARD_VALUE_INCREASED = 1.0  # Strong positive signal: user improved/increased a value
+    PENALTY_VALUE_DECREASED = -1.0  # Strong negative signal: user decreased a value
+    REWARD_TEXT_EDITED = 0.3  # Moderate signal: user edited text (could be improvement or correction)
+
+    # Sentiment-based feedback rewards (base values, scaled by polarity_score)
+    # Formula: reward = base_reward * polarity_score
+    # polarity_score ranges from -1.0 (most negative) to +1.0 (most positive)
+    SENTIMENT_BASE_REWARD_POSITIVE = 1.2  # Base for positive sentiment (scaled: 0.12 to 1.2)
+    SENTIMENT_BASE_REWARD_NEUTRAL = 0.0  # Neutral sentiment provides no reward/penalty
+    SENTIMENT_BASE_PENALTY_NEGATIVE = -1.2  # Base for negative sentiment (scaled: -0.12 to -1.2)
+
+    # Polarity score thresholds for sentiment classification
+    POLARITY_THRESHOLD_POSITIVE = 0.1  # Scores > 0.1 considered positive
+    POLARITY_THRESHOLD_NEGATIVE = -0.1  # Scores < -0.1 considered negative
+    # Scores between -0.1 and 0.1 are considered neutral
+
+    # Combined feedback multipliers (when multiple feedback signals agree)
+    MULTIPLIER_CONSISTENT_POSITIVE = 1.5  # When event and sentiment both positive
+    MULTIPLIER_CONSISTENT_NEGATIVE = 1.5  # When event and sentiment both negative
+    MULTIPLIER_CONFLICTING = 0.5  # When event and sentiment contradict
+
+    # Relevance-based scaling (from reranking relevance_score)
+    MIN_RELEVANCE_THRESHOLD = 0.3  # Minimum relevance score to apply feedback reward
+    RELEVANCE_SCALE_FACTOR = 1.0  # Scale feedback reward by relevance_score

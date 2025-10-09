@@ -40,7 +40,6 @@ class AdaptiqRun:
         base_log_parser: BaseLogParser,
         current_dir: str,
         template: str = "crew-ai",
-        feedback: Optional[str] = None,
         prompt_auto_update: bool = False,
         save_results: bool = True,
         allow_pipeline: bool = True,
@@ -53,7 +52,6 @@ class AdaptiqRun:
             base_prompt_parser: An instance of BasePromptParser for prompt parsing functionality
             base_log_parser: An instance of BaseLogParser for log parsing functionality
             output_path: Path where output files will be saved
-            feedback: Optional feedback for post-run reconciliation
             validate_results: Whether to perform validation during post-run
         """
         # Configure logging
@@ -70,7 +68,6 @@ class AdaptiqRun:
         self.base_log_parser = base_log_parser
         self.current_dir = current_dir
         self.output_path = current_dir + "/results"
-        self.feedback = feedback
         self.save_results = save_results
         self.template = template
         self.prompt_auto_update = prompt_auto_update
@@ -170,7 +167,6 @@ class AdaptiqRun:
                 base_config=self.base_config,
                 base_log_parser=self.base_log_parser,
                 output_path=self.output_path,
-                feedback=self.feedback,
             )
 
             # Execute the complete post-run pipeline

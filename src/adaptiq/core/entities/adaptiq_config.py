@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field
 # --- Enums ---
 class ProviderEnum(str, Enum):
     openai = "openai"
+    cohere = "cohere"
 
 
 class ModelNameEnum(str, Enum):
@@ -19,6 +20,10 @@ class EmbeddingModelNameEnum(str, Enum):
     text_embedding_ada_002 = "text-embedding-ada-002"
 
 
+class RerankModelNameEnum(str, Enum):
+    rerank_v3_5 = "rerank-v3.5"
+
+
 class FrameworkEnum(str, Enum):
     crewai = "crewai"
 
@@ -29,10 +34,18 @@ class LLMConfig(BaseModel):
     model_name: ModelNameEnum = ModelNameEnum.gpt_4_1_mini
     api_key: str
 
+# --- Embedding Config ---
 class EmbeddingConfig(BaseModel):
     provider: ProviderEnum = ProviderEnum.openai
     model_name: EmbeddingModelNameEnum = EmbeddingModelNameEnum.text_embedding_3_small
     api_key: str
+
+# --- Rerank Config ---
+class RerankConfig(BaseModel):
+    provider: ProviderEnum = ProviderEnum.cohere
+    model_name: RerankModelNameEnum = RerankModelNameEnum.rerank_v3_5
+    api_key: str
+
 
 # --- Log Source Config ---
 class LogSourceConfig(BaseModel):
@@ -76,6 +89,7 @@ class AdaptiQConfig(BaseModel):
     email: Optional[str] = ""
     llm_config: LLMConfig
     embedding_config: EmbeddingConfig
+    rerank_config: RerankConfig
     framework_adapter: FrameworkAdapter
     agent_modifiable_config: AgentModifiableConfig
     report_config: ReportConfig

@@ -74,7 +74,6 @@ class CrewInstrumental(BaseInstrumental):
         config_path: Optional[str] = None,
         enable_pipeline: bool = True,
         prompt_auto_update: bool = False,
-        feedback: Optional[str] = None,
     ):
         def decorator(func):
             @functools.wraps(func)
@@ -95,7 +94,6 @@ class CrewInstrumental(BaseInstrumental):
                     base_config=base_config,
                     base_log_parser=base_log_parser,
                     base_prompt_parser=base_prompt_parser,
-                    feedback=feedback,
                     current_dir=self.current_dir,
                     template="crew-ai",
                     prompt_auto_update=prompt_auto_update,
