@@ -20,6 +20,7 @@ from adaptiq.core.entities import (
     ScenarioSimulationStatus,
     StatusSummary,
     TaskIntent,
+    QTablePayload
 )
 from adaptiq.core.pipelines.pre_run.tools import (
     HypotheticalStateGenerator,
@@ -28,6 +29,7 @@ from adaptiq.core.pipelines.pre_run.tools import (
     ScenarioSimulator,
 )
 from adaptiq.core.q_table import QTableManager
+from adaptiq.core.reporting import DatabaseManager
 
 
 class PreRunPipeline:
@@ -123,6 +125,35 @@ class PreRunPipeline:
 
         return self.output_path
 
+    def run_save_qtable_to_database(self, q_table: QTablePayload) -> bool:
+        """
+        Save the Q-table to the database.
+
+        Args:
+            q_table: The QTablePayload to save
+
+            Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Initialize DatabaseManager with config from base_config
+            db_config = self.config_data.database_config
+            if not db_config or not db_config.host:
+                self.logger.warning("Database configuration not provided. Skipping save.")
+                return False
+
+            db_manager = DatabaseManager(db_config=db_config)
+
+            # Save Q-table to database
+            success = db_manager.save_q_table_to_database(q_table)
+
+            return success
+
+        except Exception as e:
+            self.logger.error(f"Exception during saving Q-table to database: {e}")
+            return False
+    
+    
     def run_prompt_parsing(self):
         """
         Execute the prompt parsing step to analyze the agent's task and tools.
@@ -473,6 +504,13 @@ class PreRunPipeline:
             self.run_prompt_analysis()
             self.run_qtable_initialization()
             new_prompt = self.run_prompt_estimation()
+            
+            current_qtable_payload = self.offline_learner.get_q_table_payload()
+            success = self.run_save_qtable_to_database(current_qtable_payload)
+            if success:
+                self.logger.info("Q-table successfully saved to the database.")
+            else:
+                self.logger.warning("Failed to save Q-table to the database.")
 
             # Compile results
             results = PreRunResults(

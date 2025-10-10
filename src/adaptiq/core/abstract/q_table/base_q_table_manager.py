@@ -22,6 +22,7 @@ class BaseQTableManager(ABC):
         # Internal structure: QTableState -> Dict[QTableAction, QTableQValue]
         self.Q_table: Dict[QTableState, Dict[QTableAction, QTableQValue]] = {}
         self.seen_states: set[QTableState] = set()
+        self.payload: QTablePayload = None
 
     @abstractmethod
     def update_policy(
@@ -65,6 +66,8 @@ class BaseQTableManager(ABC):
                 version=version,
                 timestamp=datetime.now(timezone.utc),
             )
+
+            self.payload = payload
 
             with open(self.file_path, "w", encoding="utf-8") as f:
                 f.write(payload.model_dump_json(indent=2))
@@ -128,6 +131,10 @@ class BaseQTableManager(ABC):
     def get_q_table(self) -> Dict[QTableState, Dict[QTableAction, QTableQValue]]:
         """Return copy of the Q-table"""
         return dict(self.Q_table)
+    
+    def get_q_table_payload(self) -> QTablePayload:
+        """Return the current Q-table payload"""
+        return self.payload
 
     def set_q_value(self, state: QTableState, action: QTableAction, value: float):
         """

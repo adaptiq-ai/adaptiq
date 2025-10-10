@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -10,11 +10,14 @@ from adaptiq.core.entities import (
     ProcessedLogs,
     ReconciliationResults,
     ReconciliationSummary,
-    FeedbackMap
+    FeedbackMap,
+    QTablePayload,
+    DatabaseConfig
 )
 
 from adaptiq.core.pipelines.post_run.tools.post_run_updater import PostRunUpdater
 from adaptiq.core.pipelines.post_run.tools.prompt_engineer import PromptEngineer
+from adaptiq.core.reporting.monitoring import DatabaseManager
 from adaptiq.core.q_table import StateMapper
 
 
@@ -42,6 +45,7 @@ class PostRunReconciler:
         agent_name: str = None,
         feedback: FeedbackMap = None,
         report_path: str = None,
+        db_config: Optional[DatabaseConfig] = None,
          
     ):
         """
@@ -56,6 +60,7 @@ class PostRunReconciler:
             agent_name: Optional name of the agent
             feedback: Optional human feedback for prompt evaluation
             report_path: Optional path to save the report
+            db_config: Optional DatabaseConfig for database connection
         """
         self.parsed_logs = parsed_logs
         self.warmed_qtable_file = Path(warmed_qtable_file)
@@ -64,6 +69,7 @@ class PostRunReconciler:
         self.agent_name = agent_name
         self.llm = llm
         self.embedding = embeddings
+        self.db_config = db_config or {}
         self.report_path = Path(report_path) if report_path else None
         self.feedback = feedback
         self.alpha = 0.8
@@ -78,6 +84,7 @@ class PostRunReconciler:
         self.mapper = None
         self.post_run_updater = None
         self.prompt_engineer = None
+        self.db_manager = None
 
         logger.info("PostRunReconciler initialized successfully")
 
@@ -140,6 +147,14 @@ class PostRunReconciler:
             )
             logger.info("AdaptiqPromptEngineer initialized")
 
+    def _initialize_database_manager(self):
+        """Initialize the DatabaseManager if not already done."""
+        if self.db_manager is None:
+            self.db_manager = DatabaseManager(
+                db_config=self.db_config
+            )
+            logger.info("DatabaseManager initialized")
+
     def run_process(self) -> ReconciliationResults:
         """
         Run the complete reconciliation pipeline.
@@ -187,6 +202,16 @@ class PostRunReconciler:
                 q_insights=q_insights,
             )
             logger.info("Prompt engineering report generated and saved")
+
+            # Step 6: Saving updated Q-table to database
+            logger.info("Step 5: Saving updated Q-table to database")
+            current_payload: QTablePayload = self.post_run_updater.learner.get_q_table_payload()
+            self._initialize_database_manager()
+            save_success = self.db_manager.save_q_table_to_database(current_payload)
+            if save_success:
+                logger.info("Updated Q-table saved to database successfully")
+            else:
+                logger.warning("Failed to save updated Q-table to database")
 
             # Compile results
             results = ReconciliationResults(

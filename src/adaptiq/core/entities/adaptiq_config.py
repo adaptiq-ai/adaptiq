@@ -28,6 +28,10 @@ class FrameworkEnum(str, Enum):
     crewai = "crewai"
 
 
+class DatabaseEnum(str, Enum):
+    redis = "redis"
+
+
 # --- LLM Config ---
 class LLMConfig(BaseModel):
     provider: ProviderEnum = ProviderEnum.openai
@@ -45,6 +49,15 @@ class RerankConfig(BaseModel):
     provider: ProviderEnum = ProviderEnum.cohere
     model_name: RerankModelNameEnum = RerankModelNameEnum.rerank_v3_5
     api_key: str
+
+
+# --- Database Config ---
+class DatabaseConfig(BaseModel):
+    provider: DatabaseEnum = DatabaseEnum.redis
+    host: Optional[str] = None
+    port: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
 
 
 # --- Log Source Config ---
@@ -90,6 +103,7 @@ class AdaptiQConfig(BaseModel):
     llm_config: LLMConfig
     embedding_config: EmbeddingConfig
     rerank_config: RerankConfig
+    database_config: Optional[DatabaseConfig] = None
     framework_adapter: FrameworkAdapter
     agent_modifiable_config: AgentModifiableConfig
     report_config: ReportConfig

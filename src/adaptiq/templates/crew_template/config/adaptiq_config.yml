@@ -34,9 +34,17 @@ embedding_config:
 
 # --- Rerank Configuration ---
 rerank_config:
-    provider: "cohere"  
+    provider: "cohere"
     model_name: "rerank-v3.5"        # Rerank model to use
     api_key: "your_cohere_api_key"         # Your API key
+
+# --- Database Configuration ---
+database_config:
+    provider: "redis"
+    host: "your_redis_host"               # Redis host
+    port: "your_redis_port"               # Redis port
+    username: "your_redis_username"           # Redis username
+    password: "your_redis_password"           # Redis password
 
 # --- Framework Adapter Configuration ---
 # Currently only CrewAI is supported

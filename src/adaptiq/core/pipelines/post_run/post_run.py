@@ -68,6 +68,8 @@ class PostRunPipeline:
         self.rerank_provider = self.configuration.rerank_config.provider
         self.rerank_api_key = self.configuration.rerank_config.api_key
 
+        self.db_config = self.configuration.database_config
+
         # Ensure output directory exists
         if not os.path.exists(output_path):
             os.makedirs(output_path)
@@ -160,6 +162,7 @@ class PostRunPipeline:
             agent_name=self.agent_name,
             feedback=feedback,
             report_path=self.report_path,
+            db_config=self.db_config,
         )
 
         result = self.reconciler.run_process()

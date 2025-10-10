@@ -37,6 +37,7 @@ dependencies = [
     "crewai",
     "crewai_tools",
     "cohere>=5.17.0", # For Cohere embeddings and models
+    "redis>=6.4.0", # For Redis vector store
     # "argparse" is part of the Python standard library, no need to list it.
     "numpy", # Your code uses numpy
     "pyyaml", # For loading YAML configs
