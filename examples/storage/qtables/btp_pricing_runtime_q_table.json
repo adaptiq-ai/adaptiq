@@ -1,0 +1,107 @@
+{
+  "Q_table": {
+    "('estimate_price', 'None', 'None', 'wood_south_45')": {
+      "method_db_standard": {
+        "q_value": 0.24835990879832742
+      }
+    },
+    "('estimate_price', 'None', 'None', 'brick_north_40')": {
+      "method_regional_adjust": {
+        "q_value": 0.45333752315408904
+      }
+    },
+    "('estimate_price', 'None', 'None', 'concrete_north_20')": {
+      "method_db_standard": {
+        "q_value": 0.45094132093250294
+      }
+    },
+    "('estimate_price', 'None', 'None', 'wood_south_15')": {
+      "method_db_standard": {
+        "q_value": 0.42676926900504275
+      }
+    },
+    "('estimate_price', 'None', 'None', 'concrete_paris_35')": {
+      "method_db_standard": {
+        "q_value": 0.24367707869699062
+      }
+    },
+    "('estimate_price', 'None', 'None', 'concrete_north_35')": {
+      "method_db_standard": {
+        "q_value": 0.45800284197952984
+      }
+    },
+    "('estimate_price', 'None', 'None', 'brick_paris_60')": {
+      "method_db_standard": {
+        "q_value": 0.47246648048173356
+      },
+      "method_regional_adjust": {
+        "q_value": 0.12947144567364194
+      }
+    },
+    "('estimate_price', 'None', 'None', 'concrete_paris_20')": {
+      "method_db_standard": {
+        "q_value": 0.36026361299154835
+      }
+    },
+    "('estimate_price', 'None', 'None', 'wood_north_30')": {
+      "method_db_standard": {
+        "q_value": 0.274035583921061
+      }
+    },
+    "('estimate_price', 'None', 'None', 'wood_paris_30')": {
+      "method_db_standard": {
+        "q_value": 0.23594879415282116
+      }
+    },
+    "('estimate_price', 'None', 'None', 'brick_paris_25')": {
+      "method_db_standard": {
+        "q_value": 0.23525431310652695
+      }
+    },
+    "('estimate_price', 'None', 'None', 'wood_north_15')": {
+      "method_db_standard": {
+        "q_value": 0.1390240797259874
+      }
+    },
+    "('estimate_price', 'None', 'None', 'brick_south_40')": {
+      "method_db_standard": {
+        "q_value": 0.11506004809144807
+      },
+      "method_knn_historical": {
+        "q_value": 0.13356151323354218
+      }
+    },
+    "('estimate_price', 'None', 'None', 'brick_north_25')": {
+      "method_db_standard": {
+        "q_value": 0.3756545644373209
+      },
+      "method_knn_historical": {
+        "q_value": 0.14395416107261894
+      }
+    },
+    "('estimate_price', 'None', 'None', 'concrete_south_50')": {
+      "method_db_standard": {
+        "q_value": 0.13595112468921933
+      }
+    }
+  },
+  "seen_states": [
+    "('estimate_price', 'None', 'None', 'brick_paris_60')",
+    "('estimate_price', 'None', 'None', 'wood_south_15')",
+    "('estimate_price', 'None', 'None', 'concrete_north_35')",
+    "('estimate_price', 'None', 'None', 'concrete_paris_20')",
+    "('estimate_price', 'None', 'None', 'wood_north_30')",
+    "('estimate_price', 'None', 'None', 'brick_north_40')",
+    "('estimate_price', 'None', 'None', 'concrete_paris_35')",
+    "('estimate_price', 'None', 'None', 'brick_south_40')",
+    "('estimate_price', 'None', 'None', 'concrete_south_50')",
+    "('estimate_price', 'None', 'None', 'brick_north_25')",
+    "('estimate_price', 'None', 'None', 'wood_north_15')",
+    "('estimate_price', 'None', 'None', 'wood_south_45')",
+    "('estimate_price', 'None', 'None', 'wood_paris_30')",
+    "('estimate_price', 'None', 'None', 'concrete_north_20')",
+    "('estimate_price', 'None', 'None', 'brick_paris_25')"
+  ],
+  "timestamp": "2025-10-27T09:55:55.776980Z",
+  "version": "1.0"
+}

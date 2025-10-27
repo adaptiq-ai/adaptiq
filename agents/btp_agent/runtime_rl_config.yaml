@@ -1,0 +1,81 @@
+# Runtime RL Configuration for BTP Pricing Agent
+#
+# This YAML file contains all the configuration needed to integrate
+# Runtime RL into the BTP pricing agent.
+#
+# Usage in agent code (3 lines):
+#   from adaptiq.core.runtime_rl import RuntimeRLHelper
+#   runtime_rl = RuntimeRLHelper.from_yaml("agents/btp_agent/runtime_rl_config.yaml")
+#   decision = runtime_rl.decide(subtask="estimate_price", metadata={...})
+
+runtime_rl:
+  # =============================================================================
+  # KEY_CONTEXT TEMPLATE
+  # =============================================================================
+  # Template string to build key_context from metadata fields.
+  # Use Python format syntax: {field_name}
+  #
+  # For BTP pricing, we use: material, region, surface
+  # Example result: "concrete_north_20" for concrete in north region, 20m²
+  #
+  key_context_template: "{material}_{region}_{surface}"
+
+  # =============================================================================
+  # REWARD FUNCTION
+  # =============================================================================
+  # How to calculate reward from result dictionary.
+  #
+  # Options:
+  #   - "accuracy_reward": Builtin reward for error percentage
+  #                        reward = 1 - (error_percent / 100)
+  #   - "classification_reward": Builtin reward for binary classification
+  #                              reward = +1 if correct, -1 if wrong
+  #   - "lambda result: ...": Custom Python lambda expression
+  #   - "module.function": Import custom function from Python module
+  #
+  # For BTP pricing, we use a custom lambda that heavily penalizes large errors:
+  reward_function: "lambda result: 1.0 - (result['error_percent'] / 25.0) if result['error_percent'] < 25 else -1.0"
+
+  # =============================================================================
+  # AVAILABLE ACTIONS
+  # =============================================================================
+  # List of method names (actions) that Runtime RL can choose from.
+  # These must match the method names in your agent code.
+  #
+  actions:
+    - method_db_standard      # Catalog pricing (Batiprix-style)
+    - method_knn_historical   # KNN on historical projects
+    - method_regional_adjust  # Catalog + regional adjustment
+
+  # =============================================================================
+  # STORAGE PATH
+  # =============================================================================
+  # Where to save/load the Q-table JSON file.
+  # Directory will be created automatically if it doesn't exist.
+  #
+  storage_path: "storage/qtables/btp_pricing_runtime_q_table.json"
+
+  # =============================================================================
+  # HYPERPARAMETERS
+  # =============================================================================
+  # Q-Learning hyperparameters for Runtime RL.
+  #
+  # alpha: Learning rate (0.0 to 1.0)
+  #        - Higher = faster learning, more sensitive to recent experiences
+  #        - Lower = slower learning, more stable
+  #        - Recommended: 0.1 - 0.2 for runtime RL
+  #
+  # gamma: Discount factor (0.0 to 1.0)
+  #        - Higher = more weight on future rewards
+  #        - Lower = focus on immediate rewards
+  #        - Recommended: 0.9 for most cases
+  #
+  # epsilon: Exploration rate (0.0 to 1.0)
+  #          - Higher = more exploration (random actions)
+  #          - Lower = more exploitation (best known actions)
+  #          - Recommended: 0.1 - 0.2 for runtime RL
+  #
+  hyperparameters:
+    alpha: 0.15      # Learning rate
+    gamma: 0.9       # Discount factor
+    epsilon: 0.15    # Exploration rate
