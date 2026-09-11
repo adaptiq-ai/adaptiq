@@ -61,7 +61,7 @@ Before installing AdaptIQ, ensure you have:
 - **Python 3.12+** - Required for AdaptIQ framework
 - **CrewAI framework** - Set up and configured for your agents (only supported framework)
 - **OpenAI API key** - For LLM provider access
-- **Windows OS** - Linux and Mac support not tested yet
+- **Windows OS Linux and Mac** 
 
 ### 📦 Installation
 
