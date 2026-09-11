@@ -28,14 +28,11 @@ AdaptIQ uses reinforcement learning to automatically optimize your AI agents. Po
 4. [🧠 How It Works (RL + Q-table)](#-how-it-works-rl--q-table)
 5. [🏗️ Architecture](#️-architecture)
 6. [📊 Reporting Mode](#-reporting-mode)
-7. [🏆 Leaderboard (agents)](#-leaderboard-agents)
-8. [🎯 Bench my agent](#-bench-my-agent)
-9. [🖼️ AdaptIQ Image Generation Benchmark](#️-adaptiq-image-generation-benchmark)
-10. [🔮 What's Next](#-whats-next)
-11. [☁️ Upgrade Path → AdaptiQ FinOps Cloud](#️-upgrade-path--adaptiq-finops-cloud)
-12. [🗺️ Roadmap](#️-roadmap)
-13. [🤝 Community & Contributing](#-community--contributing)
-14. [📄 License](#-license)
+7. [🖼️ AdaptIQ Image Generation Benchmark](#️-adaptiq-image-generation-benchmark)
+8. [🔮 What's Next](#-whats-next)
+9. [☁️ Upgrade Path → AdaptiQ FinOps Cloud](#️-upgrade-path--adaptiq-finops-cloud)
+10. [🤝 Community & Contributing](#-community--contributing)
+11. [📄 License](#-license)
 
 ---
 
@@ -213,30 +210,6 @@ AdaptIQ offers flexible reporting options:
 
 ![UI Screenshot](./docs/assets/ui_screenshot.png)
 
----
-
-## 🏆 Leaderboard (agents) - Coming Soon
-
-A comprehensive evaluation system to benchmark your agents based on specific KPIs (Health Learning Index HLI). Agents working on the same tasks can anonymously compare their performance, fostering continuous improvement and healthy competition in the AI agent community. This system helps maintain agent quality in production environments through continuous monitoring and benchmarking.
-
----
-
-## 🎯 Bench my agent
-
-**🚀 Build better AI agents. Use AdaptiQ and see your Agent Learning Health Index**
-
-| ⚙️ | Benefit | Description |
-|-------|---------|-------------|
-| 🏅 **Social proof** | Public badge increases repo trust |
-| 💰 **FinOps insight** | Cost €/k-token & CO₂/tkn surfaced instantly |
-| 🔒 **Security gate** | Evaluator flags jailbreaks & PII leaks before prod |
-| ♻️ **Continuous learning** | LHI tracks the agent's health across versions |
-
-### 🎬 See the leaderboard in action
-
-![Live demo: carrousel, live-feed et tri du leaderboard](./docs/assets/leaderboard.gif)
-
----
 
 ## 🖼️ AdaptIQ Image Generation Benchmark
 
@@ -294,34 +267,6 @@ Given target synthetic images, agents must reproduce them with maximum fidelity 
     - **📋 Policy Enforcement**: Automated adherence to organizational guidelines and industry standards
 - **📱 Q-Table for Edge Devices**: Optimizing AI models performance to work better on resource-constrained devices
 - **📊 Additional Benchmarks**: Expanding evaluation coverage with new benchmark suites for text generation, code generation, data analysis, and multi-modal tasks
-
----
-
-## ☁️ Upgrade Path → AdaptiQ FinOps Cloud
-
-Need hands‑free optimisation across hundreds of projects? 🏢  
-**AdaptiQ FinOps Cloud** adds:
-
-* 🤖 Auto‑tuning RL in production  
-* 💎 GPU‑spot arbitrage  
-* 🌱 ESG & carbon ledger  
-* 👥 Role‑based dashboards (Dev / FinOps / C‑suite)
-
-**🆓 30‑day free trial** — migrate in **one CLI command**.
-
-**Contact us for more information via email**
-
----
-
-## 🗺️ Roadmap
-
-| Quarter | Milestone |
-|---------|-----------|
-| **Q3 2025** | 🔄 Support for More Models and Providers & Cost optimization via LLM routing |
-| **Q4 2025** | 🔄 Context Engineering Optimization: Memory Layer, Knowledge Graphs, External API Integration |
-| **2026** | 📱 Edge SDK (quantised Q‑table <16 MB), 🛡️ Governance & Constraints framework, GPU‑Spot optimiser |
-
-Vote or propose features in [`discussions/`](https://github.com/adaptiq-ai/adaptiq/discussions). 🗳️
 
 ---
 
