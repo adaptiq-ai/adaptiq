@@ -957,15 +957,18 @@ flowchart TD
 ```toml
 [project]
 dependencies = [
-    "crewai",              # Framework agent orchestration
-    "crewai_tools",        # Outils pré-construits pour agents
-    "numpy",               # Opérations numériques
-    "pyyaml",              # Parsing configuration YAML
-    "python-dotenv",       # Variables d'environnement (.env)
-    "scikit-learn",        # Cosine similarity (state matching)
-    "langchain",           # Framework LLM (prompts, chains)
-    "langchain-openai",    # Intégration OpenAI (ChatOpenAI, Embeddings)
-    "openai-agents>=0.1.0" # Fonctionnalités OpenAI supplémentaires
+    "crewai>=0.134,<0.178",      # Framework agent orchestration
+    "crewai_tools>=0.48,<1.0",   # Outils pré-construits pour agents
+    "numpy",                     # Opérations numériques
+    "pyyaml",                    # Parsing configuration YAML
+    "python-dotenv",             # Variables d'environnement (.env)
+    "langchain>=0.3,<1.0",       # Framework LLM (prompts, chains)
+    "langchain-core>=0.3,<1.0",  # Primitives LangChain (prompts, embeddings)
+    "langchain-openai>=0.2,<1.0",# Intégration OpenAI (ChatOpenAI, Embeddings)
+    "openai-agents>=0.1.0",      # Fonctionnalités OpenAI supplémentaires
+    "pydantic>=2,<3",            # Validation des données (entities/)
+    "requests>=2,<3",            # Client HTTP (cloud/)
+    "tiktoken>=0.8",             # Comptage de tokens
 ]
 ```
 
@@ -1019,7 +1022,6 @@ graph TB
 |------------|-------------|---------------|--------|
 | **crewai** | Orchestration agents, callbacks | `crew_config.py`, `crew_logger.py`, `instrumental.py` | 🔴 Haut - Couplage fort |
 | **langchain-openai** | Tous les appels LLM | `base_config.py`, `state_mapper.py`, tous les parsers | 🔴 Haut - API calls partout |
-| **scikit-learn** | Cosine similarity (state matching) | `state_mapper.py` | 🟡 Moyen - Limité à StateMapper |
 | **pydantic** | Validation données | Tous les fichiers `entities/` | 🟢 Bas - Abstraction propre |
 | **pyyaml** | Config loading | `base_config.py`, CLI | 🟢 Bas - Limité à config |
 
@@ -1214,6 +1216,12 @@ flowchart TD
 
 **Fichiers concernés:**
 - [src/adaptiq/core/q_table/state_mapper.py](src/adaptiq/core/q_table/state_mapper.py#L27-L100)
+
+> ⚠️ **Cette section décrit une conception à base d'embeddings et de similarité cosinus
+> qui n'est pas celle du code actuel.** `state_mapper.py` apparie les états via un appel
+> LLM dont la réponse est parsée en XML — il n'importe ni `scikit-learn` ni de client
+> d'embeddings. Le code ci-dessous est conservé comme trace de l'analyse d'origine ;
+> sa réécriture est prévue après l'étape 0.
 
 **Problème:**
 

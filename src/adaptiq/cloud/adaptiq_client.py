@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from .http_client import HTTPClient
 
+
 class AdaptiqCloud:
     """
     Adaptiq API client.

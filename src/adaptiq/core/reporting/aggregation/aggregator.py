@@ -462,7 +462,11 @@ class Aggregator:
             agent_metrics (List[Dict]): List of agent metrics dictionaries.
             validation_results (ValidationResults): Results from the validation pipeline.
             reconciliation_results (ReconciliationResults): Results from the reconciliation pipeline.
-            should_send_report (bool): Whether to send the report after aggregation.
+            should_send_report (bool): Whether the caller allows the report to be
+                uploaded to the AdaptIQ API. The upload additionally requires a
+                configured e-mail address, which is the user-facing opt-in; with
+                `email` left empty nothing leaves the machine. The local report is
+                written either way.
 
         Returns:
             bool: True if successful, False if error occurred
@@ -565,7 +569,7 @@ class Aggregator:
                     self.update_error_count(0)
 
                     if log_file_path:
-                        tools_used = self.parse_log_file(log_file_path, task_name = None)
+                        tools_used = self.parse_log_file(log_file_path, task_name=None)
 
                     # Add run summary to the aggregator
                     self.add_run_summary(
@@ -620,40 +624,35 @@ class Aggregator:
                     execution_logs=self.tracer.get_logs(),
                 )
 
-            # Send results if requested
-            if should_send_report:
-                logging.info(
-                    "%sBuilding and sending comprehensive project results...",
-                    run_prefix,
-                )
+            # The local report is always written: it is the product of the run,
+            # not a side effect of uploading.
+            logging.info(
+                "%sBuilding comprehensive project results...",
+                run_prefix,
+            )
 
-                # Build project result JSON (now contains ALL runs)
-                project_result = self.build_project_result()
+            # Build project result JSON (now contains ALL runs)
+            project_result = self.build_project_result()
 
-                # Merge old with new result then save the new report
-                merged_result = self.merge_json_reports(new_json_data=project_result)
-                self.save_json_report(merged_result)
+            # Merge old with new result then save the new report
+            merged_result = self.merge_json_reports(new_json_data=project_result)
+            self.save_json_report(merged_result)
+            logging.info("%sResults are successfully saved locally", run_prefix)
 
-                # Send results to endpoint if email is configured
-                if self.email != "":
-                    success = self.send_run_results(merged_result)
-                    if success:
-                        logging.info(
-                            "%sSuccessfully sent comprehensive run results to reporting endpoint",
-                            run_prefix,
-                        )
-                    else:
-                        logging.warning(
-                            "%sFailed to send run results to reporting endpoint",
-                            run_prefix,
-                        )
+            # Uploading is opt-in twice over: the caller must ask for it and an
+            # e-mail address must be configured.
+            if should_send_report and self.email != "":
+                success = self.send_run_results(merged_result)
+                if success:
+                    logging.info(
+                        "%sSuccessfully sent comprehensive run results to reporting endpoint",
+                        run_prefix,
+                    )
                 else:
-                    logging.info("%sResults are successfully saved locally", run_prefix)
-            else:
-                logging.info(
-                    "%sRun summaries added to aggregator - report will be sent when all runs complete",
-                    run_prefix,
-                )
+                    logging.warning(
+                        "%sFailed to send run results to reporting endpoint",
+                        run_prefix,
+                    )
 
             return True
 
@@ -704,18 +703,14 @@ class Aggregator:
                     execution_logs=self.tracer.get_logs(),
                 )
 
-            # Send results even for failed runs if requested
-            if should_send_report:
+            # Same opt-in as the success path. Previously this branch uploaded
+            # unconditionally, without even the e-mail check.
+            if should_send_report and self.email != "":
                 logging.info(
-                    "%sBuilding and sending project results for failed run...",
+                    "%sSending project results for failed run...",
                     run_prefix,
                 )
                 project_result = self.build_project_result()
                 self.send_run_results(project_result)
-            else:
-                logging.info(
-                    "%sFailed run summary added to aggregator - report will be sent when all runs complete",
-                    run_prefix,
-                )
 
             return False

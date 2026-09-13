@@ -99,7 +99,7 @@ class CrewConfig(BaseConfig):
                 "embedding_config",
                 "framework_adapter",
                 "agent_modifiable_config",
-                "report_config"
+                "report_config",
             ]
 
             missing_keys = [key for key in required_keys if key not in config_data]
@@ -121,7 +121,7 @@ class CrewConfig(BaseConfig):
                     False,
                     f"❌ Missing required llm_config keys: {', '.join(llm_missing)}",
                 )
-            
+
             embedding_required = ["model_name", "api_key", "provider"]
             embedding_missing = [
                 key
@@ -174,7 +174,6 @@ class CrewConfig(BaseConfig):
                     False,
                     f"❌ Missing required report_config keys: {', '.join(report_missing)}",
                 )
-
 
             # Helper function to resolve relative paths
             def resolve_path(path_value):

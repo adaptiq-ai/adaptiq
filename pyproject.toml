@@ -6,45 +6,47 @@ build-backend = "setuptools.build_meta"
 name = "adaptiq"
 
 
-version = "0.12.8" # Increment this for new releases
+version = "0.12.9" # Increment this for new releases
 
 description = "An offline Q-learning framework for AI agent prompt optimization."
 readme = "README.md"
-requires-python = ">=3.11" # Consider widening compatibility if possible (3.12 is very new)
-license = { file = "LICENSE" } # IMPORTANT: Add a LICENSE file
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
 authors = [
   { name = "Youssef ALWAZ / KOSMOS Technologies", email = "alwaz.youssef@kosmostechnologies.fr" },
   { name = "Wassim AMRI / KOSMOS Technologies", email = "w.amri@kosmostechnologies.fr" },
 ]
 keywords = ["ai", "agent", "reinforcement learning", "q-learning", "prompt engineering", "llm", "crewai"] # Helpful for discoverability
 classifiers = [
-    "Development Status :: 3 - Alpha", # Or 2 - Pre-Alpha, 4 - Beta
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License", # Or Apache-2.0, etc. - MATCH YOUR LICENSE FILE
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
 ]
+# Bounds reflect the versions the code is actually validated against.
+# crewai < 0.178: `OutputParserException` was removed from `crewai.agents.parser`
+# after 0.177.0, which breaks `adaptiq.agents.crew_ai.crew_logger` at import.
+# langchain < 1.0: `langchain.prompts` was removed in the 1.x line.
 dependencies = [
-    "crewai",
-    "crewai_tools",
-    # "argparse" is part of the Python standard library, no need to list it.
-    "numpy", # Your code uses numpy
-    "pyyaml", # For loading YAML configs
-    "python-dotenv", # For .env file handling
-    "scikit-learn", # For cosine_similarity
-    "langchain", # If any langchain components are directly used by adaptiq core
-    "langchain-openai", # For ChatOpenAI, OpenAIEmbeddings
-    # Add any other direct dependencies of your adaptiq package
+    "crewai>=0.134,<0.178",
+    "crewai_tools>=0.48,<1.0",
+    "numpy",
+    "pyyaml",
+    "python-dotenv",
+    "langchain>=0.3,<1.0",
+    "langchain-core>=0.3,<1.0",
+    "langchain-openai>=0.2,<1.0",
     "openai-agents>=0.1.0",
+    "pydantic>=2,<3",
+    "requests>=2,<3",
+    "tiktoken>=0.8",
 ]
 
 [project.scripts]
@@ -62,6 +64,11 @@ adaptiq = [
     "templates/*",
     "templates/**/*",  # Include all files in templates subdirectories
 ]
+
+[tool.pytest.ini_options]
+# Keep collection scoped to the real test suite: scripts/ holds manual
+# validation scripts whose module bodies run on import, not pytest tests.
+testpaths = ["tests"]
 
 [tool.black]
 line-length = 88

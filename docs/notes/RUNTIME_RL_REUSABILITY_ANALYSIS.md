@@ -48,7 +48,7 @@ Le système AdaptIQ est **parfaitement architecturé** pour supporter le Runtime
 
 #### 1.1 BaseQTableManager (Abstract)
 
-**Fichier:** [src/adaptiq/core/abstract/q_table/base_q_table_manager.py](src/adaptiq/core/abstract/q_table/base_q_table_manager.py)
+**Fichier:** [src/adaptiq/core/abstract/q_table/base_q_table_manager.py](../../src/adaptiq/core/abstract/q_table/base_q_table_manager.py)
 
 **Structure:**
 ```python
@@ -95,7 +95,7 @@ Créer `RuntimeQTableManager` qui hérite et ajoute epsilon-greedy.
 
 #### 1.2 QTableManager (Concrete - Offline)
 
-**Fichier:** [src/adaptiq/core/q_table/q_table_manager.py](src/adaptiq/core/q_table/q_table_manager.py#L30-L86)
+**Fichier:** [src/adaptiq/core/q_table/q_table_manager.py](../../src/adaptiq/core/q_table/q_table_manager.py#L30-L86)
 
 **Structure:**
 ```python
@@ -190,7 +190,7 @@ class RuntimeQTableManager(QTableManager):  # Hérite de QTableManager (pas Base
 
 ### 2. State Management ⭐ PRIORITÉ
 
-**Fichier:** [src/adaptiq/core/entities/q_table.py](src/adaptiq/core/entities/q_table.py#L8-L42)
+**Fichier:** [src/adaptiq/core/entities/q_table.py](../../src/adaptiq/core/entities/q_table.py#L8-L42)
 
 **Structure:**
 ```python
@@ -278,7 +278,7 @@ runtime_state_legal = QTableState(
 
 ### 3. Action Registry/Selection
 
-**Fichier:** [src/adaptiq/core/entities/q_table.py](src/adaptiq/core/entities/q_table.py#L44-L63)
+**Fichier:** [src/adaptiq/core/entities/q_table.py](../../src/adaptiq/core/entities/q_table.py#L44-L63)
 
 **Structure:**
 ```python
@@ -349,7 +349,7 @@ Les actions doivent être **configurables** (pas hardcodées). Solution: charger
 
 ### 4. Reward Calculation
 
-**Fichier:** [src/adaptiq/core/entities/adaptiq_rewards.py](src/adaptiq/core/entities/adaptiq_rewards.py)
+**Fichier:** [src/adaptiq/core/entities/adaptiq_rewards.py](../../src/adaptiq/core/entities/adaptiq_rewards.py)
 
 **Structure Existante:**
 ```python
@@ -621,7 +621,7 @@ manager.load_q_table()
 
 ### 6. Configuration Loading (BaseConfig)
 
-**Fichier:** [src/adaptiq/core/abstract/integrations/base_config.py](src/adaptiq/core/abstract/integrations/base_config.py#L19-L176)
+**Fichier:** [src/adaptiq/core/abstract/integrations/base_config.py](../../src/adaptiq/core/abstract/integrations/base_config.py#L19-L176)
 
 **Structure:**
 ```python
@@ -648,7 +648,7 @@ class BaseConfig(ABC):
         return BaseConfig._shared_config
 ```
 
-**Fichier Config:** [src/adaptiq/core/entities/adaptiq_config.py](src/adaptiq/core/entities/adaptiq_config.py)
+**Fichier Config:** [src/adaptiq/core/entities/adaptiq_config.py](../../src/adaptiq/core/entities/adaptiq_config.py)
 
 ```python
 class AdaptiQConfig(BaseModel):
@@ -804,7 +804,7 @@ runtime_rl:
 
 ### 7. AdaptiqRun Integration Points
 
-**Fichier:** [src/adaptiq/core/pipelines/run/run.py](src/adaptiq/core/pipelines/run/run.py#L17-L398)
+**Fichier:** [src/adaptiq/core/pipelines/run/run.py](../../src/adaptiq/core/pipelines/run/run.py#L17-L398)
 
 **Structure actuelle:**
 

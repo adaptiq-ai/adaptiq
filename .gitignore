@@ -18,6 +18,10 @@ src/agent_example
 # Virtual environments
 .venv
 
+# Local secrets (commit .env.example instead)
+.env
+.env.local
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

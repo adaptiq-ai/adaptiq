@@ -192,6 +192,13 @@ class AdaptiqRun:
         """
         Aggregate results from post-run pipeline.
 
+        Args:
+            agent_metrics (List[Dict]): Metrics collected during the run.
+            should_send_report (bool): Whether the caller allows the report to be
+                uploaded to the AdaptIQ API. The upload additionally requires a
+                configured e-mail address, which is the user-facing opt-in. The
+                local report is written either way.
+
         Returns:
             Boolean indicating success of aggregation.
         """

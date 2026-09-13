@@ -1,17 +1,13 @@
 import ast
 import logging
 import re
-from typing import Any, Dict, List
 import xml.etree.ElementTree as ET
+from typing import Any, Dict, List
 
 from langchain_core.prompts import ChatPromptTemplate
 
 from adaptiq.core.abstract.q_table.base_state_mapper import BaseStateMapper
-from adaptiq.core.entities import (
-    Classification,
-    ClassificationResponse,
-    LogItem
-)
+from adaptiq.core.entities import Classification, ClassificationResponse, LogItem
 
 logger = logging.getLogger(__name__)
 
@@ -103,20 +99,24 @@ class StateMapper(BaseStateMapper):
             # Create formatted known states for better comparison
             formatted_known_states = []
             for original, parsed in self.parsed_states:
-                formatted_known_states.append({"original": original, "components": parsed})
-            
+                formatted_known_states.append(
+                    {"original": original, "components": parsed}
+                )
+
             log_state = input_state.key.state
 
             # Create inputs for the LLM
             inputs = {
                 "input_state": {
                     "current_sub_task_or_thought": log_state.current_sub_task_or_thought,
-                    "last_action_taken": log_state.last_action_taken, 
+                    "last_action_taken": log_state.last_action_taken,
                     "last_outcome": log_state.last_outcome,
                     "agent_context": log_state.agent_context,
-                    "action": input_state.key.agent_action
+                    "action": input_state.key.agent_action,
                 },
-                "known_states": self._format_known_states_for_display(formatted_known_states),
+                "known_states": self._format_known_states_for_display(
+                    formatted_known_states
+                ),
             }
 
             # Create and invoke the prompt
@@ -131,26 +131,25 @@ class StateMapper(BaseStateMapper):
 
             return ClassificationResponse(
                 input_state=classification_data["input_state"],
-                classification=Classification(**classification_data["classification"])
+                classification=Classification(**classification_data["classification"]),
             )
 
         except Exception as e:
             logger.error(f"Error in LLM classification: {e}")
             # Return fallback response
             return ClassificationResponse(
-                input_state={
-                    "state": [None, None, None, None],
-                    "action": None
-                },
+                input_state={"state": [None, None, None, None], "action": None},
                 classification=Classification(
                     is_known_state=False,
                     # FIX: Convert the list to a string to match the Pydantic model
                     state=str([None, None, None, None]),
-                    reasoning=f"Classification error: {str(e)}"
-                )
+                    reasoning=f"Classification error: {str(e)}",
+                ),
             )
 
-    def _format_known_states_for_display(self, formatted_known_states: List[Dict]) -> str:
+    def _format_known_states_for_display(
+        self, formatted_known_states: List[Dict]
+    ) -> str:
         """
         Format known states for display in the prompt.
 
@@ -169,7 +168,7 @@ class StateMapper(BaseStateMapper):
             result.append(f"  Original: {state_info['original']}")
             result.append(f"  Components: {state_info['components']}")
             result.append("")
-        
+
         return "\n".join(result)
 
     def _extract_xml_content(self, content: str) -> str:
@@ -205,7 +204,7 @@ class StateMapper(BaseStateMapper):
         else:
             # If no wrapper found, assume the entire content is XML
             return content.strip()
-        
+
     def _parse_state_list(self, state_text: str) -> List[Any]:
         """
         Safely parse a state string into a 4-element list.
@@ -231,8 +230,9 @@ class StateMapper(BaseStateMapper):
 
         try:
             # Try to parse as literal (list or tuple)
-            if (state_text.startswith("[") and state_text.endswith("]")) or \
-               (state_text.startswith("(") and state_text.endswith(")")):
+            if (state_text.startswith("[") and state_text.endswith("]")) or (
+                state_text.startswith("(") and state_text.endswith(")")
+            ):
                 parsed = ast.literal_eval(state_text)
                 if isinstance(parsed, (list, tuple)):
                     # Ensure we have exactly 4 elements

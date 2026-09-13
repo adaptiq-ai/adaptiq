@@ -21,15 +21,17 @@ They have 3 pricing methods, and Runtime RL learns which one works best.
 
 """
 
+import os
+
 # Fix import path to find adaptiq module
 import sys
-import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from adaptiq.core.runtime_rl import RuntimeRLHelper
-from typing import Dict
 import random
+from typing import Dict
 
+from adaptiq.core.runtime_rl import RuntimeRLHelper
 
 # ============================================================================
 # GROUND TRUTH: Real Prices from Completed Projects

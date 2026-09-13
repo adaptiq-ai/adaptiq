@@ -44,8 +44,7 @@ class ScenarioSimulator:
         self.scenario_generation_llm = llm
 
         # XML-based prompt template
-        self.scenario_generation_prompt_template = ChatPromptTemplate.from_template(
-            """
+        self.scenario_generation_prompt_template = ChatPromptTemplate.from_template("""
             You are an AI Agent Scenario Simulator.
 
             The agent is currently in a hypothetical state described by:
@@ -100,8 +99,7 @@ class ScenarioSimulator:
             - For "ideal_success" and "partial_success", "simulated_action" MUST be "{intended_action}"
 
             Example next_state_components: "('InformationRetrieval_Company', 'search_web', 'Success', 'company background research')"
-            """
-        )
+            """)
 
     def _parse_state_tuple(self, state_str: str) -> Dict:
         """

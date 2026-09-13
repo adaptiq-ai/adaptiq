@@ -12,9 +12,10 @@ Validates:
 """
 
 import pytest
+
 from adaptiq.core.runtime_rl.runtime_rewards import (
-    BaseRuntimeRewardCalculator,
     AccuracyRewardCalculator,
+    BaseRuntimeRewardCalculator,
     ClassificationRewardCalculator,
     CustomRewardCalculator,
     create_reward_calculator,

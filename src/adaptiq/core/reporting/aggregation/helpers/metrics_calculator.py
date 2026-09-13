@@ -161,9 +161,7 @@ class MetricsCalculator:
 
         # Calculate this run's average input and output tokens
 
-        avg_input_this_run = (
-            pre_input + post_input + recon_input
-        ) / self._run_count
+        avg_input_this_run = (pre_input + post_input + recon_input) / self._run_count
         avg_output_this_run = (
             pre_output + post_output + recon_output
         ) / self._run_count
@@ -195,7 +193,6 @@ class MetricsCalculator:
             self.run_tokens["recon_tokens"]["input"]
             + self.run_tokens["recon_tokens"]["output"]
         ) / self._run_count
-
 
         self.overall_avg = (avg_pre + avg_post + avg_recon) / self._run_count
 

@@ -24,8 +24,7 @@ class PromptConsulting:
         self.agent_prompt = agent_prompt
         self.llm = llm
 
-        self.analysis_template = ChatPromptTemplate.from_template(
-            """
+        self.analysis_template = ChatPromptTemplate.from_template("""
         You are an expert Prompt Consultant for AI Agents.
         You will be given a prompt intended to guide the behavior of an AI agent.
         Your tasks:
@@ -64,8 +63,7 @@ class PromptConsulting:
                 <component>Second missing component</component>
             </missing_components>
         </analysis>
-        """
-        )
+        """)
 
     def analyze_prompt(self) -> FormattedAnalysis:
         """

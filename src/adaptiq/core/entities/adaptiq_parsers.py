@@ -205,7 +205,7 @@ class StateActionMapping(BaseModel):
 
 class Classification(BaseModel):
     is_known_state: bool
-    state: Optional[str]  
+    state: Optional[str]
     reasoning: str
 
 

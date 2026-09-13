@@ -12,10 +12,12 @@ Validates:
 
 import os
 import tempfile
+
 import pytest
-from adaptiq.core.runtime_rl.runtime_q_table_manager import RuntimeQTableManager
+
+from adaptiq.core.entities.q_table import QTableAction, QTableState
 from adaptiq.core.q_table.q_table_manager import QTableManager
-from adaptiq.core.entities.q_table import QTableState, QTableAction
+from adaptiq.core.runtime_rl.runtime_q_table_manager import RuntimeQTableManager
 
 
 class TestRuntimeQTableManagerInheritance:

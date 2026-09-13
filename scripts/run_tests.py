@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Quick test runner for RuntimeQTableManager"""
 import sys
+
 import pytest
 
 if __name__ == "__main__":

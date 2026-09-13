@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, pre-release ]
+  pull_request:
+    branches: [ main, pre-release ]
+  schedule:
+    - cron: "0 6 * * 1"   # every Monday 06:00 UTC — catches dependency drift
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+      - name: Import and CLI smoke test
+        run: |
+          # `import adaptiq` alone is not enough: adaptiq/__init__.py wraps its
+          # imports in `except ImportError: pass`, so it succeeds even when the
+          # dependencies are broken. Import through that guard explicitly.
+          python -c "from adaptiq.agents.crew_ai import CrewConfig"
+          python -c "import adaptiq; print(adaptiq.__version__)"
+          adaptiq --help
+      - name: Unit tests
+        run: pytest tests -q

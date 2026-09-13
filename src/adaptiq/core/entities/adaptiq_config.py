@@ -14,6 +14,7 @@ class ModelNameEnum(str, Enum):
     gpt_4_1 = "gpt-4.1"  # Full model, not mini
     # add more here as they’re supported later
 
+
 class EmbeddingModelNameEnum(str, Enum):
     text_embedding_3_small = "text-embedding-3-small"
     text_embedding_ada_002 = "text-embedding-ada-002"
@@ -29,10 +30,12 @@ class LLMConfig(BaseModel):
     model_name: ModelNameEnum = ModelNameEnum.gpt_4_1_mini
     api_key: str
 
+
 class EmbeddingConfig(BaseModel):
     provider: ProviderEnum = ProviderEnum.openai
     model_name: EmbeddingModelNameEnum = EmbeddingModelNameEnum.text_embedding_3_small
     api_key: str
+
 
 # --- Log Source Config ---
 class LogSourceConfig(BaseModel):

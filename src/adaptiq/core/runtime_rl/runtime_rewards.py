@@ -240,7 +240,9 @@ class ClassificationRewardCalculator(BaseRuntimeRewardCalculator):
 
             reward = self.f1_weight * f1_score
 
-            logger.debug(f"Classification reward (F1): {self.f1_weight}*{f1_score:.3f} = {reward:.3f}")
+            logger.debug(
+                f"Classification reward (F1): {self.f1_weight}*{f1_score:.3f} = {reward:.3f}"
+            )
 
         else:
             # Use precision and recall
@@ -334,8 +336,7 @@ class CustomRewardCalculator(BaseRuntimeRewardCalculator):
 
 # Convenience factory function
 def create_reward_calculator(
-    calculator_type: str = "accuracy",
-    **kwargs
+    calculator_type: str = "accuracy", **kwargs
 ) -> BaseRuntimeRewardCalculator:
     """
     Factory function to create reward calculators.

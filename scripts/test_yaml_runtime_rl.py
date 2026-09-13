@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Quick test of YAML-based Runtime RL"""
 
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+import sys
+
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+)
 
 print("Testing YAML-based Runtime RL...")
 print("=" * 70)
