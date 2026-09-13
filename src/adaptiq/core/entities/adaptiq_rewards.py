@@ -4,18 +4,18 @@ from enum import Enum
 class CrewRewards(Enum):
     """
     Enum containing all reward constants and configuration values for CrewAI log parsing.
-    
+
     This enum centralizes all the reward values, penalties, thresholds, and string constants
     used in the reward calculation system for different CrewAI log entry types (AgentAction,
     AgentFinish, TaskLog).
-    
+
     The reward system is designed to encourage:
     - Meaningful thoughts and descriptions (>250 characters)
     - Successful tool usage with non-empty results
     - Comprehensive final outputs
     - Complete task logs with descriptions and raw outputs
     - Error-free operations
-    
+
     Attributes are organized into categories:
     - Thresholds: Length-based criteria for quality assessment
     - General: Basic thought quality rewards/penalties
@@ -25,6 +25,7 @@ class CrewRewards(Enum):
     - Keywords: Error detection and placeholder identification
     - Actions: String representations for different action types
     """
+
     # Thresholds for thought/output quality
     MIN_MEANINGFUL_THOUGHT_LEN = 250
     SHORT_OUTPUT_LEN_THRESHOLD = 500
@@ -83,7 +84,7 @@ class CrewRewards(Enum):
 
     # Time-based thresholds and rewards (in seconds)
     MAX_REASONABLE_STEP_TIME = 30.0
-    FAST_STEP_TIME_THRESHOLD = 5.0   
+    FAST_STEP_TIME_THRESHOLD = 5.0
     SLOW_STEP_TIME_THRESHOLD = 15.0
 
     REWARD_FAST_EXECUTION = 0.2

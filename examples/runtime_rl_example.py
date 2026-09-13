@@ -38,20 +38,22 @@ Flow:
 3. Over time, the agent learns optimal pricing strategies
 """
 
+import os
+
 # Fix import path to find adaptiq module
 import sys
-import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from adaptiq.core.runtime_rl import (
-    RuntimeQTableManager,
-    RuntimeDecisionEngine,
-    CustomRewardCalculator,
-)
-from adaptiq.core.entities.q_table import QTableAction
-from typing import Dict
 import random
+from typing import Dict
 
+from adaptiq.core.entities.q_table import QTableAction
+from adaptiq.core.runtime_rl import (
+    CustomRewardCalculator,
+    RuntimeDecisionEngine,
+    RuntimeQTableManager,
+)
 
 # ============================================================================
 # GROUND TRUTH: Real Prices from Completed Projects

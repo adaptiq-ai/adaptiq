@@ -8,11 +8,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from adaptiq.core.entities import (
     ClassificationEntry,
     ClassificationResponse,
+    LogItem,
     ProcessedLogs,
-    LogItem
 )
-
-
 
 
 class BaseStateMapper(ABC):

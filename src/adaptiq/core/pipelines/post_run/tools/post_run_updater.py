@@ -25,11 +25,10 @@ class PostRunUpdater:
     def __init__(
         self,
         embeddings: Embeddings,
-        output_path: Path ,
+        output_path: Path,
         alpha: float = 0.8,
         gamma: float = 0.8,
         similarity_threshold: float = 0.7,
-        
     ):
         """
         Initialize the AdaptiqQtableUpdate class.
@@ -41,9 +40,7 @@ class PostRunUpdater:
             similarity_threshold: Threshold for action similarity matching
         """
         self.embeddings = embeddings
-        self.learner = QTableManager(
-            alpha=alpha, gamma=gamma, file_path=output_path
-        )
+        self.learner = QTableManager(alpha=alpha, gamma=gamma, file_path=output_path)
         self.similarity_threshold = similarity_threshold
 
     def load_q_table(self, q_table_data: Dict):

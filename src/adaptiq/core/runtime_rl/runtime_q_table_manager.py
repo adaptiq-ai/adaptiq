@@ -16,8 +16,8 @@ import logging
 import random
 from typing import List, Tuple
 
-from adaptiq.core.q_table.q_table_manager import QTableManager
 from adaptiq.core.entities.q_table import QTableAction, QTableState
+from adaptiq.core.q_table.q_table_manager import QTableManager
 
 # Configure logging
 logger = logging.getLogger("ADAPTIQ-RuntimeRL")

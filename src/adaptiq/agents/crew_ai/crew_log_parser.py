@@ -1,8 +1,14 @@
 from typing import Any, Dict, List
 
 from adaptiq.core.abstract.integrations.base_log_parser import BaseLogParser
-from adaptiq.core.entities import CrewRewards
-from adaptiq.core.entities import LogItem, ValidationResults, RewardAssessment, ValidationSummary, ValidatedEntry
+from adaptiq.core.entities import (
+    CrewRewards,
+    LogItem,
+    RewardAssessment,
+    ValidatedEntry,
+    ValidationResults,
+    ValidationSummary,
+)
 
 
 class CrewLogParser(BaseLogParser):
@@ -127,7 +133,10 @@ class CrewLogParser(BaseLogParser):
             return action, outcome
 
         elif tool_name == "":
-            return CrewRewards.ACTION_INVALID_TOOL_EMPTY_NAME.value, "InvalidToolName(EmptyString)"
+            return (
+                CrewRewards.ACTION_INVALID_TOOL_EMPTY_NAME.value,
+                "InvalidToolName(EmptyString)",
+            )
 
         else:  # No tool specified (thinking action)
             thought = self.extract_thought_or_description(log_entry, "AgentAction")
@@ -152,11 +161,13 @@ class CrewLogParser(BaseLogParser):
             return CrewRewards.TASKLOG_NO_RAW_OUTPUT_REPR.value, ""
         else:
             return "TaskLogRawOutput", outcome
-        
-    def calculate_step_time(self, current_entry: Dict[str, Any], previous_entry: Dict[str, Any] = None) -> float:
+
+    def calculate_step_time(
+        self, current_entry: Dict[str, Any], previous_entry: Dict[str, Any] = None
+    ) -> float:
         """
         Calculate the time taken for a CrewAI step based on timestamps.
-        
+
         Args:
             current_entry (Dict[str, Any]): The current log entry.
             previous_entry (Dict[str, Any], optional): The previous log entry for time comparison.
@@ -166,46 +177,46 @@ class CrewLogParser(BaseLogParser):
         """
         if not previous_entry:
             return 0.0
-        
+
         try:
             from datetime import datetime
-            
+
             current_timestamp = current_entry.get("timestamp")
             previous_timestamp = previous_entry.get("timestamp")
-            
+
             if not current_timestamp or not previous_timestamp:
                 return 0.0
-            
+
             # Parse CrewAI timestamp format: "2025-07-19 13:13:15"
             current_time = datetime.strptime(current_timestamp, "%Y-%m-%d %H:%M:%S")
             previous_time = datetime.strptime(previous_timestamp, "%Y-%m-%d %H:%M:%S")
-            
+
             time_diff = (current_time - previous_time).total_seconds()
             return max(0.0, time_diff)  # Ensure non-negative
-            
+
         except Exception:
             return 0.0
 
     def extract_step_content(self, log_entry: Dict[str, Any]) -> str:
         """
         Extract all text content from a log entry for token counting.
-        
+
         Args:
             log_entry (Dict[str, Any]): The log entry to extract content from.
-            
+
         Returns:
             str: Combined text content from the entry.
         """
         content_parts = []
-        
+
         # Add all text fields that contribute to the step's content
         fields_to_include = ["thought", "text", "tool_input", "result", "output"]
-        
+
         for field in fields_to_include:
             value = log_entry.get(field)
             if value and not self.is_string_effectively_empty_or_placeholder(value):
                 content_parts.append(str(value))
-        
+
         return " ".join(content_parts)
 
     def calculate_reward(self, log_entry: Dict[str, Any], entry_type: str) -> float:
@@ -236,7 +247,7 @@ class CrewLogParser(BaseLogParser):
 
         # Time-based rewards
         reward += self._calculate_time_reward(log_entry)
-        
+
         # Token-based rewards
         reward += self._calculate_token_reward(log_entry)
 
@@ -245,7 +256,7 @@ class CrewLogParser(BaseLogParser):
     def _calculate_time_reward(self, log_entry: Dict[str, Any]) -> float:
         """Calculate reward based on step execution time."""
         step_time = self.calculate_step_time(log_entry, self._previous_entry)
-        
+
         if step_time == 0.0:  # First step or calculation failed
             return 0.0
         elif step_time <= CrewRewards.FAST_STEP_TIME_THRESHOLD.value:
@@ -261,7 +272,7 @@ class CrewLogParser(BaseLogParser):
         """Calculate reward based on token efficiency."""
         content = self.extract_step_content(log_entry)
         token_count = self.calculate_token_count(content)
-        
+
         if token_count <= CrewRewards.EFFICIENT_TOKEN_THRESHOLD.value:
             return CrewRewards.REWARD_EFFICIENT_TOKENS.value
         elif token_count <= CrewRewards.VERBOSE_TOKEN_THRESHOLD.value:
@@ -270,7 +281,7 @@ class CrewLogParser(BaseLogParser):
             return CrewRewards.PENALTY_VERBOSE_TOKENS.value
         else:
             return CrewRewards.PENALTY_EXCESSIVE_TOKENS.value
-    
+
     def _calculate_thought_reward(
         self, log_entry: Dict[str, Any], entry_type: str
     ) -> float:
@@ -301,7 +312,8 @@ class CrewLogParser(BaseLogParser):
 
                 # Check for errors
                 is_error = any(
-                    err_keyword in result_str for err_keyword in CrewRewards.ERROR_KEYWORDS.value
+                    err_keyword in result_str
+                    for err_keyword in CrewRewards.ERROR_KEYWORDS.value
                 )
 
                 if is_error:
@@ -363,24 +375,27 @@ class CrewLogParser(BaseLogParser):
             reward += CrewRewards.REWARD_TASKLOG_HAS_RAW.value
             # Check for errors in raw output
             if any(
-                err_keyword in raw_str.lower() for err_keyword in CrewRewards.ERROR_KEYWORDS.value
+                err_keyword in raw_str.lower()
+                for err_keyword in CrewRewards.ERROR_KEYWORDS.value
             ):
                 reward += CrewRewards.PENALTY_TASKLOG_RAW_CONTAINS_ERROR.value
 
         return reward
 
-    def validate_parsing(self, raw_logs: List[Dict[str, Any]], parsed_logs: List[LogItem]) -> ValidationResults:
+    def validate_parsing(
+        self, raw_logs: List[Dict[str, Any]], parsed_logs: List[LogItem]
+    ) -> ValidationResults:
         """
         Validate the parsing of logs by comparing raw and parsed logs using semantic similarity.
         Only validates entries with reward_exec in range (-0.25, 0.25).
         """
         validated_entries = []
         min_length = min(len(raw_logs), len(parsed_logs))
-        
+
         for i in range(min_length):
             raw_entry = raw_logs[i]
             parsed_entry = parsed_logs[i]
-            
+
             # Only validate if reward is in the target range
             if -0.25 < parsed_entry.reward_exec < 0.25:
                 # Extract content from raw entry
@@ -395,32 +410,35 @@ class CrewLogParser(BaseLogParser):
                     raw_content_parts.append(f"Input: {raw_entry['tool_input']}")
                 if raw_entry.get("result"):
                     raw_content_parts.append(f"Result: {raw_entry['result']}")
-                
+
                 raw_content = " ".join(raw_content_parts)
-                
+
                 # Extract content from parsed entry (focus on action and thought, not outcomes)
                 parsed_content_parts = [
                     parsed_entry.key.state.current_sub_task_or_thought,
-                    parsed_entry.key.agent_action
+                    parsed_entry.key.agent_action,
                 ]
-                parsed_content = " ".join(str(part) for part in parsed_content_parts if part)
-                
+                parsed_content = " ".join(
+                    str(part) for part in parsed_content_parts if part
+                )
+
                 # Generate embeddings
                 raw_embedding = self.embeddings.embed_query(raw_content)
                 parsed_embedding = self.embeddings.embed_query(parsed_content)
-                
+
                 # Calculate cosine similarity
                 import numpy as np
+
                 similarity = np.dot(raw_embedding, parsed_embedding) / (
                     np.linalg.norm(raw_embedding) * np.linalg.norm(parsed_embedding)
                 )
-                
+
                 # Determine adjustment based on similarity - BOOST rewards for good parsing
                 original_reward = parsed_entry.reward_exec
                 is_appropriate = True
                 adjusted_reward = original_reward
                 reason = "High semantic similarity - reward boosted significantly"
-                
+
                 if similarity > 0.8:
                     # High confidence - BOOST the reward significantly since parsing was accurate
                     adjusted_reward = 0.7  # Boost to high positive reward
@@ -433,59 +451,64 @@ class CrewLogParser(BaseLogParser):
                     reason = f"Medium semantic similarity ({similarity:.3f}) - reward boosted to 0.4"
                 else:
                     # Low confidence - keep original low reward or slight penalty
-                    adjusted_reward = original_reward * 0.8  # Small penalty for poor parsing
+                    adjusted_reward = (
+                        original_reward * 0.8
+                    )  # Small penalty for poor parsing
                     is_appropriate = False
                     reason = f"Low semantic similarity ({similarity:.3f}) - small penalty applied"
-                
+
                 # Ensure adjusted reward stays within reasonable bounds (but allow higher rewards)
                 adjusted_reward = max(-0.25, min(1.0, adjusted_reward))
-                
+
                 # Update the parsed entry with adjusted reward
                 corrected_entry = parsed_entry.model_copy()
                 corrected_entry.reward_exec = adjusted_reward
-                
+
             else:
                 # Skip validation for rewards outside range
                 is_appropriate = True
                 adjusted_reward = parsed_entry.reward_exec
                 reason = "Reward outside validation range (-0.25, 0.25) - skipped"
                 corrected_entry = parsed_entry
-            
+
             # Create validated entry
             validated_entry = ValidatedEntry(
                 reward_assessment=RewardAssessment(
                     original=parsed_entry.reward_exec,
                     is_appropriate=is_appropriate,
                     adjusted=adjusted_reward,
-                    reason=reason
+                    reason=reason,
                 ),
-                corrected_entry=corrected_entry
+                corrected_entry=corrected_entry,
             )
             validated_entries.append(validated_entry)
-        
+
         # Calculate summary statistics
         total_entries = len(validated_entries)
-        appropriate_count = sum(1 for v in validated_entries if v.reward_assessment.is_appropriate)
+        appropriate_count = sum(
+            1 for v in validated_entries if v.reward_assessment.is_appropriate
+        )
         adjustment_count = total_entries - appropriate_count
-        
+
         # Calculate average adjustment magnitude
         adjustments = [
             abs(v.reward_assessment.adjusted - v.reward_assessment.original)
-            for v in validated_entries 
+            for v in validated_entries
             if not v.reward_assessment.is_appropriate
         ]
         avg_adjustment = sum(adjustments) / len(adjustments) if adjustments else 0.0
-        
+
         summary = ValidationSummary(
             total_entries=total_entries,
             entries_with_appropriate_rewards=appropriate_count,
             entries_with_reward_adjustments=adjustment_count,
-            appropriate_reward_rate=appropriate_count / total_entries if total_entries > 0 else 0.0,
-            reward_adjustment_rate=adjustment_count / total_entries if total_entries > 0 else 0.0,
-            average_adjustment_magnitude=avg_adjustment
+            appropriate_reward_rate=(
+                appropriate_count / total_entries if total_entries > 0 else 0.0
+            ),
+            reward_adjustment_rate=(
+                adjustment_count / total_entries if total_entries > 0 else 0.0
+            ),
+            average_adjustment_magnitude=avg_adjustment,
         )
-        
-        return ValidationResults(
-            summary=summary,
-            validated_entries=validated_entries
-        )
+
+        return ValidationResults(summary=summary, validated_entries=validated_entries)

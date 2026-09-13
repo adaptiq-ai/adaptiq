@@ -43,20 +43,24 @@ YAML config structure:
     ```
 """
 
-import os
-import yaml
-from pathlib import Path
-from typing import Dict, Any, Optional, Callable, List
 import logging
+import os
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
+import yaml
+
+from adaptiq.core.entities.q_table import QTableAction
+from adaptiq.core.runtime_rl.runtime_decision_engine import (
+    RuntimeDecision,
+    RuntimeDecisionEngine,
+)
 from adaptiq.core.runtime_rl.runtime_q_table_manager import RuntimeQTableManager
-from adaptiq.core.runtime_rl.runtime_decision_engine import RuntimeDecisionEngine, RuntimeDecision
 from adaptiq.core.runtime_rl.runtime_rewards import (
-    CustomRewardCalculator,
     AccuracyRewardCalculator,
     ClassificationRewardCalculator,
+    CustomRewardCalculator,
 )
-from adaptiq.core.entities.q_table import QTableAction
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +173,9 @@ class RuntimeRLHelper:
             config = yaml.safe_load(f)
 
         if "runtime_rl" not in config:
-            raise ValueError(f"YAML must contain 'runtime_rl' key. Found keys: {list(config.keys())}")
+            raise ValueError(
+                f"YAML must contain 'runtime_rl' key. Found keys: {list(config.keys())}"
+            )
 
         rl_config = config["runtime_rl"]
 
@@ -202,7 +208,9 @@ class RuntimeRLHelper:
             raise ValueError("YAML must specify at least one action in 'actions' list")
 
         # Parse storage_path
-        storage_path = rl_config.get("storage_path", "storage/qtables/runtime_q_table.json")
+        storage_path = rl_config.get(
+            "storage_path", "storage/qtables/runtime_q_table.json"
+        )
 
         # Ensure storage directory exists
         storage_dir = Path(storage_path).parent
@@ -231,7 +239,9 @@ class RuntimeRLHelper:
         )
 
     @staticmethod
-    def _parse_reward_function(reward_fn_name: str) -> Callable[[Dict[str, Any]], float]:
+    def _parse_reward_function(
+        reward_fn_name: str,
+    ) -> Callable[[Dict[str, Any]], float]:
         """
         Parse reward function from string name or Python expression.
 
@@ -242,16 +252,20 @@ class RuntimeRLHelper:
         """
         # Builtin reward functions
         if reward_fn_name == "accuracy_reward":
+
             def accuracy_reward(result: Dict[str, Any]) -> float:
                 """Reward based on error percentage: reward = 1 - (error / 100)"""
                 error_percent = result.get("error_percent", 0.0)
                 return max(-1.0, 1.0 - (error_percent / 100.0))
+
             return accuracy_reward
 
         elif reward_fn_name == "classification_reward":
+
             def classification_reward(result: Dict[str, Any]) -> float:
                 """Binary reward: +1 if correct, -1 if wrong"""
                 return 1.0 if result.get("correct", False) else -1.0
+
             return classification_reward
 
         # Python lambda expression
@@ -261,18 +275,23 @@ class RuntimeRLHelper:
                 reward_fn = eval(reward_fn_name)
                 return reward_fn
             except Exception as e:
-                raise ValueError(f"Failed to parse lambda expression: {reward_fn_name}. Error: {e}")
+                raise ValueError(
+                    f"Failed to parse lambda expression: {reward_fn_name}. Error: {e}"
+                )
 
         # Custom module import
         elif "." in reward_fn_name:
             try:
                 module_path, function_name = reward_fn_name.rsplit(".", 1)
                 import importlib
+
                 module = importlib.import_module(module_path)
                 reward_fn = getattr(module, function_name)
                 return reward_fn
             except Exception as e:
-                raise ValueError(f"Failed to import reward function: {reward_fn_name}. Error: {e}")
+                raise ValueError(
+                    f"Failed to import reward function: {reward_fn_name}. Error: {e}"
+                )
 
         else:
             raise ValueError(
@@ -383,7 +402,9 @@ class RuntimeRLHelper:
         # Update Q-table
         self.decision_engine.update(decision, result, next_context)
 
-        logger.info(f"Q-table updated: reward={reward:.4f}, next_subtask={next_subtask or 'terminal'}")
+        logger.info(
+            f"Q-table updated: reward={reward:.4f}, next_subtask={next_subtask or 'terminal'}"
+        )
 
     def save(self) -> None:
         """

@@ -26,8 +26,7 @@ class HypotheticalStateGenerator:
         self.llm = llm
 
         # XML-based prompt template
-        self.prompt_template = ChatPromptTemplate.from_template(
-            """
+        self.prompt_template = ChatPromptTemplate.from_template("""
         You are an RL state-action pair generator for agent training.
 
         TASK:
@@ -66,8 +65,7 @@ class HypotheticalStateGenerator:
         - Use the exact outcome categories listed above
 
         Parse this plan: {parsed_plan}
-        """
-        )
+        """)
 
     def generate_hypothetical_state_action_pairs(
         self,

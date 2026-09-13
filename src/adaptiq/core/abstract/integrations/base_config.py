@@ -370,9 +370,13 @@ class BaseConfig(ABC):
             api_key = embedding_config.api_key
 
             if embedding_config.provider == ProviderEnum.openai:
-                return OpenAIEmbeddings(model=embedding_config.model_name.value, api_key=api_key)
+                return OpenAIEmbeddings(
+                    model=embedding_config.model_name.value, api_key=api_key
+                )
 
-            raise ValueError(f"Unsupported Embeddings provider: {embedding_config.provider}")
+            raise ValueError(
+                f"Unsupported Embeddings provider: {embedding_config.provider}"
+            )
 
         except Exception as e:
             logger.error(f"Failed to create Embeddings instance: {e}", exc_info=True)

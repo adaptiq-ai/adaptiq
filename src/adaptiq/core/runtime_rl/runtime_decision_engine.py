@@ -174,8 +174,7 @@ class RuntimeDecisionEngine:
         self.available_actions = actions
 
         logger.info(
-            f"Registered {len(actions)} actions: "
-            f"{[a.action for a in actions]}"
+            f"Registered {len(actions)} actions: " f"{[a.action for a in actions]}"
         )
 
     def _construct_context(self, metadata: Dict[str, Any]) -> str:
@@ -214,7 +213,11 @@ class RuntimeDecisionEngine:
             value = metadata[key]
             # Convert value to string, handle different types
             if isinstance(value, (int, float)):
-                value_str = str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
+                value_str = (
+                    str(int(value))
+                    if isinstance(value, float) and value.is_integer()
+                    else str(value)
+                )
             else:
                 value_str = str(value)
 
@@ -334,9 +337,7 @@ class RuntimeDecisionEngine:
         """
         # Validate actions registered
         if not self.available_actions:
-            raise ValueError(
-                "No actions registered. Call register_actions() first."
-            )
+            raise ValueError("No actions registered. Call register_actions() first.")
 
         # Build state from context
         state = self.build_state(context)

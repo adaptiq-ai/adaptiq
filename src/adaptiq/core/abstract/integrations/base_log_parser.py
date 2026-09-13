@@ -1,10 +1,12 @@
 import json
 import math
 import os
-import tiktoken
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple, Union
+
+import tiktoken
 from langchain_core.embeddings import Embeddings
+
 from adaptiq.core.entities import LogItem, LogKey, LogState, ProcessedLogs
 from adaptiq.core.entities.adaptiq_parsers import ValidationResults
 
@@ -157,14 +159,18 @@ class BaseLogParser(ABC):
         pass
 
     @abstractmethod
-    def validate_parsing(self, raw_logs:Dict[str, Any], parsed_logs: List[LogItem])-> ValidationResults:
+    def validate_parsing(
+        self, raw_logs: Dict[str, Any], parsed_logs: List[LogItem]
+    ) -> ValidationResults:
         """
-            Validate the parsing of logs by comparing raw and parsed logs.
+        Validate the parsing of logs by comparing raw and parsed logs.
         """
         pass
 
     @abstractmethod
-    def calculate_step_time(self, current_entry: Dict[str, Any], previous_entry: Dict[str, Any] = None) -> float:
+    def calculate_step_time(
+        self, current_entry: Dict[str, Any], previous_entry: Dict[str, Any] = None
+    ) -> float:
         """
         Calculate the time taken for a step based on timestamps.
         Implementation depends on the specific agent framework's timestamp format.
@@ -193,15 +199,15 @@ class BaseLogParser(ABC):
         try:
             # Get the appropriate encoding for the model
             encoding = tiktoken.encoding_for_model(model_name)
-            
+
             # Handle empty or None text
             if not text:
                 return 0
-                
+
             # Encode and count tokens
             encoded = encoding.encode(text)
             return len(encoded)
-            
+
         except Exception as e:
             # Fallback to rough estimation (4 chars per token)
             return len(text) // 4 if text else 0
@@ -305,5 +311,7 @@ class BaseLogParser(ABC):
 
         self.save_processed_logs(processed_logs)
 
-        validation_results = self.validate_parsing(raw_logs=logs, parsed_logs=processed_logs)
+        validation_results = self.validate_parsing(
+            raw_logs=logs, parsed_logs=processed_logs
+        )
         return ProcessedLogs(processed_logs=processed_logs), validation_results

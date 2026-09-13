@@ -15,7 +15,6 @@ from adaptiq.core.pipelines.post_run.tools.post_run_updater import PostRunUpdate
 from adaptiq.core.pipelines.post_run.tools.prompt_engineer import PromptEngineer
 from adaptiq.core.q_table import StateMapper
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -40,7 +39,6 @@ class PostRunReconciler:
         agent_name: str = None,
         feedback: str = None,
         report_path: str = None,
-         
     ):
         """
         Initialize the orchestrator with file paths and configuration.
@@ -156,7 +154,9 @@ class PostRunReconciler:
             # Step 2: Map states to Q-table states
             logger.info("Step 2: Mapping states to Q-table")
             self._initialize_mapper(warmed_qtable_data)
-            state_classifications = self.mapper.classify_states(processed_logs=self.parsed_logs)
+            state_classifications = self.mapper.classify_states(
+                processed_logs=self.parsed_logs
+            )
             logger.info("Classified %d states", len(state_classifications))
 
             # Log classification summary
@@ -193,7 +193,13 @@ class PostRunReconciler:
                 updated_qtable=updated_qtable,
                 report_content=report_content,
                 summary=ReconciliationSummary(
-                    total_extracted_pairs=len([item for item in state_classifications if item.classification.is_known_state == False]),
+                    total_extracted_pairs=len(
+                        [
+                            item
+                            for item in state_classifications
+                            if item.classification.is_known_state == False
+                        ]
+                    ),
                     total_classified_states=len(state_classifications),
                     known_states_found=known_states_count,
                     unknown_states_found=len(state_classifications)
