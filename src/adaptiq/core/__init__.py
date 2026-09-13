@@ -1,6 +1,4 @@
-# src/adaptiq/__init__.py
-
-__version__ = "0.12.2"
+# src/adaptiq/core/__init__.py
 
 try:
     from .abstract import *
@@ -14,6 +12,10 @@ except ImportError:
 
 
 def get_version():
+    # Single source of truth: the package version declared in pyproject.toml
+    # and mirrored in adaptiq/__init__.py.
+    from adaptiq import __version__
+
     return __version__
 
 
