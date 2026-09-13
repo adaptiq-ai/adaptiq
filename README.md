@@ -105,11 +105,14 @@ Issues and pull requests are welcome — bug reports, benchmark reproductions an
 
 ## Citation
 
+First released in July 2025; cite the version you used.
+
 ```bibtex
-@software{amri_adaptiq_2025,
+@software{amri_adaptiq_2026,
   author  = {Amri, Wassim},
   title   = {AdaptIQ: a learned control layer for AI agents},
-  year    = {2025},
+  year    = {2026},
+  version = {0.12.9},
   url     = {https://github.com/adaptiq-ai/adaptiq},
   note    = {Benchmark: doi:10.5281/zenodo.16876743}
 }
