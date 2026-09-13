@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Quick test script for BTP example"""
-import sys
 import os
+import sys
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+)
 
 try:
     print("Testing BTP Runtime RL Example...")
@@ -12,8 +14,12 @@ try:
 
     # Test 1: Import modules
     print("\n1. Testing imports...")
-    from adaptiq.core.runtime_rl import RuntimeDecisionEngine, RuntimeQTableManager, CustomRewardCalculator
     from adaptiq.core.entities.q_table import QTableAction
+    from adaptiq.core.runtime_rl import (
+        CustomRewardCalculator,
+        RuntimeDecisionEngine,
+        RuntimeQTableManager,
+    )
     print("   ✓ All imports successful")
 
     # Test 2: Create components

@@ -4,11 +4,13 @@ Manual validation script for RuntimeQTableManager
 This script validates all key requirements before proceeding to Component 2
 """
 
-import sys
 import os
+import sys
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+)
 
 def test_imports():
     """Test 1: Verify imports work"""
@@ -17,9 +19,9 @@ def test_imports():
     print("=" * 70)
 
     try:
-        from adaptiq.core.runtime_rl.runtime_q_table_manager import RuntimeQTableManager
+        from adaptiq.core.entities.q_table import QTableAction, QTableState
         from adaptiq.core.q_table.q_table_manager import QTableManager
-        from adaptiq.core.entities.q_table import QTableState, QTableAction
+        from adaptiq.core.runtime_rl.runtime_q_table_manager import RuntimeQTableManager
         print("✓ All imports successful\n")
         return True, (RuntimeQTableManager, QTableManager, QTableState, QTableAction)
     except Exception as e:

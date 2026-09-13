@@ -13,7 +13,7 @@ try:
     print("✓ QTableManager imported successfully")
 
     print("\nTesting import of QTable entities...")
-    from adaptiq.core.entities.q_table import QTableState, QTableAction
+    from adaptiq.core.entities.q_table import QTableAction, QTableState
     print("✓ QTable entities imported successfully")
 
     print("\nTesting RuntimeQTableManager initialization...")

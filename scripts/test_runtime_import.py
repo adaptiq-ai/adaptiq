@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Simple test to verify Runtime RL imports work correctly."""
 
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+import sys
+
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+)
 
 try:
     print("Testing import of RuntimeRLHelper...")

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Test that Runtime RL is working after fixes."""
 
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+import sys
+
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+)
 
 print("="*60)
 print("Testing Runtime RL after bug fixes...")
@@ -12,13 +15,14 @@ print("="*60)
 try:
     # Test 1: Import
     print("\n[1/4] Testing imports...")
-    from adaptiq.core.runtime_rl import RuntimeRLHelper
     from adaptiq.core.entities.q_table import QTableAction
+    from adaptiq.core.runtime_rl import RuntimeRLHelper
     print("    ✓ Imports successful")
 
     # Test 2: Create temporary YAML config
     print("\n[2/4] Creating test YAML config...")
     import tempfile
+
     import yaml
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
