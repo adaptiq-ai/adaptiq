@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"] # Added wheel explicitly
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,7 +11,8 @@ version = "0.12.9" # Increment this for new releases
 description = "An offline Q-learning framework for AI agent prompt optimization."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
   { name = "Youssef ALWAZ / KOSMOS Technologies", email = "alwaz.youssef@kosmostechnologies.fr" },
   { name = "Wassim AMRI / KOSMOS Technologies", email = "w.amri@kosmostechnologies.fr" },
@@ -21,7 +22,6 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
